@@ -402,10 +402,23 @@ function renderNode(nodeData) {
         </div>
     ` : '';
     
+    // Add image viewer display for ImageViewerNode
+    let imageViewerHtml = '';
+    if (nodeData.type === 'ImageViewerNode') {
+        const width = nodeData.config?.width || 320;
+        const height = nodeData.config?.height || 240;
+        imageViewerHtml = `
+            <div class="image-viewer-container" style="width: ${width}px; height: ${height}px;">
+                <img id="viewer-${nodeData.id}" class="image-viewer-frame" alt="No frame" />
+            </div>
+        `;
+    }
+    
     nodeEl.innerHTML = `
         <div class="node-modified-indicator"></div>
         ${nodeContent}
         ${portsHtml}
+        ${imageViewerHtml}
     `;
     
     // Node dragging
@@ -740,6 +753,24 @@ function renderProperties(nodeData) {
                            value="${nodeData.config[prop.name] || ''}"
                            onchange="updateNodeConfig('${nodeData.id}', '${prop.name}', this.value)">
                 `;
+            } else if (prop.type === 'number') {
+                const value = nodeData.config[prop.name] !== undefined ? nodeData.config[prop.name] : (prop.default || 0);
+                html += `
+                    <label class="property-label">${prop.label}</label>
+                    <input type="number" class="property-input" 
+                           value="${value}"
+                           onchange="updateNodeConfig('${nodeData.id}', '${prop.name}', parseFloat(this.value))">
+                `;
+            } else if (prop.type === 'checkbox') {
+                const checked = nodeData.config[prop.name] !== undefined ? nodeData.config[prop.name] : (prop.default || false);
+                html += `
+                    <label class="property-label">
+                        <input type="checkbox" class="property-checkbox" 
+                               ${checked ? 'checked' : ''}
+                               onchange="updateNodeConfig('${nodeData.id}', '${prop.name}', this.checked)">
+                        ${prop.label}
+                    </label>
+                `;
             } else if (prop.type === 'textarea') {
                 html += `
                     <label class="property-label">${prop.label}</label>
@@ -884,6 +915,8 @@ async function deployWorkflow() {
         if (response.ok) {
             clearAllNodeModifiedIndicators();
             setModified(false);
+            // Update deployed image viewers after deployment
+            await updateDeployedImageViewers();
             showToast('Workflow deployed and saved!');
         } else {
             throw new Error('Failed to save workflow');
@@ -973,6 +1006,64 @@ function startDebugPolling() {
     
     // Store reference to close on cleanup if needed
     window.debugEventSource = eventSource;
+    
+    // Start polling for image viewer frames
+    startImageViewerPolling();
+}
+
+// Track deployed image viewer nodes
+let deployedImageViewerNodes = [];
+
+// Update the list of deployed image viewer nodes
+async function updateDeployedImageViewers() {
+    try {
+        const response = await fetch(`${API_BASE}/workflow/deployed`);
+        if (!response.ok) {
+            deployedImageViewerNodes = [];
+            return;
+        }
+        
+        const deployedWorkflow = await response.json();
+        
+        // Extract only image viewer node IDs
+        deployedImageViewerNodes = deployedWorkflow.nodes
+            .filter(node => node.type === 'ImageViewerNode')
+            .map(node => node.id);
+    } catch (error) {
+        deployedImageViewerNodes = [];
+    }
+}
+
+// Poll image viewer nodes for frames
+function startImageViewerPolling() {
+    // Update deployed viewers list initially and after each deploy
+    updateDeployedImageViewers();
+    
+    // Poll frames at 10 FPS (100ms interval)
+    setInterval(async () => {
+        // Poll each deployed image viewer node
+        for (const nodeId of deployedImageViewerNodes) {
+            try {
+                const frameResponse = await fetch(`${API_BASE}/nodes/${nodeId}/frame`);
+                if (frameResponse.ok) {
+                    const frameData = await frameResponse.json();
+                    updateImageViewer(nodeId, frameData);
+                }
+            } catch (error) {
+                // Silently ignore errors (node might not have frame yet)
+            }
+        }
+    }, 100); // Poll every 100ms for smooth video
+}
+
+// Update image viewer display
+function updateImageViewer(nodeId, frameData) {
+    const imgEl = document.getElementById(`viewer-${nodeId}`);
+    if (!imgEl) return;
+    
+    if (frameData.format === 'jpeg' && frameData.encoding === 'base64') {
+        imgEl.src = `data:image/jpeg;base64,${frameData.data}`;
+    }
 }
 
 // Display debug messages

@@ -317,6 +317,24 @@ body {
     display: block;
 }
 
+.image-viewer-container {
+    margin-top: 8px;
+    background: #000;
+    border: 1px solid #555;
+    border-radius: 4px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.image-viewer-frame {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    display: block;
+}
+
 .selection-box {
     position: fixed;
     border: 2px dashed #007acc;
@@ -488,6 +506,12 @@ body {
 .property-input:focus {
     outline: none;
     border-color: #0e639c;
+}
+
+.property-checkbox {
+    width: auto;
+    margin-right: 8px;
+    cursor: pointer;
 }
 
 .property-textarea {

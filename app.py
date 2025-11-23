@@ -17,7 +17,8 @@ from workflow_engine import WorkflowEngine
 from nodes import (
     InjectNode, FunctionNode, DebugNode,
     ChangeNode, SwitchNode, DelayNode,
-    MqttInNode, MqttOutNode
+    MqttInNode, MqttOutNode, CameraNode,
+    ImageViewerNode
 )
 
 app = Flask(__name__, static_folder='static', static_url_path='')
@@ -42,6 +43,8 @@ for engine in [working_engine, deployed_engine]:
     engine.register_node_type(DelayNode)
     engine.register_node_type(MqttInNode)
     engine.register_node_type(MqttOutNode)
+    engine.register_node_type(CameraNode)
+    engine.register_node_type(ImageViewerNode)
 
 # Queue for debug messages (for SSE)
 debug_message_queues = {}
@@ -247,6 +250,12 @@ def get_workflow():
     return jsonify(working_engine.export_workflow())
 
 
+@app.route('/api/workflow/deployed', methods=['GET'])
+def get_deployed_workflow():
+    """Export the deployed workflow."""
+    return jsonify(deployed_engine.export_workflow())
+
+
 @app.route('/api/workflow', methods=['POST'])
 def import_workflow():
     """Import a workflow into both working and deployed engines."""
@@ -355,6 +364,26 @@ def clear_debug_messages(node_id):
     try:
         deployed_engine.clear_debug_messages(node_id)
         return '', 204
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+
+@app.route('/api/nodes/<node_id>/frame', methods=['GET'])
+def get_image_frame(node_id):
+    """Get the current frame from an image viewer node."""
+    try:
+        node = deployed_engine.get_node(node_id)
+        if not node:
+            return jsonify({'error': 'Node not found'}), 404
+        
+        if not hasattr(node, 'get_current_frame'):
+            return jsonify({'error': 'Node does not support frame viewing'}), 400
+        
+        frame = node.get_current_frame()
+        if frame:
+            return jsonify(frame)
+        else:
+            return jsonify({'error': 'No frame available'}), 404
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
