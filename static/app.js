@@ -387,12 +387,28 @@ function renderNode(nodeData) {
         `;
     } else {
         // Passthrough node: -[Icon][Node Name]-
-        nodeContent = `
-            <div class="node-content">
-                <div class="node-icon-container"><div class="node-icon">${icon}</div></div>
-                <div class="node-title">${nodeData.name}</div>
-            </div>
-        `;
+        // Special handling for GateNode to add switch inline
+        if (nodeData.type === 'GateNode') {
+            const isOpen = nodeData.gateOpen !== undefined ? nodeData.gateOpen : true;
+            nodeContent = `
+                <div class="node-content">
+                    <div class="node-icon-container"><div class="node-icon">${icon}</div></div>
+                    <div class="node-title">${nodeData.name}</div>
+                    <label class="gate-switch">
+                        <input type="checkbox" id="gate-${nodeData.id}" ${isOpen ? 'checked' : ''} 
+                               onchange="toggleGate('${nodeData.id}', this.checked)">
+                        <span class="gate-slider"></span>
+                    </label>
+                </div>
+            `;
+        } else {
+            nodeContent = `
+                <div class="node-content">
+                    <div class="node-icon-container"><div class="node-icon">${icon}</div></div>
+                    <div class="node-title">${nodeData.name}</div>
+                </div>
+            `;
+        }
     }
     
     const portsHtml = (inputCount > 0 || outputCount > 0) ? `
@@ -414,26 +430,10 @@ function renderNode(nodeData) {
         `;
     }
     
-    // Add gate toggle switch for GateNode
-    let gateControlHtml = '';
-    if (nodeData.type === 'GateNode') {
-        const isOpen = nodeData.gateOpen !== undefined ? nodeData.gateOpen : true;
-        gateControlHtml = `
-            <div class="gate-control">
-                <label class="gate-switch">
-                    <input type="checkbox" id="gate-${nodeData.id}" ${isOpen ? 'checked' : ''} 
-                           onchange="toggleGate('${nodeData.id}', this.checked)">
-                    <span class="gate-slider"></span>
-                </label>
-            </div>
-        `;
-    }
-    
     nodeEl.innerHTML = `
         <div class="node-modified-indicator"></div>
         ${nodeContent}
         ${portsHtml}
-        ${gateControlHtml}
         ${imageViewerHtml}
     `;
     
