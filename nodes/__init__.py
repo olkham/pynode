@@ -12,6 +12,7 @@ from .mqtt_in_node import MqttInNode
 from .mqtt_out_node import MqttOutNode
 from .camera_node import CameraNode
 from .image_viewer_node import ImageViewerNode
+from .gate_node import GateNode
 
 __all__ = [
     'InjectNode',
@@ -23,5 +24,6 @@ __all__ = [
     'MqttInNode',
     'MqttOutNode',
     'CameraNode',
-    'ImageViewerNode'
+    'ImageViewerNode',
+    'GateNode'
 ]

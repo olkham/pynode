@@ -18,7 +18,7 @@ from nodes import (
     InjectNode, FunctionNode, DebugNode,
     ChangeNode, SwitchNode, DelayNode,
     MqttInNode, MqttOutNode, CameraNode,
-    ImageViewerNode
+    ImageViewerNode, GateNode
 )
 
 app = Flask(__name__, static_folder='static', static_url_path='')
@@ -45,6 +45,7 @@ for engine in [working_engine, deployed_engine]:
     engine.register_node_type(MqttOutNode)
     engine.register_node_type(CameraNode)
     engine.register_node_type(ImageViewerNode)
+    engine.register_node_type(GateNode)
 
 # Queue for debug messages (for SSE)
 debug_message_queues = {}
@@ -201,6 +202,46 @@ def update_node_position(node_id):
         return jsonify({'error': str(e)}), 400
 
 
+@app.route('/api/nodes/<node_id>/gate', methods=['POST'])
+def toggle_gate(node_id):
+    """Toggle gate state on deployed node (doesn't require redeployment)."""
+    data = request.json
+    gate_open = data.get('open', True)
+    
+    try:
+        # Update BOTH working and deployed engines so state is preserved
+        working_node = working_engine.nodes.get(node_id)
+        deployed_node = deployed_engine.nodes.get(node_id)
+        
+        if working_node and hasattr(working_node, 'set_gate_state'):
+            working_node.set_gate_state(gate_open)
+        
+        if deployed_node and hasattr(deployed_node, 'set_gate_state'):
+            deployed_node.set_gate_state(gate_open)
+        
+        return jsonify({'success': True, 'open': gate_open})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+
+@app.route('/api/nodes/<node_id>/gate', methods=['GET'])
+def get_gate_state(node_id):
+    """Get gate state from deployed node."""
+    try:
+        # Check deployed engine first, fall back to working
+        node = deployed_engine.nodes.get(node_id) or working_engine.nodes.get(node_id)
+        
+        if not node:
+            return jsonify({'error': 'Node not found'}), 404
+        
+        if hasattr(node, 'get_gate_state'):
+            return jsonify({'open': node.get_gate_state()})
+        
+        return jsonify({'error': 'Not a gate node'}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+
 @app.route('/api/connections', methods=['POST'])
 def create_connection():
     """Create a connection between two nodes in working workflow."""
@@ -345,6 +386,19 @@ def debug_stream():
                 if all_messages:
                     data = json.dumps({'type': 'messages', 'data': all_messages})
                     yield f'data: {data}\n\n'
+                
+                # Check all image viewer nodes for frames
+                for node_id, node in deployed_engine.nodes.items():
+                    if node.type == 'ImageViewerNode':
+                        if hasattr(node, 'get_current_frame'):
+                            frame = node.get_current_frame()
+                            if frame:
+                                frame_data = json.dumps({
+                                    'type': 'frame',
+                                    'nodeId': node_id,
+                                    'data': frame
+                                })
+                                yield f'data: {frame_data}\n\n'
                 
                 time.sleep(0.1)
         except GeneratorExit:

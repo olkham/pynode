@@ -335,6 +335,60 @@ body {
     display: block;
 }
 
+/* Gate control toggle switch */
+.gate-control {
+    margin-top: 8px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 4px 0;
+}
+
+.gate-switch {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+    cursor: pointer;
+}
+
+.gate-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.gate-slider {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #555;
+    transition: 0.3s;
+    border-radius: 24px;
+}
+
+.gate-slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: 0.3s;
+    border-radius: 50%;
+}
+
+.gate-switch input:checked + .gate-slider {
+    background-color: #4CAF50;
+}
+
+.gate-switch input:checked + .gate-slider:before {
+    transform: translateX(20px);
+}
+
 .selection-box {
     position: fixed;
     border: 2px dashed #007acc;

@@ -414,10 +414,26 @@ function renderNode(nodeData) {
         `;
     }
     
+    // Add gate toggle switch for GateNode
+    let gateControlHtml = '';
+    if (nodeData.type === 'GateNode') {
+        const isOpen = nodeData.gateOpen !== undefined ? nodeData.gateOpen : true;
+        gateControlHtml = `
+            <div class="gate-control">
+                <label class="gate-switch">
+                    <input type="checkbox" id="gate-${nodeData.id}" ${isOpen ? 'checked' : ''} 
+                           onchange="toggleGate('${nodeData.id}', this.checked)">
+                    <span class="gate-slider"></span>
+                </label>
+            </div>
+        `;
+    }
+    
     nodeEl.innerHTML = `
         <div class="node-modified-indicator"></div>
         ${nodeContent}
         ${portsHtml}
+        ${gateControlHtml}
         ${imageViewerHtml}
     `;
     
@@ -857,6 +873,25 @@ async function injectNode(nodeId) {
     await triggerNodeAction(nodeId, 'inject');
 }
 
+// Toggle gate state (doesn't trigger modified state or require redeployment)
+async function toggleGate(nodeId, open) {
+    try {
+        await fetch(`${API_BASE}/nodes/${nodeId}/gate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ open })
+        });
+        
+        // Update local state without marking as modified
+        const nodeData = state.nodes.get(nodeId);
+        if (nodeData) {
+            nodeData.gateOpen = open;
+        }
+    } catch (error) {
+        console.error('Failed to toggle gate:', error);
+    }
+}
+
 // Load workflow from API
 async function loadWorkflow() {
     try {
@@ -870,7 +905,7 @@ async function loadWorkflow() {
         document.getElementById('connections').innerHTML = '';
         
         // Load nodes
-        workflow.nodes.forEach(nodeData => {
+        workflow.nodes.forEach(async (nodeData) => {
             // Use stored position or default to (100, 100)
             nodeData.x = nodeData.x !== undefined ? nodeData.x : 100;
             nodeData.y = nodeData.y !== undefined ? nodeData.y : 100;
@@ -885,6 +920,17 @@ async function loadWorkflow() {
                 nodeData.icon = nodeType.icon;
                 nodeData.inputCount = nodeType.inputCount;
                 nodeData.outputCount = nodeType.outputCount;
+            }
+            
+            // Load gate state for GateNodes
+            if (nodeData.type === 'GateNode') {
+                try {
+                    const gateResponse = await fetch(`${API_BASE}/nodes/${nodeData.id}/gate`);
+                    const gateData = await gateResponse.json();
+                    nodeData.gateOpen = gateData.open;
+                } catch (error) {
+                    nodeData.gateOpen = true; // Default to open on error
+                }
             }
             
             state.nodes.set(nodeData.id, nodeData);
@@ -915,8 +961,6 @@ async function deployWorkflow() {
         if (response.ok) {
             clearAllNodeModifiedIndicators();
             setModified(false);
-            // Update deployed image viewers after deployment
-            await updateDeployedImageViewers();
             showToast('Workflow deployed and saved!');
         } else {
             throw new Error('Failed to save workflow');
@@ -993,9 +1037,12 @@ function startDebugPolling() {
             
             if (data.type === 'messages' && data.data.length > 0) {
                 displayDebugMessages(data.data);
+            } else if (data.type === 'frame') {
+                // Handle image viewer frames via SSE
+                updateImageViewer(data.nodeId, data.data);
             }
         } catch (error) {
-            console.error('Error processing debug message:', error);
+            console.error('Error processing SSE message:', error);
         }
     };
     
@@ -1006,55 +1053,9 @@ function startDebugPolling() {
     
     // Store reference to close on cleanup if needed
     window.debugEventSource = eventSource;
-    
-    // Start polling for image viewer frames
-    startImageViewerPolling();
 }
 
-// Track deployed image viewer nodes
-let deployedImageViewerNodes = [];
 
-// Update the list of deployed image viewer nodes
-async function updateDeployedImageViewers() {
-    try {
-        const response = await fetch(`${API_BASE}/workflow/deployed`);
-        if (!response.ok) {
-            deployedImageViewerNodes = [];
-            return;
-        }
-        
-        const deployedWorkflow = await response.json();
-        
-        // Extract only image viewer node IDs
-        deployedImageViewerNodes = deployedWorkflow.nodes
-            .filter(node => node.type === 'ImageViewerNode')
-            .map(node => node.id);
-    } catch (error) {
-        deployedImageViewerNodes = [];
-    }
-}
-
-// Poll image viewer nodes for frames
-function startImageViewerPolling() {
-    // Update deployed viewers list initially and after each deploy
-    updateDeployedImageViewers();
-    
-    // Poll frames at 10 FPS (100ms interval)
-    setInterval(async () => {
-        // Poll each deployed image viewer node
-        for (const nodeId of deployedImageViewerNodes) {
-            try {
-                const frameResponse = await fetch(`${API_BASE}/nodes/${nodeId}/frame`);
-                if (frameResponse.ok) {
-                    const frameData = await frameResponse.json();
-                    updateImageViewer(nodeId, frameData);
-                }
-            } catch (error) {
-                // Silently ignore errors (node might not have frame yet)
-            }
-        }
-    }, 100); // Poll every 100ms for smooth video
-}
 
 // Update image viewer display
 function updateImageViewer(nodeId, frameData) {
