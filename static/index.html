@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PyNode - Visual Workflow Editor</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Toast notification -->
+        <div id="toast" class="toast"></div>
+
+        <!-- Header -->
+        <header class="header">
+            <h1>PyNode Editor</h1>
+            <div class="header-actions">
+                <button id="deploy-btn" class="btn btn-primary" disabled>Deploy</button>
+                <button id="clear-btn" class="btn btn-secondary">Clear</button>
+                <button id="export-btn" class="btn btn-secondary">Export</button>
+                <button id="import-btn" class="btn btn-secondary">Import</button>
+            </div>
+        </header>
+
+        <!-- Main content -->
+        <div class="main-content">
+            <!-- Node Palette -->
+            <aside class="palette">
+                <h3>Node Palette</h3>
+                <div id="node-palette" class="node-list">
+                    <!-- Nodes will be loaded here -->
+                </div>
+            </aside>
+
+            <!-- Canvas -->
+            <main class="canvas-container">
+                <svg id="canvas" width="100%" height="100%">
+                    <defs>
+                        <marker id="arrowhead" markerWidth="10" markerHeight="7" 
+                                refX="0" refY="3.5" orient="auto" markerUnits="strokeWidth">
+                            <polygon points="0 0, 10 3.5, 0 7" fill="#999" />
+                        </marker>
+                    </defs>
+                    <g id="connections"></g>
+                    <g id="temp-line"></g>
+                </svg>
+                <div id="nodes-container"></div>
+            </main>
+
+            <!-- Properties Panel -->
+            <aside class="properties">
+                <h3>Properties</h3>
+                <div id="properties-panel">
+                    <p class="placeholder">Select a node to edit properties</p>
+                </div>
+            </aside>
+
+            <!-- Debug Panel -->
+            <aside class="debug-panel" id="debug-panel">
+                <div class="debug-header">
+                    <h3>Debug Messages</h3>
+                    <button id="clear-debug-btn" class="btn btn-small">Clear</button>
+                </div>
+                <div id="debug-messages"></div>
+            </aside>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
