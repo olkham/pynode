@@ -14,8 +14,14 @@ const state = {
     nodeTypes: [],
     selectionBox: null,
     selectionStart: null,
-    isModified: false  // Track if workflow has unsaved changes
+    isModified: false,  // Track if workflow has unsaved changes
+    nextNodeId: 1  // Client-side node ID counter
 };
+
+// Generate a client-side node ID
+function generateNodeId() {
+    return `node_${Date.now()}_${state.nextNodeId++}`;
+}
 
 // Set modified state and update deploy button
 function setModified(modified) {
@@ -276,7 +282,7 @@ function setupEventListeners() {
 }
 
 // Handle dropping a node type onto canvas
-async function handleCanvasDrop(e) {
+function handleCanvasDrop(e) {
     e.preventDefault();
     const nodeType = e.dataTransfer.getData('nodeType');
     if (!nodeType) return;
@@ -285,7 +291,7 @@ async function handleCanvasDrop(e) {
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     
-    await createNode(nodeType, x, y);
+    createNode(nodeType, x, y);
 }
 
 // Create a new node
@@ -302,46 +308,35 @@ async function saveNodePosition(nodeId, x, y) {
     }
 }
 
-async function createNode(type, x, y) {
-    try {
-        // Get node type info for display name
-        const nodeType = state.nodeTypes.find(nt => nt.type === type);
-        const displayName = nodeType ? nodeType.name : type;
-        
-        const response = await fetch(`${API_BASE}/nodes`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                type: type,
-                name: displayName,
-                config: {}
-            })
-        });
-        
-        const nodeData = await response.json();
-        nodeData.x = x;
-        nodeData.y = y;
-        
-        // Get color info and metadata from node type
-        if (nodeType) {
-            nodeData.color = nodeType.color;
-            nodeData.borderColor = nodeType.borderColor;
-            nodeData.textColor = nodeType.textColor;
-            nodeData.icon = nodeType.icon;
-            nodeData.inputCount = nodeType.inputCount;
-            nodeData.outputCount = nodeType.outputCount;
-        }
-        
-        state.nodes.set(nodeData.id, nodeData);
-        renderNode(nodeData);
-        
-        // Save initial position
-        await saveNodePosition(nodeData.id, x, y);
-        markNodeModified(nodeData.id);
-        setModified(true);
-    } catch (error) {
-        console.error('Failed to create node:', error);
+function createNode(type, x, y) {
+    // Get node type info for display name
+    const nodeType = state.nodeTypes.find(nt => nt.type === type);
+    const displayName = nodeType ? nodeType.name : type;
+    
+    // Create node data locally (frontend-only)
+    const nodeData = {
+        id: generateNodeId(),
+        type: type,
+        name: displayName,
+        config: {},
+        x: x,
+        y: y
+    };
+    
+    // Get color info and metadata from node type
+    if (nodeType) {
+        nodeData.color = nodeType.color;
+        nodeData.borderColor = nodeType.borderColor;
+        nodeData.textColor = nodeType.textColor;
+        nodeData.icon = nodeType.icon;
+        nodeData.inputCount = nodeType.inputCount;
+        nodeData.outputCount = nodeType.outputCount;
     }
+    
+    state.nodes.set(nodeData.id, nodeData);
+    renderNode(nodeData);
+    markNodeModified(nodeData.id);
+    setModified(true);
 }
 
 // Render a node on the canvas
@@ -558,13 +553,13 @@ function drawTempConnection(e) {
 }
 
 // End connection on target node
-async function endConnection(targetId) {
+function endConnection(targetId) {
     if (!state.drawingConnection) return;
     
     const sourceId = state.drawingConnection.sourceId;
     
     if (sourceId !== targetId) {
-        await createConnection(sourceId, targetId);
+        createConnection(sourceId, targetId);
     }
     
     cancelConnection();
@@ -578,29 +573,21 @@ function cancelConnection() {
     document.removeEventListener('mouseup', cancelConnection);
 }
 
-// Create a connection via API
-async function createConnection(sourceId, targetId) {
-    try {
-        const response = await fetch(`${API_BASE}/connections`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                source: sourceId,
-                target: targetId,
-                sourceOutput: 0,
-                targetInput: 0
-            })
-        });
-        
-        const connection = await response.json();
-        state.connections.push(connection);
-        renderConnection(connection);
-        markNodeModified(connection.source);
-        markNodeModified(connection.target);
-        setModified(true);
-    } catch (error) {
-        console.error('Failed to create connection:', error);
-    }
+// Create a connection (frontend-only)
+function createConnection(sourceId, targetId) {
+    // Create connection data locally
+    const connection = {
+        source: sourceId,
+        target: targetId,
+        sourceOutput: 0,
+        targetInput: 0
+    };
+    
+    state.connections.push(connection);
+    renderConnection(connection);
+    markNodeModified(sourceId);
+    markNodeModified(targetId);
+    setModified(true);
 }
 
 // Render a connection
@@ -637,9 +624,9 @@ function renderConnection(connection) {
     path.setAttribute('data-source', connection.source);
     path.setAttribute('data-target', connection.target);
     
-    path.addEventListener('click', async () => {
+    path.addEventListener('click', () => {
         if (confirm('Delete this connection?')) {
-            await deleteConnection(connection.source, connection.target);
+            deleteConnection(connection.source, connection.target);
         }
     });
     
@@ -652,51 +639,31 @@ function updateConnections() {
     state.connections.forEach(conn => renderConnection(conn));
 }
 
-// Delete a connection
-async function deleteConnection(sourceId, targetId) {
-    try {
-        await fetch(`${API_BASE}/connections`, {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                source: sourceId,
-                target: targetId,
-                sourceOutput: 0
-            })
-        });
-        
-        state.connections = state.connections.filter(
-            c => !(c.source === sourceId && c.target === targetId)
-        );
-        updateConnections();
-        markNodeModified(sourceId);
-        markNodeModified(targetId);
-        setModified(true);
-    } catch (error) {
-        console.error('Failed to delete connection:', error);
-    }
+// Delete a connection (frontend-only)
+function deleteConnection(sourceId, targetId) {
+    state.connections = state.connections.filter(
+        c => !(c.source === sourceId && c.target === targetId)
+    );
+    updateConnections();
+    markNodeModified(sourceId);
+    markNodeModified(targetId);
+    setModified(true);
 }
 
-// Delete a node
-async function deleteNode(nodeId) {
-    try {
-        await fetch(`${API_BASE}/nodes/${nodeId}`, { method: 'DELETE' });
-        
-        state.nodes.delete(nodeId);
-        state.connections = state.connections.filter(
-            c => c.source !== nodeId && c.target !== nodeId
-        );
-        
-        document.getElementById(`node-${nodeId}`).remove();
-        updateConnections();
-        
-        if (state.selectedNode === nodeId) {
-            deselectNode();
-        }
-        setModified(true);
-    } catch (error) {
-        console.error('Failed to delete node:', error);
+// Delete a node (frontend-only)
+function deleteNode(nodeId) {
+    state.nodes.delete(nodeId);
+    state.connections = state.connections.filter(
+        c => c.source !== nodeId && c.target !== nodeId
+    );
+    
+    document.getElementById(`node-${nodeId}`).remove();
+    updateConnections();
+    
+    if (state.selectedNode === nodeId) {
+        deselectNode();
     }
+    setModified(true);
 }
 
 // Select a node
@@ -821,42 +788,26 @@ function renderProperties(nodeData) {
     panel.innerHTML = html;
 }
 
-// Update node property
-async function updateNodeProperty(nodeId, property, value) {
-    try {
-        const nodeData = state.nodes.get(nodeId);
-        nodeData[property] = value;
-        
-        await fetch(`${API_BASE}/nodes/${nodeId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ [property]: value })
-        });
-        
-        // Update UI
-        const nodeEl = document.getElementById(`node-${nodeId}`);
-        nodeEl.querySelector('.node-title').textContent = value;
-    } catch (error) {
-        console.error('Failed to update node:', error);
-    }
+// Update node property (frontend-only)
+function updateNodeProperty(nodeId, property, value) {
+    const nodeData = state.nodes.get(nodeId);
+    nodeData[property] = value;
+    
+    // Update UI
+    const nodeEl = document.getElementById(`node-${nodeId}`);
+    nodeEl.querySelector('.node-title').textContent = value;
+    
+    markNodeModified(nodeId);
+    setModified(true);
 }
 
-// Update node config
-async function updateNodeConfig(nodeId, key, value) {
-    try {
-        const nodeData = state.nodes.get(nodeId);
-        nodeData.config[key] = value;
-        
-        await fetch(`${API_BASE}/nodes/${nodeId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ config: nodeData.config })
-        });
-        markNodeModified(nodeId);
-        setModified(true);
-    } catch (error) {
-        console.error('Failed to update node config:', error);
-    }
+// Update node config (frontend-only)
+function updateNodeConfig(nodeId, key, value) {
+    const nodeData = state.nodes.get(nodeId);
+    nodeData.config[key] = value;
+    
+    markNodeModified(nodeId);
+    setModified(true);
 }
 
 // Trigger node action (generic handler for button actions)
@@ -950,12 +901,32 @@ async function loadWorkflow() {
     }
 }
 
-// Deploy workflow
+// Deploy workflow - send frontend state to backend
 async function deployWorkflow() {
     try {
-        // Just save the workflow to disk without re-importing
-        const response = await fetch(`${API_BASE}/workflow/save`, {
-            method: 'POST'
+        // Build workflow data from frontend state
+        const nodes = [];
+        state.nodes.forEach((nodeData, nodeId) => {
+            nodes.push({
+                id: nodeData.id,
+                type: nodeData.type,
+                name: nodeData.name,
+                config: nodeData.config,
+                x: nodeData.x,
+                y: nodeData.y
+            });
+        });
+        
+        const workflow = {
+            nodes: nodes,
+            connections: state.connections
+        };
+        
+        // Send workflow to backend
+        const response = await fetch(`${API_BASE}/workflow`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(workflow)
         });
         
         if (response.ok) {
@@ -963,7 +934,7 @@ async function deployWorkflow() {
             setModified(false);
             showToast('Workflow deployed and saved!');
         } else {
-            throw new Error('Failed to save workflow');
+            throw new Error('Failed to deploy workflow');
         }
     } catch (error) {
         console.error('Failed to deploy workflow:', error);
@@ -971,21 +942,42 @@ async function deployWorkflow() {
     }
 }
 
-// Clear workflow
-async function clearWorkflow() {
+// Clear workflow (frontend-only)
+function clearWorkflow() {
     if (!confirm('Clear all nodes and connections?')) return;
     
-    const nodeIds = Array.from(state.nodes.keys());
-    for (const nodeId of nodeIds) {
-        await deleteNode(nodeId);
-    }
+    // Clear frontend state
+    state.nodes.clear();
+    state.connections = [];
+    
+    // Clear UI
+    document.getElementById('nodes-container').innerHTML = '';
+    document.getElementById('connections').innerHTML = '';
+    
+    deselectAllNodes();
+    setModified(true);
 }
 
-// Export workflow
-async function exportWorkflow() {
+// Export workflow (from frontend state)
+function exportWorkflow() {
     try {
-        const response = await fetch(`${API_BASE}/workflow`);
-        const workflow = await response.json();
+        // Build workflow from frontend state
+        const nodes = [];
+        state.nodes.forEach((nodeData) => {
+            nodes.push({
+                id: nodeData.id,
+                type: nodeData.type,
+                name: nodeData.name,
+                config: nodeData.config,
+                x: nodeData.x,
+                y: nodeData.y
+            });
+        });
+        
+        const workflow = {
+            nodes: nodes,
+            connections: state.connections
+        };
         
         const dataStr = JSON.stringify(workflow, null, 2);
         const dataBlob = new Blob([dataStr], { type: 'application/json' });
@@ -1000,7 +992,7 @@ async function exportWorkflow() {
     }
 }
 
-// Import workflow
+// Import workflow (load into frontend state)
 function importWorkflow() {
     const input = document.createElement('input');
     input.type = 'file';
@@ -1012,15 +1004,40 @@ function importWorkflow() {
         const workflow = JSON.parse(text);
         
         try {
-            await fetch(`${API_BASE}/workflow`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(workflow)
+            // Clear current state
+            state.nodes.clear();
+            state.connections = [];
+            document.getElementById('nodes-container').innerHTML = '';
+            document.getElementById('connections').innerHTML = '';
+            
+            // Load nodes into frontend state
+            workflow.nodes.forEach(nodeData => {
+                // Get metadata from node type
+                const nodeType = state.nodeTypes.find(nt => nt.type === nodeData.type);
+                if (nodeType) {
+                    nodeData.color = nodeType.color;
+                    nodeData.borderColor = nodeType.borderColor;
+                    nodeData.textColor = nodeType.textColor;
+                    nodeData.icon = nodeType.icon;
+                    nodeData.inputCount = nodeType.inputCount;
+                    nodeData.outputCount = nodeType.outputCount;
+                }
+                
+                state.nodes.set(nodeData.id, nodeData);
+                renderNode(nodeData);
             });
             
-            await loadWorkflow();
+            // Load connections
+            workflow.connections.forEach(conn => {
+                state.connections.push(conn);
+                renderConnection(conn);
+            });
+            
+            setModified(true);
+            showToast('Workflow imported. Deploy to activate.');
         } catch (error) {
             console.error('Failed to import workflow:', error);
+            showToast('Failed to import workflow');
         }
     };
     

@@ -143,6 +143,11 @@ def create_node():
     
     try:
         node = working_engine.create_node(node_type, node_id, name, config)
+        # Set position if provided
+        if 'x' in data:
+            node.x = data.get('x', 0)
+        if 'y' in data:
+            node.y = data.get('y', 0)
         return jsonify(node.to_dict()), 201
     except Exception as e:
         return jsonify({'error': str(e)}), 400
