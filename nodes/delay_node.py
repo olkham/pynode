@@ -26,7 +26,7 @@ class DelayNode(BaseNode):
         {
             'name': 'timeout',
             'label': 'Delay (seconds)',
-            'type': 'text'
+            'type': 'number'
         }
     ]
     

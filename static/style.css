@@ -472,6 +472,17 @@ body {
     pointer-events: all;
 }
 
+.output-ports-container {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-left: auto;
+}
+
+.output-ports-container .port.output {
+    margin-right: -7px;
+}
+
 .port {
     width: 10px;
     height: 10px;
@@ -515,10 +526,35 @@ body {
 /* Properties Panel */
 .properties {
     width: 300px;
+    min-width: 250px;
+    max-width: 800px;
     background: #252526;
     border-left: 1px solid #3e3e42;
     overflow-y: auto;
     padding: 15px;
+    position: relative;
+}
+
+.properties.resizing {
+    user-select: none;
+}
+
+.resize-handle {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 5px;
+    cursor: ew-resize;
+    z-index: 100;
+}
+
+.resize-handle:hover {
+    background: rgba(14, 99, 156, 0.3);
+}
+
+.resize-handle:active {
+    background: rgba(14, 99, 156, 0.5);
 }
 
 .properties h3 {
@@ -663,4 +699,91 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
     background: #666;
+}
+
+/* Rules Editor */
+.rules-editor {
+    margin-top: 10px;
+}
+
+.rule-item {
+    background: #2d2d30;
+    border: 1px solid #555;
+    border-radius: 4px;
+    padding: 10px;
+    margin-bottom: 10px;
+}
+
+.rule-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.rule-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #0e639c;
+}
+
+.btn-icon {
+    background: transparent;
+    border: none;
+    color: #d73a49;
+    cursor: pointer;
+    font-size: 16px;
+    padding: 0;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-icon:hover {
+    color: #e74856;
+}
+
+.rule-config {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.rule-operator {
+    flex: 0 0 140px;
+    padding: 6px;
+    background: #3e3e42;
+    border: 1px solid #555;
+    border-radius: 3px;
+    color: #d4d4d4;
+    font-size: 12px;
+}
+
+.rule-value {
+    flex: 1;
+    padding: 6px;
+    background: #3e3e42;
+    border: 1px solid #555;
+    border-radius: 3px;
+    color: #d4d4d4;
+    font-size: 12px;
+}
+
+.rule-type {
+    flex: 0 0 80px;
+    padding: 6px;
+    background: #3e3e42;
+    border: 1px solid #555;
+    border-radius: 3px;
+    color: #d4d4d4;
+    font-size: 12px;
+}
+
+.rule-operator:focus,
+.rule-value:focus,
+.rule-type:focus {
+    outline: none;
+    border-color: #0e639c;
 }

@@ -20,6 +20,9 @@ export function setupEventListeners() {
     document.getElementById('import-btn').addEventListener('click', importWorkflow);
     document.getElementById('clear-debug-btn').addEventListener('click', clearDebug);
     
+    // Properties panel resize
+    setupPropertiesResize();
+    
     // Canvas click to deselect
     nodesContainer.addEventListener('click', (e) => {
         if (e.target === nodesContainer) {
@@ -130,6 +133,46 @@ function setupSelectionBox() {
             state.selectionBox.remove();
             state.selectionBox = null;
             state.selectionStart = null;
+        }
+    });
+}
+
+function setupPropertiesResize() {
+    const resizeHandle = document.getElementById('properties-resize-handle');
+    const propertiesPanel = document.getElementById('properties-panel-container');
+    
+    if (!resizeHandle || !propertiesPanel) return;
+    
+    let isResizing = false;
+    let startX = 0;
+    let startWidth = 0;
+    
+    resizeHandle.addEventListener('mousedown', (e) => {
+        isResizing = true;
+        startX = e.clientX;
+        startWidth = propertiesPanel.offsetWidth;
+        propertiesPanel.classList.add('resizing');
+        document.body.style.cursor = 'ew-resize';
+        e.preventDefault();
+    });
+    
+    document.addEventListener('mousemove', (e) => {
+        if (!isResizing) return;
+        
+        const deltaX = startX - e.clientX;
+        const newWidth = startWidth + deltaX;
+        
+        // Respect min and max width constraints
+        if (newWidth >= 250 && newWidth <= 800) {
+            propertiesPanel.style.width = `${newWidth}px`;
+        }
+    });
+    
+    document.addEventListener('mouseup', () => {
+        if (isResizing) {
+            isResizing = false;
+            propertiesPanel.classList.remove('resizing');
+            document.body.style.cursor = '';
         }
     });
 }

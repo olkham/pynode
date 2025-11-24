@@ -65,12 +65,12 @@ class DebugNode(BaseNode):
         
         self.messages.append(debug_entry)
         
-        # Keep only last 100 messages
-        if len(self.messages) > 100:
-            self.messages = self.messages[-100:]
+        # Keep only last 10 messages
+        if len(self.messages) > 10:
+            self.messages = self.messages[-10:]
         
-        if self.config.get('console', True):
-            print(f"[{timestamp}] [{self.name}] {output}")
+        # if self.config.get('console', True):
+            # print(f"[{timestamp}] [{self.name}] {output}")
         
         # Pass through (optional)
         # self.send(msg)

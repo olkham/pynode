@@ -1,12 +1,12 @@
 // Connection management
 import { state, markNodeModified, setModified } from './state.js';
 
-export function createConnection(sourceId, targetId) {
+export function createConnection(sourceId, targetId, sourceOutput = 0, targetInput = 0) {
     const connection = {
         source: sourceId,
         target: targetId,
-        sourceOutput: 0,
-        targetInput: 0
+        sourceOutput: sourceOutput,
+        targetInput: targetInput
     };
     
     state.connections.push(connection);
@@ -27,7 +27,9 @@ export function renderConnection(connection) {
     
     if (!sourceEl || !targetEl) return;
     
-    const sourcePort = sourceEl.querySelector('.port.output');
+    // Get the correct output port based on index
+    const outputPorts = sourceEl.querySelectorAll('.port.output');
+    const sourcePort = outputPorts[connection.sourceOutput || 0] || sourceEl.querySelector('.port.output');
     const targetPort = targetEl.querySelector('.port.input');
     
     if (!sourcePort || !targetPort) return;
@@ -51,10 +53,11 @@ export function renderConnection(connection) {
     path.setAttribute('marker-end', 'url(#arrowhead)');
     path.setAttribute('data-source', connection.source);
     path.setAttribute('data-target', connection.target);
+    path.setAttribute('data-source-output', connection.sourceOutput || 0);
     
     path.addEventListener('click', () => {
         if (confirm('Delete this connection?')) {
-            deleteConnection(connection.source, connection.target);
+            deleteConnection(connection.source, connection.target, connection.sourceOutput);
         }
     });
     
@@ -66,9 +69,10 @@ export function updateConnections() {
     state.connections.forEach(conn => renderConnection(conn));
 }
 
-export function deleteConnection(sourceId, targetId) {
+export function deleteConnection(sourceId, targetId, sourceOutput = null) {
     state.connections = state.connections.filter(
-        c => !(c.source === sourceId && c.target === targetId)
+        c => !(c.source === sourceId && c.target === targetId && 
+               (sourceOutput === null || c.sourceOutput === sourceOutput))
     );
     updateConnections();
     markNodeModified(sourceId);
@@ -76,14 +80,19 @@ export function deleteConnection(sourceId, targetId) {
     setModified(true);
 }
 
-export function startConnection(sourceId, e) {
+export function startConnection(sourceId, e, outputIndex = 0) {
     const sourceNode = document.getElementById(`node-${sourceId}`);
-    const port = sourceNode.querySelector('.port.output');
+    const outputPorts = sourceNode.querySelectorAll('.port.output');
+    const port = outputPorts[outputIndex] || sourceNode.querySelector('.port.output');
+    
+    if (!port) return;
+    
     const rect = port.getBoundingClientRect();
     const canvasRect = document.getElementById('canvas').getBoundingClientRect();
     
     state.drawingConnection = {
         sourceId: sourceId,
+        outputIndex: outputIndex,
         startX: rect.left + rect.width / 2 - canvasRect.left,
         startY: rect.top + rect.height / 2 - canvasRect.top
     };
@@ -116,9 +125,10 @@ export function endConnection(targetId) {
     if (!state.drawingConnection) return;
     
     const sourceId = state.drawingConnection.sourceId;
+    const outputIndex = state.drawingConnection.outputIndex || 0;
     
     if (sourceId !== targetId) {
-        createConnection(sourceId, targetId);
+        createConnection(sourceId, targetId, outputIndex, 0);
     }
     
     cancelConnection();

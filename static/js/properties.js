@@ -1,6 +1,7 @@
 // Properties panel
 import { state, markNodeModified, setModified } from './state.js';
 import { API_BASE } from './config.js';
+import { updateNodeOutputCount } from './nodes.js';
 
 export function renderProperties(nodeData) {
     const panel = document.getElementById('properties-panel');
@@ -64,6 +65,8 @@ export function renderProperties(nodeData) {
                 html += `
                     <button class="btn btn-primary" onclick="window.triggerNodeAction('${nodeData.id}', '${prop.action}')">${prop.label}</button>
                 `;
+            } else if (prop.type === 'rules') {
+                html += renderRulesEditor(nodeData.id, prop.name, nodeData.config[prop.name] || []);
             }
             
             if (prop.help) {
@@ -118,5 +121,127 @@ export async function toggleGate(nodeId, open) {
         }
     } catch (error) {
         console.error('Failed to toggle gate:', error);
+    }
+}
+
+// Rules editor for switch node
+function renderRulesEditor(nodeId, propName, rules) {
+    let html = '<div class="rules-editor">';
+    
+    rules.forEach((rule, index) => {
+        html += `
+            <div class="rule-item" data-rule-index="${index}">
+                <div class="rule-header">
+                    <span class="rule-label">Rule ${index + 1} → Output ${index + 1}</span>
+                    <button class="btn-icon" onclick="window.removeRule('${nodeId}', '${propName}', ${index})" title="Delete rule">✕</button>
+                </div>
+                <div class="rule-config">
+                    <select class="rule-operator" onchange="window.updateRule('${nodeId}', '${propName}', ${index}, 'operator', this.value)">
+                        ${getOperatorOptions(rule.operator || 'eq')}
+                    </select>
+                    <input type="text" class="rule-value" placeholder="Value" 
+                           value="${rule.value || ''}"
+                           onchange="window.updateRule('${nodeId}', '${propName}', ${index}, 'value', this.value)">
+                    <select class="rule-type" onchange="window.updateRule('${nodeId}', '${propName}', ${index}, 'valueType', this.value)">
+                        ${getValueTypeOptions(rule.valueType || 'str')}
+                    </select>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += `
+        <button class="btn btn-secondary" onclick="window.addRule('${nodeId}', '${propName}')">+ Add Rule</button>
+    </div>`;
+    
+    return html;
+}
+
+function getOperatorOptions(selected) {
+    const operators = [
+        { value: 'eq', label: '==' },
+        { value: 'neq', label: '!=' },
+        { value: 'lt', label: '<' },
+        { value: 'lte', label: '<=' },
+        { value: 'gt', label: '>' },
+        { value: 'gte', label: '>=' },
+        { value: 'between', label: 'between' },
+        { value: 'contains', label: 'contains' },
+        { value: 'matches', label: 'matches regex' },
+        { value: 'true', label: 'is true' },
+        { value: 'false', label: 'is false' },
+        { value: 'null', label: 'is null' },
+        { value: 'nnull', label: 'is not null' },
+        { value: 'empty', label: 'is empty' },
+        { value: 'nempty', label: 'is not empty' },
+        { value: 'haskey', label: 'has key' },
+        { value: 'else', label: 'otherwise' }
+    ];
+    
+    return operators.map(op => 
+        `<option value="${op.value}" ${op.value === selected ? 'selected' : ''}>${op.label}</option>`
+    ).join('');
+}
+
+function getValueTypeOptions(selected) {
+    const types = [
+        { value: 'str', label: 'string' },
+        { value: 'num', label: 'number' },
+        { value: 'bool', label: 'boolean' },
+        { value: 'json', label: 'JSON' }
+    ];
+    
+    return types.map(type => 
+        `<option value="${type.value}" ${type.value === selected ? 'selected' : ''}>${type.label}</option>`
+    ).join('');
+}
+
+export function addRule(nodeId, propName) {
+    const nodeData = state.nodes.get(nodeId);
+    const rules = nodeData.config[propName] || [];
+    
+    rules.push({
+        operator: 'eq',
+        value: '',
+        valueType: 'str'
+    });
+    
+    nodeData.config[propName] = rules;
+    
+    // Update output count to match rules
+    updateNodeOutputCount(nodeId, rules.length);
+    
+    markNodeModified(nodeId);
+    setModified(true);
+    renderProperties(nodeData);
+}
+
+export function removeRule(nodeId, propName, ruleIndex) {
+    const nodeData = state.nodes.get(nodeId);
+    const rules = nodeData.config[propName] || [];
+    
+    if (rules.length > 1) {
+        rules.splice(ruleIndex, 1);
+        nodeData.config[propName] = rules;
+        
+        // Update output count to match rules
+        updateNodeOutputCount(nodeId, rules.length);
+        
+        markNodeModified(nodeId);
+        setModified(true);
+        renderProperties(nodeData);
+    }
+}
+
+export function updateRule(nodeId, propName, ruleIndex, field, value) {
+    const nodeData = state.nodes.get(nodeId);
+    const rules = nodeData.config[propName] || [];
+    
+    if (rules[ruleIndex]) {
+        rules[ruleIndex][field] = value;
+        nodeData.config[propName] = rules;
+        
+        markNodeModified(nodeId);
+        setModified(true);
     }
 }

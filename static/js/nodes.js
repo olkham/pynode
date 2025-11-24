@@ -45,17 +45,46 @@ export function renderNode(nodeData) {
     
     const inputCount = nodeData.inputCount !== undefined ? nodeData.inputCount : 1;
     const outputCount = nodeData.outputCount !== undefined ? nodeData.outputCount : 1;
+    
+    // Calculate and apply dynamic height based on output count
+    if (outputCount > 1) {
+        // Base height (30px) + additional height for extra ports
+        // Each port is 10px + 4px gap, need at least 14px per port after the first
+        const extraHeight = (outputCount - 1) * 14;
+        const totalHeight = 30 + extraHeight;
+        nodeEl.style.minHeight = `${totalHeight}px`;
+    }
     const icon = nodeData.icon || '◆';
     
     // Build node content HTML
     let nodeContent = buildNodeContent(nodeData, icon, inputCount, outputCount);
     
-    const portsHtml = (inputCount > 0 || outputCount > 0) ? `
-        <div class="node-ports">
-            ${inputCount > 0 ? `<div class="port input" data-node="${nodeData.id}" data-type="input"></div>` : ''}
-            ${outputCount > 0 ? `<div class="port output" data-node="${nodeData.id}" data-type="output"></div>` : ''}
-        </div>
-    ` : '';
+    // Generate ports HTML with support for multiple outputs
+    let portsHtml = '';
+    if (inputCount > 0 || outputCount > 0) {
+        const inputPortsHtml = inputCount > 0 ? `<div class="port input" data-node="${nodeData.id}" data-type="input" data-index="0"></div>` : '';
+        
+        let outputPortsHtml = '';
+        if (outputCount > 0) {
+            if (outputCount === 1) {
+                outputPortsHtml = `<div class="port output" data-node="${nodeData.id}" data-type="output" data-index="0"></div>`;
+            } else {
+                // Multiple outputs - stack them vertically
+                outputPortsHtml = '<div class="output-ports-container">';
+                for (let i = 0; i < outputCount; i++) {
+                    outputPortsHtml += `<div class="port output" data-node="${nodeData.id}" data-type="output" data-index="${i}"></div>`;
+                }
+                outputPortsHtml += '</div>';
+            }
+        }
+        
+        portsHtml = `
+            <div class="node-ports">
+                ${inputPortsHtml}
+                ${outputPortsHtml}
+            </div>
+        `;
+    }
     
     let imageViewerHtml = '';
     if (nodeData.type === 'ImageViewerNode') {
@@ -166,17 +195,18 @@ function attachNodeEventHandlers(nodeEl, nodeData) {
         isDragging = false;
     });
     
-    // Port connection handling
-    const outputPort = nodeEl.querySelector('.port.output');
-    if (outputPort) {
+    // Port connection handling - support multiple output ports
+    const outputPorts = nodeEl.querySelectorAll('.port.output');
+    outputPorts.forEach(outputPort => {
         outputPort.addEventListener('mousedown', (e) => {
             e.stopPropagation();
+            const outputIndex = parseInt(outputPort.getAttribute('data-index') || '0');
             // Import dynamically to avoid circular dependency
             import('./connections.js').then(({ startConnection }) => {
-                startConnection(nodeData.id, e);
+                startConnection(nodeData.id, e, outputIndex);
             });
         });
-    }
+    });
     
     nodeEl.addEventListener('mouseup', (e) => {
         if (state.drawingConnection && state.drawingConnection.sourceId !== nodeData.id) {
@@ -201,4 +231,20 @@ export function deleteNode(nodeId) {
         import('./selection.js').then(({ deselectNode }) => deselectNode());
     }
     setModified(true);
+}
+
+export function updateNodeOutputCount(nodeId, outputCount) {
+    const nodeData = state.nodes.get(nodeId);
+    if (!nodeData) return;
+    
+    // Update the output count
+    nodeData.outputCount = outputCount;
+    
+    // Re-render the node
+    const nodeEl = document.getElementById(`node-${nodeId}`);
+    if (nodeEl) {
+        nodeEl.remove();
+        renderNode(nodeData);
+        updateConnections();
+    }
 }

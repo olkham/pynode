@@ -28,6 +28,11 @@ export async function loadWorkflow() {
                 nodeData.icon = nodeType.icon;
                 nodeData.inputCount = nodeType.inputCount;
                 nodeData.outputCount = nodeType.outputCount;
+                
+                // Handle dynamic output counts (e.g., SwitchNode)
+                if (nodeData.type === 'SwitchNode' && nodeData.config && nodeData.config.rules) {
+                    nodeData.outputCount = Math.max(1, nodeData.config.rules.length);
+                }
             }
             
             if (nodeData.type === 'GateNode') {
@@ -163,6 +168,11 @@ export function importWorkflow() {
                     nodeData.icon = nodeType.icon;
                     nodeData.inputCount = nodeType.inputCount;
                     nodeData.outputCount = nodeType.outputCount;
+                    
+                    // Handle dynamic output counts (e.g., SwitchNode)
+                    if (nodeData.type === 'SwitchNode' && nodeData.config && nodeData.config.rules) {
+                        nodeData.outputCount = Math.max(1, nodeData.config.rules.length);
+                    }
                 }
                 
                 state.nodes.set(nodeData.id, nodeData);
