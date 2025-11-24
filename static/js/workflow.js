@@ -2,7 +2,7 @@
 import { API_BASE } from './config.js';
 import { state, setModified, clearAllNodeModifiedIndicators } from './state.js';
 import { renderNode } from './nodes.js';
-import { renderConnection } from './connections.js';
+import { updateConnections } from './connections.js';
 import { showToast } from './ui-utils.js';
 import { deselectAllNodes } from './selection.js';
 
@@ -16,7 +16,8 @@ export async function loadWorkflow() {
         document.getElementById('nodes-container').innerHTML = '';
         document.getElementById('connections').innerHTML = '';
         
-        workflow.nodes.forEach(async (nodeData) => {
+        // First, process all node data with async operations
+        const nodePromises = workflow.nodes.map(async (nodeData) => {
             nodeData.x = nodeData.x !== undefined ? nodeData.x : 100;
             nodeData.y = nodeData.y !== undefined ? nodeData.y : 100;
             
@@ -45,14 +46,25 @@ export async function loadWorkflow() {
                 }
             }
             
+            return nodeData;
+        });
+        
+        // Wait for all async operations to complete
+        const processedNodes = await Promise.all(nodePromises);
+        
+        // Now render all nodes synchronously
+        processedNodes.forEach(nodeData => {
             state.nodes.set(nodeData.id, nodeData);
             renderNode(nodeData);
         });
         
+        // Load connections into state
         workflow.connections.forEach(conn => {
             state.connections.push(conn);
-            renderConnection(conn);
         });
+        
+        // Render connections immediately after nodes are in DOM
+        updateConnections();
         
         setModified(false);
     } catch (error) {
