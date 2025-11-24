@@ -41,11 +41,16 @@ class DebugNode(BaseNode):
             'complete': 'payload'  # Can be 'payload', 'msg', or a property path
         })
         self.messages = []  # Store messages for API access
+        self.enabled = True  # Debug node enabled state
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """
         Print/store the message for debugging.
         """
+        # Skip if debug node is disabled
+        if not self.enabled:
+            return
+        
         complete = self.config.get('complete', 'payload')
         
         if complete == 'msg':
@@ -74,3 +79,11 @@ class DebugNode(BaseNode):
         
         # Pass through (optional)
         # self.send(msg)
+    
+    def set_enabled(self, enabled: bool):
+        """Set the enabled state of the debug node."""
+        self.enabled = enabled
+    
+    def get_enabled(self) -> bool:
+        """Get the enabled state of the debug node."""
+        return self.enabled

@@ -351,6 +351,7 @@ body {
     position: relative;
     display: inline-flex;
     align-items: center;
+    align-self: center;
     width: 32px;
     height: 18px;
     cursor: pointer;
@@ -367,10 +368,10 @@ body {
 
 .gate-slider {
     position: absolute;
-    top: 4.5px;
+    top: 0;
     left: 0;
     right: 0;
-    bottom: -5px;
+    bottom: 0;
     background-color: #555;
     transition: 0.3s;
     border-radius: 18px;
@@ -406,7 +407,7 @@ body {
 
 .node-content {
     display: flex;
-    align-items: stretch;
+    align-items: center;
     min-height: 30px;
     flex: 1;
     border-radius: 6px;

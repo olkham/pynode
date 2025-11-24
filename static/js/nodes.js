@@ -1,4 +1,5 @@
 // Node rendering and management
+import { API_BASE } from './config.js';
 import { state, generateNodeId, markNodeModified, setModified } from './state.js';
 import { updateConnections } from './connections.js';
 import { selectNode } from './selection.js';
@@ -117,12 +118,27 @@ function buildNodeContent(nodeData, icon, inputCount, outputCount) {
             </div>
         `;
     } else if (inputCount > 0 && outputCount === 0) {
-        return `
-            <div class="node-content">
-                <div class="node-title">${nodeData.name}</div>
-                <div class="node-icon-container"><div class="node-icon">${icon}</div></div>
-            </div>
-        `;
+        if (nodeData.type === 'DebugNode') {
+            const isEnabled = nodeData.debugEnabled !== undefined ? nodeData.debugEnabled : true;
+            return `
+                <div class="node-content">
+                    <div class="node-title">${nodeData.name}</div>
+                    <div class="node-icon-container"><div class="node-icon">${icon}</div></div>
+                    <label class="gate-switch">
+                        <input type="checkbox" id="debug-${nodeData.id}" ${isEnabled ? 'checked' : ''} 
+                               onchange="window.toggleDebug('${nodeData.id}', this.checked)">
+                        <span class="gate-slider"></span>
+                    </label>
+                </div>
+            `;
+        } else {
+            return `
+                <div class="node-content">
+                    <div class="node-title">${nodeData.name}</div>
+                    <div class="node-icon-container"><div class="node-icon">${icon}</div></div>
+                </div>
+            `;
+        }
     } else {
         if (nodeData.type === 'GateNode') {
             const isOpen = nodeData.gateOpen !== undefined ? nodeData.gateOpen : true;
@@ -248,3 +264,25 @@ export function updateNodeOutputCount(nodeId, outputCount) {
         updateConnections();
     }
 }
+
+// Toggle debug node enabled state
+window.toggleDebug = async function(nodeId, enabled) {
+    const nodeData = state.nodes.get(nodeId);
+    if (!nodeData) return;
+    
+    const newEnabled = enabled;
+    
+    try {
+        const response = await fetch(`${API_BASE}/nodes/${nodeId}/debug-enabled`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enabled: newEnabled })
+        });
+        
+        if (response.ok) {
+            nodeData.debugEnabled = newEnabled;
+        }
+    } catch (error) {
+        console.error('Failed to toggle debug state:', error);
+    }
+};

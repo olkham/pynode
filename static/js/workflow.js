@@ -46,6 +46,16 @@ export async function loadWorkflow() {
                 }
             }
             
+            if (nodeData.type === 'DebugNode') {
+                try {
+                    const debugResponse = await fetch(`${API_BASE}/nodes/${nodeData.id}/debug-enabled`);
+                    const debugData = await debugResponse.json();
+                    nodeData.debugEnabled = debugData.enabled;
+                } catch (error) {
+                    nodeData.debugEnabled = true;
+                }
+            }
+            
             return nodeData;
         });
         

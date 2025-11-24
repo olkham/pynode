@@ -251,6 +251,46 @@ def get_gate_state(node_id):
         return jsonify({'error': str(e)}), 400
 
 
+@app.route('/api/nodes/<node_id>/debug-enabled', methods=['POST'])
+def toggle_debug(node_id):
+    """Toggle debug node enabled state (doesn't require redeployment)."""
+    data = request.json
+    enabled = data.get('enabled', True)
+    
+    try:
+        # Update BOTH working and deployed engines so state is preserved
+        working_node = working_engine.nodes.get(node_id)
+        deployed_node = deployed_engine.nodes.get(node_id)
+        
+        if working_node and hasattr(working_node, 'set_enabled'):
+            working_node.set_enabled(enabled)
+        
+        if deployed_node and hasattr(deployed_node, 'set_enabled'):
+            deployed_node.set_enabled(enabled)
+        
+        return jsonify({'success': True, 'enabled': enabled})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+
+@app.route('/api/nodes/<node_id>/debug-enabled', methods=['GET'])
+def get_debug_enabled(node_id):
+    """Get debug node enabled state."""
+    try:
+        # Check deployed engine first, fall back to working
+        node = deployed_engine.nodes.get(node_id) or working_engine.nodes.get(node_id)
+        
+        if not node:
+            return jsonify({'error': 'Node not found'}), 404
+        
+        if hasattr(node, 'get_enabled'):
+            return jsonify({'enabled': node.get_enabled()})
+        
+        return jsonify({'error': 'Not a debug node'}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+
 @app.route('/api/connections', methods=['POST'])
 def create_connection():
     """Create a connection between two nodes in working workflow."""
