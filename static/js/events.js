@@ -62,9 +62,13 @@ function handleCanvasDrop(e) {
     const nodeType = e.dataTransfer.getData('nodeType');
     if (!nodeType) return;
     
+    // Get the drag offset from where the user clicked on the palette item
+    const offsetX = parseFloat(e.dataTransfer.getData('dragOffsetX')) || 0;
+    const offsetY = parseFloat(e.dataTransfer.getData('dragOffsetY')) || 0;
+    
     const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const x = e.clientX - rect.left - offsetX;
+    const y = e.clientY - rect.top - offsetY;
     
     createNode(nodeType, x, y);
 }

@@ -72,6 +72,13 @@ export function renderNodePalette() {
             
             nodeEl.addEventListener('dragstart', (e) => {
                 e.dataTransfer.setData('nodeType', nodeType.type);
+                
+                // Store the offset from the top-left corner of the element
+                const rect = nodeEl.getBoundingClientRect();
+                const offsetX = e.clientX - rect.left;
+                const offsetY = e.clientY - rect.top;
+                e.dataTransfer.setData('dragOffsetX', offsetX.toString());
+                e.dataTransfer.setData('dragOffsetY', offsetY.toString());
             });
             
             listEl.appendChild(nodeEl);
