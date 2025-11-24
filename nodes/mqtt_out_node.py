@@ -125,6 +125,8 @@ class MqttOutNode(BaseNode):
     
     def on_start(self):
         """Connect to MQTT broker when workflow starts."""
+        super().on_start()  # Start base node worker thread
+        
         if not MQTT_AVAILABLE:
             print(f"[MQTT Out {self.name}] paho-mqtt not installed. Install with: pip install paho-mqtt")
             return
@@ -155,6 +157,8 @@ class MqttOutNode(BaseNode):
     
     def on_stop(self):
         """Disconnect from MQTT broker when workflow stops."""
+        super().on_stop()  # Stop base node worker thread
+        
         if self.client:
             try:
                 self.client.loop_stop()

@@ -4,13 +4,14 @@ Similar to Node-RED's delay node.
 """
 
 import time
+import threading
 from typing import Any, Dict
 from base_node import BaseNode
 
 
 class DelayNode(BaseNode):
     """
-    Delay node - delays message delivery.
+    Delay node - delays message delivery (non-blocking).
     Similar to Node-RED's delay node.
     """
     display_name = 'Delay'
@@ -41,9 +42,12 @@ class DelayNode(BaseNode):
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """
-        Delay the message (simple implementation - synchronous).
-        For production, use threading or async.
+        Schedule delayed message delivery (non-blocking).
+        Uses a timer thread so it doesn't block the message queue.
         """
         timeout = self.config.get('timeout', 1)
-        time.sleep(timeout)
-        self.send(msg)
+        
+        # Schedule message to be sent after delay (non-blocking)
+        timer = threading.Timer(timeout, self.send, args=(msg,))
+        timer.daemon = True
+        timer.start()

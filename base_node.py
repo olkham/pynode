@@ -4,6 +4,8 @@ All custom nodes should inherit from this class.
 """
 
 import uuid
+import queue
+import threading
 from typing import Dict, List, Any, Callable, Optional
 
 
@@ -47,6 +49,11 @@ class BaseNode:
         
         # Node state
         self.enabled = True
+        
+        # Non-blocking message queue
+        self._message_queue = queue.Queue(maxsize=1000)  # Limit queue size to prevent memory issues
+        self._worker_thread = None
+        self._stop_worker_flag = False
         
     def connect(self, target_node: 'BaseNode', output_index: int = 0, target_input_index: int = 0):
         """
@@ -98,7 +105,8 @@ class BaseNode:
     
     def send(self, msg: Dict[str, Any], output_index: int = 0):
         """
-        Send a message to connected nodes.
+        Send a message to connected nodes (non-blocking).
+        Messages are queued and processed asynchronously.
         
         Args:
             msg: Message dictionary (must have 'payload' and 'topic')
@@ -110,8 +118,12 @@ class BaseNode:
         if output_index in self.outputs:
             for target_node, target_input in self.outputs[output_index]:
                 if target_node.enabled:
-                    # Pass message to target node
-                    target_node.on_input(msg, target_input)
+                    # Queue message for target node (non-blocking)
+                    try:
+                        target_node._message_queue.put_nowait((msg.copy(), target_input))
+                    except queue.Full:
+                        # Queue full - drop message or handle overflow
+                        print(f"Warning: Message queue full for node {target_node.id}, dropping message")
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """
@@ -125,19 +137,55 @@ class BaseNode:
         # Default behavior: pass through
         self.send(msg)
     
+    def _start_worker(self):
+        """
+        Start the worker thread to process queued messages.
+        """
+        if self._worker_thread is None or not self._worker_thread.is_alive():
+            self._stop_worker_flag = False
+            self._worker_thread = threading.Thread(target=self._process_messages, daemon=True)
+            self._worker_thread.start()
+    
+    def _process_messages(self):
+        """
+        Worker thread that processes messages from the queue.
+        """
+        while not self._stop_worker_flag:
+            try:
+                # Wait for a message with timeout to allow checking stop flag
+                msg, input_index = self._message_queue.get(timeout=0.1)
+                
+                # Process the message
+                try:
+                    self.on_input(msg, input_index)
+                except Exception as e:
+                    print(f"Error processing message in node {self.id}: {e}")
+                finally:
+                    self._message_queue.task_done()
+                    
+            except queue.Empty:
+                # No message available, continue loop
+                continue
+            except Exception as e:
+                print(f"Worker thread error in node {self.id}: {e}")
+    
     def on_start(self):
         """
         Called when the node is started/deployed.
         Override to implement initialization logic.
         """
-        pass
+        # Start message processing worker
+        self._start_worker()
     
     def on_stop(self):
         """
         Called when the node is stopped.
         Override to implement cleanup logic.
         """
-        pass
+        # Stop message processing worker
+        self._stop_worker_flag = True
+        if self._worker_thread and self._worker_thread.is_alive():
+            self._worker_thread.join(timeout=2.0)
     
     def configure(self, config: Dict[str, Any]):
         """

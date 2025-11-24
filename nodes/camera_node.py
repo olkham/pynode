@@ -71,6 +71,8 @@ class CameraNode(BaseNode):
     
     def on_start(self):
         """Start the camera capture when workflow starts."""
+        super().on_start()  # Start base node worker thread
+        
         camera_index = int(self.config.get('camera_index', 0))
         fps = int(self.config.get('fps', 10))
         width = int(self.config.get('width', 640))
@@ -100,6 +102,8 @@ class CameraNode(BaseNode):
     
     def on_stop(self):
         """Stop the camera capture when workflow stops."""
+        super().on_stop()  # Stop base node worker thread
+        
         self.running = False
         
         if self.capture_thread:

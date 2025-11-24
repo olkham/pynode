@@ -107,6 +107,9 @@ class InjectNode(BaseNode):
         """
         Start timers if configured.
         """
+        # Start the base node worker thread
+        super().on_start()
+        
         # Handle "inject once after delay"
         once_delay = self.config.get('once', '')
         if once_delay and str(once_delay).strip():
@@ -146,6 +149,9 @@ class InjectNode(BaseNode):
         """
         Stop all timers when workflow stops.
         """
+        # Stop base node worker thread
+        super().on_stop()
+        
         self._stop_timer = True
         if self._once_timer and self._once_timer.is_alive():
             self._once_timer.cancel()
