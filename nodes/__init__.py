@@ -13,7 +13,32 @@ from .MqttOutNode.mqtt_out_node import MqttOutNode
 from .CameraNode.camera_node import CameraNode
 from .ImageViewerNode.image_viewer_node import ImageViewerNode
 from .GateNode.gate_node import GateNode
+from .UltralyticsNode.ultralytics_node import UltralyticsNode
 from .TemplateNode.template_node import TemplateNode
+
+
+def get_all_node_types():
+    """
+    Get a list of all available node types.
+    
+    Returns:
+        List of node classes
+    """
+    return [
+        InjectNode,
+        FunctionNode,
+        DebugNode,
+        ChangeNode,
+        SwitchNode,
+        DelayNode,
+        MqttInNode,
+        MqttOutNode,
+        CameraNode,
+        ImageViewerNode,
+        GateNode,
+        UltralyticsNode,
+        TemplateNode
+    ]
 
 __all__ = [
     'InjectNode',
@@ -27,5 +52,6 @@ __all__ = [
     'CameraNode',
     'ImageViewerNode',
     'GateNode',
+    'UltralyticsNode',
     'TemplateNode'
 ]

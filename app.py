@@ -14,12 +14,7 @@ import shutil
 from datetime import datetime
 
 from workflow_engine import WorkflowEngine
-from nodes import (
-    InjectNode, FunctionNode, DebugNode,
-    ChangeNode, SwitchNode, DelayNode,
-    MqttInNode, MqttOutNode, CameraNode,
-    ImageViewerNode, GateNode
-)
+import nodes
 
 app = Flask(__name__, static_folder='static', static_url_path='')
 CORS(app)  # Enable CORS for frontend
@@ -35,17 +30,8 @@ WORKFLOW_FILE = 'workflow.json'
 
 # Register all available node types for both engines
 for engine in [working_engine, deployed_engine]:
-    engine.register_node_type(InjectNode)
-    engine.register_node_type(FunctionNode)
-    engine.register_node_type(DebugNode)
-    engine.register_node_type(ChangeNode)
-    engine.register_node_type(SwitchNode)
-    engine.register_node_type(DelayNode)
-    engine.register_node_type(MqttInNode)
-    engine.register_node_type(MqttOutNode)
-    engine.register_node_type(CameraNode)
-    engine.register_node_type(ImageViewerNode)
-    engine.register_node_type(GateNode)
+    for node_class in nodes.get_all_node_types():
+        engine.register_node_type(node_class)
 
 # Queue for debug messages (for SSE)
 debug_message_queues = {}
@@ -268,6 +254,9 @@ def toggle_debug(node_id):
         if deployed_node and hasattr(deployed_node, 'set_enabled'):
             deployed_node.set_enabled(enabled)
         
+        # Save workflow to persist the state
+        save_workflow_to_disk()
+        
         return jsonify({'success': True, 'enabled': enabled})
     except Exception as e:
         return jsonify({'error': str(e)}), 400
@@ -368,9 +357,26 @@ def save_workflow():
         # Export from working engine
         workflow_data = working_engine.export_workflow()
         
+        # Preserve runtime state (enabled, gate state) from deployed engine
+        for node_data in workflow_data.get('nodes', []):
+            node_id = node_data['id']
+            deployed_node = deployed_engine.nodes.get(node_id)
+            
+            if deployed_node:
+                # Preserve enabled state (for debug nodes, etc.)
+                node_data['enabled'] = deployed_node.enabled
+                
+                # Preserve gate state for GateNode
+                if hasattr(deployed_node, 'get_gate_state'):
+                    if 'gateOpen' not in node_data:
+                        node_data['gateOpen'] = deployed_node.get_gate_state()
+        
         # Stop deployed engine and import new workflow
         deployed_engine.stop()
         deployed_engine.import_workflow(workflow_data)
+        
+        # Also update working engine with preserved states to keep them in sync
+        working_engine.import_workflow(workflow_data)
         
         # Save to disk and start deployed engine
         save_workflow_to_disk()

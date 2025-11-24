@@ -41,7 +41,6 @@ class DebugNode(BaseNode):
             'complete': 'payload'  # Can be 'payload', 'msg', or a property path
         })
         self.messages = []  # Store messages for API access
-        self.enabled = True  # Debug node enabled state
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """
