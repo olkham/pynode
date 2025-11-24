@@ -69,10 +69,13 @@ def load_workflow_from_disk():
         if os.path.exists(WORKFLOW_FILE):
             with open(WORKFLOW_FILE, 'r') as f:
                 workflow_data = json.load(f)
-            # Load into both working and deployed engines
-            working_engine.import_workflow(workflow_data)
+            # Load into deployed engine first (creates nodes once)
             deployed_engine.import_workflow(workflow_data)
             deployed_engine.start()  # Auto-start deployed workflow
+            
+            # Copy to working engine (just the data, nodes already created in deployed)
+            working_engine.import_workflow(workflow_data)
+            
             print(f"Loaded workflow: {len(working_engine.nodes)} nodes (deployed: running)")
     except Exception as e:
         print(f"Failed to load workflow: {e}")
@@ -319,13 +322,6 @@ def delete_connection():
 @app.route('/api/workflow', methods=['GET'])
 def get_workflow():
     """Export the working workflow."""
-    global workflow_loaded
-    
-    # Load workflow on first request if not already loaded
-    if not workflow_loaded:
-        load_workflow_from_disk()
-        workflow_loaded = True
-    
     return jsonify(working_engine.export_workflow())
 
 
@@ -497,12 +493,16 @@ def get_image_frame(node_id):
         return jsonify({'error': str(e)}), 400
 
 
-if __name__ == '__main__':
-    # Create static directory if it doesn't exist
-    os.makedirs('static', exist_ok=True)
+# if __name__ == '__main__':
+#     # Create static directory if it doesn't exist
+#     os.makedirs('static', exist_ok=True)
     
-    print("Starting PyNode server...")
-    print("API available at: http://localhost:5000")
-    print("UI available at: http://localhost:5000")
+#     # Load workflow from disk on startup
+#     print("Loading workflow from disk...")
+#     load_workflow_from_disk()
     
-    app.run(debug=True, host='0.0.0.0', port=5000)
+#     print("Starting PyNode server...")
+#     print("API available at: http://localhost:5000")
+#     print("UI available at: http://localhost:5000")
+    
+#     app.run(debug=True, host='0.0.0.0', port=5000)

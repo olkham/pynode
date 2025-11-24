@@ -78,14 +78,18 @@ class UltralyticsNode(BaseNode):
             'max_det': '300'
         })
         self.model = None
-        self._load_model()
+        self._model_loaded = False
     
     def _load_model(self):
-        """Load the YOLO model."""
+        """Load the YOLO model (lazy loading on first use)."""
+        if self._model_loaded:
+            return
+            
         try:
             from ultralytics import YOLO
             model_name = self.config.get('model', 'yolov8n.pt')
             self.model = YOLO(model_name)
+            self._model_loaded = True
             print(f"[{self.name}] Loaded model: {model_name}")
         except ImportError:
             print(f"[{self.name}] ERROR: ultralytics package not installed. Run: pip install ultralytics")
@@ -108,6 +112,10 @@ class UltralyticsNode(BaseNode):
         """
         Process incoming image messages and perform YOLO inference.
         """
+        # Lazy load model on first use
+        if not self._model_loaded:
+            self._load_model()
+        
         if self.model is None:
             print(f"[{self.name}] Model not loaded, skipping inference")
             return

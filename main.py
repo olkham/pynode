@@ -40,6 +40,20 @@ Usage Example:
 """
 
 if __name__ == '__main__':
-    # Import and run the Flask app
-    from app import app
+    # Import Flask app and load workflow
+    from app import app, load_workflow_from_disk
+    import os
+    
+    # Create static directory if it doesn't exist
+    os.makedirs('static', exist_ok=True)
+    
+    # Load workflow from disk on startup
+    print("Loading workflow from disk...")
+    load_workflow_from_disk()
+    
+    print("Starting PyNode server...")
+    print("API available at: http://localhost:5000")
+    print("UI available at: http://localhost:5000")
+    
+    # Run the Flask app
     app.run(debug=False, host='0.0.0.0', port=5000)
