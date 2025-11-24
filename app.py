@@ -59,8 +59,12 @@ def save_workflow_to_disk():
     try:
         # Backup existing workflow if it exists
         if os.path.exists(WORKFLOW_FILE):
+            # Create backup directory if it doesn't exist
+            backup_dir = '_backup'
+            os.makedirs(backup_dir, exist_ok=True)
+            
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            backup_file = f'workflow_{timestamp}.json'
+            backup_file = os.path.join(backup_dir, f'workflow_{timestamp}.json')
             shutil.copy2(WORKFLOW_FILE, backup_file)
             print(f"Backed up workflow to {backup_file}")
         
