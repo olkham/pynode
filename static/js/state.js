@@ -4,6 +4,7 @@ export const state = {
     connections: [],
     selectedNode: null,
     selectedNodes: new Set(),
+    selectedConnection: null,
     draggingNode: null,
     drawingConnection: null,
     nodeTypes: [],

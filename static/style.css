@@ -266,6 +266,14 @@ body {
     pointer-events: none;
 }
 
+#canvas g#connections {
+    pointer-events: auto;
+}
+
+#canvas g#temp-line {
+    pointer-events: none;
+}
+
 #nodes-container {
     position: absolute;
     top: 0;
@@ -282,6 +290,7 @@ body {
     border-radius: 8px;
     padding: 0;
     min-width: 120px;
+    min-height: 30px;
     cursor: move;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     user-select: none;
@@ -289,6 +298,8 @@ body {
     -moz-user-select: none;
     -ms-user-select: none;
     overflow: visible;
+    display: flex;
+    flex-direction: column;
 }
 
 .node:hover {
@@ -396,7 +407,8 @@ body {
 .node-content {
     display: flex;
     align-items: stretch;
-    height: 30px;
+    min-height: 30px;
+    flex: 1;
     border-radius: 6px;
     overflow: hidden;
 }
@@ -408,6 +420,7 @@ body {
     justify-content: center;
     padding: 0 10px;
     flex-shrink: 0;
+    align-self: stretch;
 }
 
 .node-icon {
@@ -514,13 +527,19 @@ body {
     fill: none;
     stroke: #999;
     stroke-width: 2;
-    pointer-events: all;
+    pointer-events: stroke;
     cursor: pointer;
+    stroke-linecap: round;
 }
 
 .connection:hover {
     stroke: #0e639c;
     stroke-width: 3;
+}
+
+.connection.selected {
+    stroke: #0098ff;
+    filter: drop-shadow(0 0 6px rgba(0, 152, 255, 0.8));
 }
 
 /* Properties Panel */

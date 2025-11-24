@@ -25,8 +25,11 @@ export function setupEventListeners() {
     
     // Canvas click to deselect
     nodesContainer.addEventListener('click', (e) => {
-        if (e.target === nodesContainer) {
+        if (e.target === nodesContainer && !state.justSelectedConnection) {
             deselectNode();
+            import('./connections.js').then(({ deselectConnection }) => {
+                deselectConnection();
+            });
         }
     });
     
@@ -36,10 +39,18 @@ export function setupEventListeners() {
             deselectAllNodes();
         }
         
-        if (e.key === 'Delete' && state.selectedNodes.size > 0) {
-            const nodesToDelete = Array.from(state.selectedNodes);
-            nodesToDelete.forEach(nodeId => deleteNode(nodeId));
-            deselectAllNodes();
+        if (e.key === 'Delete') {
+            console.log('Delete key pressed, selectedNodes:', state.selectedNodes.size, 'selectedConnection:', state.selectedConnection);
+            if (state.selectedNodes.size > 0) {
+                const nodesToDelete = Array.from(state.selectedNodes);
+                nodesToDelete.forEach(nodeId => deleteNode(nodeId));
+                deselectAllNodes();
+            } else if (state.selectedConnection) {
+                console.log('Deleting selected connection');
+                import('./connections.js').then(({ deleteSelectedConnection }) => {
+                    deleteSelectedConnection();
+                });
+            }
         }
     });
     
@@ -64,8 +75,10 @@ function setupSelectionBox() {
     canvasContainer.addEventListener('mousedown', (e) => {
         const isNode = e.target.closest('.node');
         const isPort = e.target.classList.contains('port');
+        const isSvgPath = e.target.tagName === 'path';
         
-        if (isNode || isPort) return;
+        // Don't start selection box if clicking on node, port, or connection
+        if (isNode || isPort || isSvgPath) return;
         
         if (!e.ctrlKey && !e.metaKey) {
             deselectAllNodes();
@@ -130,6 +143,60 @@ function setupSelectionBox() {
     
     document.addEventListener('mouseup', () => {
         if (state.selectionBox) {
+            // Check if we should select a connection instead of nodes
+            const boxRect = state.selectionBox.getBoundingClientRect();
+            const boxLeft = boxRect.left;
+            const boxTop = boxRect.top;
+            const boxRight = boxRect.right;
+            const boxBottom = boxRect.bottom;
+            
+            // If selection box is very small (like a click), check for connection intersection
+            const isSmallBox = boxRect.width < 50 && boxRect.height < 50;
+            
+            if (isSmallBox) {
+                // Check if any connection path intersects with the selection box
+                const paths = document.querySelectorAll('#connections path');
+                let foundConnection = null;
+                
+                console.log('Checking connections, found paths:', paths.length);
+                
+                paths.forEach(path => {
+                    const pathRect = path.getBoundingClientRect();
+                    
+                    console.log('Path rect:', pathRect, 'Box:', { boxLeft, boxTop, boxRight, boxBottom });
+                    
+                    // Check if path bounding box intersects with selection box
+                    if (pathRect.left < boxRight && pathRect.right > boxLeft && 
+                        pathRect.top < boxBottom && pathRect.bottom > boxTop) {
+                        // Get connection data from path attributes
+                        const source = path.getAttribute('data-source');
+                        const target = path.getAttribute('data-target');
+                        const sourceOutput = parseInt(path.getAttribute('data-source-output') || '0');
+                        
+                        console.log('Found intersecting connection:', source, target, sourceOutput);
+                        
+                        if (source && target) {
+                            foundConnection = { source, target, sourceOutput };
+                        }
+                    }
+                });
+                
+                if (foundConnection) {
+                    // Select the connection
+                    console.log('Attempting to select connection:', foundConnection);
+                    import('./connections.js').then(({ selectConnection }) => {
+                        console.log('selectConnection function loaded:', typeof selectConnection);
+                        selectConnection(foundConnection.source, foundConnection.target, foundConnection.sourceOutput);
+                    });
+                    
+                    // Prevent canvas click from deselecting immediately
+                    setTimeout(() => {
+                        state.justSelectedConnection = false;
+                    }, 100);
+                    state.justSelectedConnection = true;
+                }
+            }
+            
             state.selectionBox.remove();
             state.selectionBox = null;
             state.selectionStart = null;

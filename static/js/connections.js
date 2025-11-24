@@ -47,20 +47,64 @@ export function renderConnection(connection) {
     const dx = x2End - x1;
     const controlDistance = Math.abs(dx) * 0.5;
     
+    const pathData = `M ${x1} ${y1} C ${x1 + controlDistance} ${y1}, ${x2End - controlDistance} ${y2}, ${x2End} ${y2}`;
+    
+    // Create invisible wider path for easier clicking
+    const hitArea = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    hitArea.setAttribute('d', pathData);
+    hitArea.setAttribute('stroke', 'transparent');
+    hitArea.setAttribute('stroke-width', '20');
+    hitArea.setAttribute('fill', 'none');
+    hitArea.setAttribute('data-source', connection.source);
+    hitArea.setAttribute('data-target', connection.target);
+    hitArea.setAttribute('data-source-output', connection.sourceOutput || 0);
+    hitArea.style.cursor = 'pointer';
+    
+    // Create visible path
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     path.setAttribute('class', 'connection');
-    path.setAttribute('d', `M ${x1} ${y1} C ${x1 + controlDistance} ${y1}, ${x2End - controlDistance} ${y2}, ${x2End} ${y2}`);
+    path.setAttribute('d', pathData);
     path.setAttribute('marker-end', 'url(#arrowhead)');
     path.setAttribute('data-source', connection.source);
     path.setAttribute('data-target', connection.target);
     path.setAttribute('data-source-output', connection.sourceOutput || 0);
+    path.style.pointerEvents = 'none';
     
-    path.addEventListener('click', () => {
-        if (confirm('Delete this connection?')) {
-            deleteConnection(connection.source, connection.target, connection.sourceOutput);
-        }
+    // Check if this connection is selected
+    if (state.selectedConnection && 
+        state.selectedConnection.source === connection.source &&
+        state.selectedConnection.target === connection.target &&
+        state.selectedConnection.sourceOutput === (connection.sourceOutput || 0)) {
+        path.classList.add('selected');
+        console.log('Added selected class to connection:', connection.source, '->', connection.target);
+    }
+    
+    // Add click handler to hit area
+    hitArea.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        console.log('Connection clicked:', connection);
+        selectConnection(connection.source, connection.target, connection.sourceOutput || 0);
+        
+        // Prevent canvas click from deselecting immediately
+        import('./state.js').then(({ state }) => {
+            state.justSelectedConnection = true;
+            setTimeout(() => {
+                state.justSelectedConnection = false;
+            }, 100);
+        });
     });
     
+    // Check if this connection is selected
+    if (state.selectedConnection && 
+        state.selectedConnection.source === connection.source &&
+        state.selectedConnection.target === connection.target &&
+        state.selectedConnection.sourceOutput === (connection.sourceOutput || 0)) {
+        path.classList.add('selected');
+    }
+    
+    // Append both hit area and visible path
+    document.getElementById('connections').appendChild(hitArea);
     document.getElementById('connections').appendChild(path);
 }
 
@@ -139,4 +183,43 @@ export function cancelConnection() {
     document.getElementById('temp-line').innerHTML = '';
     document.removeEventListener('mousemove', drawTempConnection);
     document.removeEventListener('mouseup', cancelConnection);
+}
+
+export function selectConnection(sourceId, targetId, sourceOutput = 0) {
+    console.log('selectConnection called:', sourceId, targetId, sourceOutput);
+    
+    // Deselect any selected nodes
+    import('./selection.js').then(({ deselectAllNodes }) => {
+        deselectAllNodes();
+    });
+    
+    // Store selected connection
+    state.selectedConnection = {
+        source: sourceId,
+        target: targetId,
+        sourceOutput: sourceOutput
+    };
+    
+    console.log('Selected connection state:', state.selectedConnection);
+    
+    // Update visual state
+    updateConnections();
+}
+
+export function deselectConnection() {
+    if (state.selectedConnection) {
+        state.selectedConnection = null;
+        updateConnections();
+    }
+}
+
+export function deleteSelectedConnection() {
+    if (state.selectedConnection) {
+        deleteConnection(
+            state.selectedConnection.source,
+            state.selectedConnection.target,
+            state.selectedConnection.sourceOutput
+        );
+        state.selectedConnection = null;
+    }
 }
