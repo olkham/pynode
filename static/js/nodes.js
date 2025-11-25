@@ -141,7 +141,7 @@ function buildNodeContent(nodeData, icon, inputCount, outputCount) {
         }
     } else {
         if (nodeData.type === 'GateNode') {
-            const isOpen = nodeData.gateOpen !== undefined ? nodeData.gateOpen : true;
+            const isOpen = nodeData.enabled !== undefined ? nodeData.enabled : true;
             return `
                 <div class="node-content">
                     <div class="node-icon-container"><div class="node-icon">${icon}</div></div>
@@ -273,14 +273,14 @@ window.toggleDebug = async function(nodeId, enabled) {
     const newEnabled = enabled;
     
     try {
-        const response = await fetch(`${API_BASE}/nodes/${nodeId}/debug-enabled`, {
+        const response = await fetch(`${API_BASE}/nodes/${nodeId}/enabled`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ enabled: newEnabled })
         });
         
         if (response.ok) {
-            nodeData.debugEnabled = newEnabled;
+            nodeData.enabled = newEnabled;
         }
     } catch (error) {
         console.error('Failed to toggle debug state:', error);

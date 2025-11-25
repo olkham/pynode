@@ -109,15 +109,15 @@ export async function triggerNodeAction(nodeId, action) {
 
 export async function toggleGate(nodeId, open) {
     try {
-        await fetch(`${API_BASE}/nodes/${nodeId}/gate`, {
+        await fetch(`${API_BASE}/nodes/${nodeId}/enabled`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ open })
+            body: JSON.stringify({ enabled: open })
         });
         
         const nodeData = state.nodes.get(nodeId);
         if (nodeData) {
-            nodeData.gateOpen = open;
+            nodeData.enabled = open;
         }
     } catch (error) {
         console.error('Failed to toggle gate:', error);

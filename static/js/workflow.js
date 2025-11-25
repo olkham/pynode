@@ -38,21 +38,21 @@ export async function loadWorkflow() {
             
             if (nodeData.type === 'GateNode') {
                 try {
-                    const gateResponse = await fetch(`${API_BASE}/nodes/${nodeData.id}/gate`);
-                    const gateData = await gateResponse.json();
-                    nodeData.gateOpen = gateData.open;
+                    const enabledResponse = await fetch(`${API_BASE}/nodes/${nodeData.id}/enabled`);
+                    const enabledData = await enabledResponse.json();
+                    nodeData.enabled = enabledData.enabled;
                 } catch (error) {
-                    nodeData.gateOpen = true;
+                    nodeData.enabled = true;
                 }
             }
             
             if (nodeData.type === 'DebugNode') {
                 try {
-                    const debugResponse = await fetch(`${API_BASE}/nodes/${nodeData.id}/debug-enabled`);
-                    const debugData = await debugResponse.json();
-                    nodeData.debugEnabled = debugData.enabled;
+                    const enabledResponse = await fetch(`${API_BASE}/nodes/${nodeData.id}/enabled`);
+                    const enabledData = await enabledResponse.json();
+                    nodeData.enabled = enabledData.enabled;
                 } catch (error) {
-                    nodeData.debugEnabled = true;
+                    nodeData.enabled = true;
                 }
             }
             

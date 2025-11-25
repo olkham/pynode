@@ -200,49 +200,9 @@ def update_node_position(node_id):
         return jsonify({'error': str(e)}), 400
 
 
-@app.route('/api/nodes/<node_id>/gate', methods=['POST'])
-def toggle_gate(node_id):
-    """Toggle gate state on deployed node (doesn't require redeployment)."""
-    data = request.json
-    gate_open = data.get('open', True)
-    
-    try:
-        # Update BOTH working and deployed engines so state is preserved
-        working_node = working_engine.nodes.get(node_id)
-        deployed_node = deployed_engine.nodes.get(node_id)
-        
-        if working_node and hasattr(working_node, 'set_gate_state'):
-            working_node.set_gate_state(gate_open)
-        
-        if deployed_node and hasattr(deployed_node, 'set_gate_state'):
-            deployed_node.set_gate_state(gate_open)
-        
-        return jsonify({'success': True, 'open': gate_open})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 400
-
-
-@app.route('/api/nodes/<node_id>/gate', methods=['GET'])
-def get_gate_state(node_id):
-    """Get gate state from deployed node."""
-    try:
-        # Check deployed engine first, fall back to working
-        node = deployed_engine.nodes.get(node_id) or working_engine.nodes.get(node_id)
-        
-        if not node:
-            return jsonify({'error': 'Node not found'}), 404
-        
-        if hasattr(node, 'get_gate_state'):
-            return jsonify({'open': node.get_gate_state()})
-        
-        return jsonify({'error': 'Not a gate node'}), 400
-    except Exception as e:
-        return jsonify({'error': str(e)}), 400
-
-
-@app.route('/api/nodes/<node_id>/debug-enabled', methods=['POST'])
-def toggle_debug(node_id):
-    """Toggle debug node enabled state (doesn't require redeployment)."""
+@app.route('/api/nodes/<node_id>/enabled', methods=['POST'])
+def set_node_enabled(node_id):
+    """Set node enabled state (doesn't require redeployment)."""
     data = request.json
     enabled = data.get('enabled', True)
     
@@ -251,11 +211,11 @@ def toggle_debug(node_id):
         working_node = working_engine.nodes.get(node_id)
         deployed_node = deployed_engine.nodes.get(node_id)
         
-        if working_node and hasattr(working_node, 'set_enabled'):
-            working_node.set_enabled(enabled)
+        if working_node:
+            working_node.enabled = enabled
         
-        if deployed_node and hasattr(deployed_node, 'set_enabled'):
-            deployed_node.set_enabled(enabled)
+        if deployed_node:
+            deployed_node.enabled = enabled
         
         # Save workflow to persist the state
         save_workflow_to_disk()
@@ -265,9 +225,9 @@ def toggle_debug(node_id):
         return jsonify({'error': str(e)}), 400
 
 
-@app.route('/api/nodes/<node_id>/debug-enabled', methods=['GET'])
-def get_debug_enabled(node_id):
-    """Get debug node enabled state."""
+@app.route('/api/nodes/<node_id>/enabled', methods=['GET'])
+def get_node_enabled(node_id):
+    """Get node enabled state."""
     try:
         # Check deployed engine first, fall back to working
         node = deployed_engine.nodes.get(node_id) or working_engine.nodes.get(node_id)
@@ -275,10 +235,7 @@ def get_debug_enabled(node_id):
         if not node:
             return jsonify({'error': 'Node not found'}), 404
         
-        if hasattr(node, 'get_enabled'):
-            return jsonify({'enabled': node.get_enabled()})
-        
-        return jsonify({'error': 'Not a debug node'}), 400
+        return jsonify({'enabled': node.enabled})
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
@@ -359,13 +316,8 @@ def save_workflow():
             deployed_node = deployed_engine.nodes.get(node_id)
             
             if deployed_node:
-                # Preserve enabled state (for debug nodes, etc.)
+                # Preserve enabled state (for debug nodes, gate nodes, etc.)
                 node_data['enabled'] = deployed_node.enabled
-                
-                # Preserve gate state for GateNode
-                if hasattr(deployed_node, 'get_gate_state'):
-                    if 'gateOpen' not in node_data:
-                        node_data['gateOpen'] = deployed_node.get_gate_state()
         
         # Stop deployed engine and import new workflow
         deployed_engine.stop()
