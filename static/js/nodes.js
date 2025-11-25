@@ -27,6 +27,11 @@ export function createNode(type, x, y) {
         uniqueName = `${baseName} ${counter}`;
     }
     
+    // Save state before creating node
+    import('./history.js').then(({ saveState }) => {
+        saveState('create node');
+    });
+    
     const nodeData = {
         id: generateNodeId(),
         type: type,
@@ -188,11 +193,13 @@ function buildNodeContent(nodeData, icon, inputCount, outputCount) {
 function attachNodeEventHandlers(nodeEl, nodeData) {
     let isDragging = false;
     let startX, startY;
+    let hasMoved = false;
     
     nodeEl.addEventListener('mousedown', (e) => {
         if (e.target.classList.contains('port')) return;
         
         isDragging = true;
+        hasMoved = false;
         startX = e.clientX - nodeData.x;
         startY = e.clientY - nodeData.y;
         
@@ -207,6 +214,14 @@ function attachNodeEventHandlers(nodeEl, nodeData) {
     
     document.addEventListener('mousemove', (e) => {
         if (!isDragging) return;
+        
+        if (!hasMoved) {
+            // Save state when movement starts
+            hasMoved = true;
+            import('./history.js').then(({ saveState }) => {
+                saveState('move node');
+            });
+        }
         
         const deltaX = (e.clientX - startX) - nodeData.x;
         const deltaY = (e.clientY - startY) - nodeData.y;
@@ -230,6 +245,7 @@ function attachNodeEventHandlers(nodeEl, nodeData) {
     
     document.addEventListener('mouseup', () => {
         isDragging = false;
+        hasMoved = false;
     });
     
     // Port connection handling - support multiple output ports

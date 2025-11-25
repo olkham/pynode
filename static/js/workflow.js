@@ -76,6 +76,11 @@ export async function loadWorkflow() {
         // Render connections immediately after nodes are in DOM
         updateConnections();
         
+        // Clear history after loading workflow
+        import('./history.js').then(({ clearHistory }) => {
+            clearHistory();
+        });
+        
         setModified(false);
     } catch (error) {
         console.error('Failed to load workflow:', error);
@@ -130,6 +135,12 @@ export function clearWorkflow() {
     document.getElementById('connections').innerHTML = '';
     
     deselectAllNodes();
+    
+    // Clear history when clearing workflow
+    import('./history.js').then(({ clearHistory }) => {
+        clearHistory();
+    });
+    
     setModified(true);
 }
 
@@ -204,6 +215,11 @@ export function importWorkflow() {
             workflow.connections.forEach(conn => {
                 state.connections.push(conn);
                 renderConnection(conn);
+            });
+            
+            // Clear history after importing workflow
+            import('./history.js').then(({ clearHistory }) => {
+                clearHistory();
             });
             
             setModified(true);

@@ -39,6 +39,11 @@ export function setupEventListeners() {
     
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
+        // Check if user is typing in an input field
+        const isInputField = e.target.tagName === 'INPUT' || 
+                           e.target.tagName === 'TEXTAREA' || 
+                           e.target.isContentEditable;
+        
         if (e.key === 'Escape') {
             deselectAllNodes();
         }
@@ -46,15 +51,69 @@ export function setupEventListeners() {
         if (e.key === 'Delete') {
             console.log('Delete key pressed, selectedNodes:', state.selectedNodes.size, 'selectedConnection:', state.selectedConnection);
             if (state.selectedNodes.size > 0) {
+                // Save state before deleting
+                import('./history.js').then(({ saveState }) => {
+                    saveState('delete nodes');
+                });
+                
                 const nodesToDelete = Array.from(state.selectedNodes);
                 nodesToDelete.forEach(nodeId => deleteNode(nodeId));
                 deselectAllNodes();
             } else if (state.selectedConnection) {
                 console.log('Deleting selected connection');
+                import('./history.js').then(({ saveState }) => {
+                    saveState('delete connection');
+                });
                 import('./connections.js').then(({ deleteSelectedConnection }) => {
                     deleteSelectedConnection();
                 });
             }
+        }
+        
+        // Copy (Ctrl+C or Cmd+C)
+        if ((e.ctrlKey || e.metaKey) && e.key === 'c' && !isInputField) {
+            e.preventDefault();
+            import('./clipboard.js').then(({ copySelectedNodes }) => {
+                copySelectedNodes();
+            });
+        }
+        
+        // Cut (Ctrl+X or Cmd+X)
+        if ((e.ctrlKey || e.metaKey) && e.key === 'x' && !isInputField) {
+            e.preventDefault();
+            import('./clipboard.js').then(({ cutSelectedNodes }) => {
+                cutSelectedNodes();
+            });
+            import('./history.js').then(({ saveState }) => {
+                saveState('cut nodes');
+            });
+        }
+        
+        // Paste (Ctrl+V or Cmd+V)
+        if ((e.ctrlKey || e.metaKey) && e.key === 'v' && !isInputField) {
+            e.preventDefault();
+            import('./clipboard.js').then(({ pasteNodes }) => {
+                pasteNodes();
+            });
+            import('./history.js').then(({ saveState }) => {
+                saveState('paste nodes');
+            });
+        }
+        
+        // Undo (Ctrl+Z or Cmd+Z)
+        if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey && !isInputField) {
+            e.preventDefault();
+            import('./history.js').then(({ undo }) => {
+                undo();
+            });
+        }
+        
+        // Redo (Ctrl+Y or Cmd+Shift+Z)
+        if (((e.ctrlKey && e.key === 'y') || (e.metaKey && e.shiftKey && e.key === 'z')) && !isInputField) {
+            e.preventDefault();
+            import('./history.js').then(({ redo }) => {
+                redo();
+            });
         }
     });
     

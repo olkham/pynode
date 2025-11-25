@@ -172,6 +172,10 @@ export function endConnection(targetId) {
     const outputIndex = state.drawingConnection.outputIndex || 0;
     
     if (sourceId !== targetId) {
+        // Save state before creating connection
+        import('./history.js').then(({ saveState }) => {
+            saveState('create connection');
+        });
         createConnection(sourceId, targetId, outputIndex, 0);
     }
     
