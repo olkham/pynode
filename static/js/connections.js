@@ -178,7 +178,15 @@ export function endConnection(targetId) {
     cancelConnection();
 }
 
-export function cancelConnection() {
+export function cancelConnection(e) {
+    const hadConnection = state.drawingConnection !== null;
+    const mousePos = e ? { x: e.clientX, y: e.clientY } : null;
+    
+    if (hadConnection && mousePos) {
+        // Show mini palette at mouse position
+        showMiniPalette(mousePos.x, mousePos.y, state.drawingConnection.sourceId, state.drawingConnection.outputIndex);
+    }
+    
     state.drawingConnection = null;
     document.getElementById('temp-line').innerHTML = '';
     document.removeEventListener('mousemove', drawTempConnection);
@@ -222,4 +230,103 @@ export function deleteSelectedConnection() {
         );
         state.selectedConnection = null;
     }
+}
+
+function showMiniPalette(x, y, sourceId, outputIndex) {
+    // Remove existing mini palette if any
+    const existing = document.getElementById('mini-palette');
+    if (existing) existing.remove();
+    
+    // Create mini palette
+    const miniPalette = document.createElement('div');
+    miniPalette.id = 'mini-palette';
+    miniPalette.className = 'mini-palette';
+    miniPalette.style.left = `${x}px`;
+    miniPalette.style.top = `${y}px`;
+    
+    // Filter out input nodes (they have inputCount = 0) and group by category
+    import('./config.js').then(({ NODE_CATEGORIES }) => {
+        const categories = {};
+        const categoryOrder = Object.keys(NODE_CATEGORIES);
+        
+        state.nodeTypes.forEach(nodeType => {
+            // Skip input nodes - they can't receive connections
+            if (nodeType.inputCount === 0) return;
+            
+            const category = nodeType.category || 'custom';
+            if (!categories[category]) {
+                categories[category] = [];
+            }
+            categories[category].push(nodeType);
+        });
+        
+        // Create palette items in category order
+        categoryOrder.forEach(category => {
+            if (!categories[category] || categories[category].length === 0) return;
+            
+            const categoryDiv = document.createElement('div');
+            categoryDiv.className = 'mini-palette-category';
+            
+            const categoryLabel = document.createElement('div');
+            categoryLabel.className = 'mini-palette-category-label';
+            categoryLabel.textContent = NODE_CATEGORIES[category].title;
+            categoryDiv.appendChild(categoryLabel);
+            
+            categories[category].forEach(nodeType => {
+                const item = document.createElement('div');
+                item.className = 'mini-palette-item';
+                item.innerHTML = `<span class="mini-palette-icon">${nodeType.icon}</span> ${nodeType.name}`;
+                item.style.borderColor = nodeType.borderColor;
+                
+                item.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    createNodeAndConnect(nodeType.type, x, y, sourceId, outputIndex);
+                    closeMiniPalette();
+                });
+                
+                categoryDiv.appendChild(item);
+            });
+            
+            miniPalette.appendChild(categoryDiv);
+        });
+        
+        document.body.appendChild(miniPalette);
+        
+        // Close on click outside
+        setTimeout(() => {
+            document.addEventListener('click', closeMiniPalette, { once: true });
+            document.addEventListener('keydown', handleMiniPaletteKeydown);
+        }, 0);
+    });
+}
+
+function closeMiniPalette() {
+    const miniPalette = document.getElementById('mini-palette');
+    if (miniPalette) {
+        miniPalette.remove();
+    }
+    document.removeEventListener('keydown', handleMiniPaletteKeydown);
+}
+
+function handleMiniPaletteKeydown(e) {
+    if (e.key === 'Escape') {
+        closeMiniPalette();
+    }
+}
+
+function createNodeAndConnect(nodeType, x, y, sourceId, outputIndex) {
+    import('./nodes.js').then(({ createNode }) => {
+        // Convert screen coordinates to canvas coordinates
+        const canvasRect = document.getElementById('canvas').getBoundingClientRect();
+        const canvasX = x - canvasRect.left + document.getElementById('canvas').parentElement.scrollLeft;
+        const canvasY = y - canvasRect.top + document.getElementById('canvas').parentElement.scrollTop;
+        
+        // Create the new node
+        const newNodeId = createNode(nodeType, canvasX, canvasY);
+        
+        // Create connection after a brief delay to ensure node is rendered
+        setTimeout(() => {
+            createConnection(sourceId, newNodeId, outputIndex, 0);
+        }, 50);
+    });
 }

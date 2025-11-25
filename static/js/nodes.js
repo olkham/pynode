@@ -49,6 +49,8 @@ export function createNode(type, x, y) {
     renderNode(nodeData);
     markNodeModified(nodeData.id);
     setModified(true);
+    
+    return nodeData.id;
 }
 
 export function renderNode(nodeData) {

@@ -90,15 +90,12 @@ class UltralyticsNode(BaseNode):
             model_name = self.config.get('model', 'yolov8n.pt')
             self.model = YOLO(model_name)
             self._model_loaded = True
-            print(f"[{self.name}] Loaded model: {model_name}")
         except ImportError:
             error_msg = "ultralytics package not installed. Run: pip install ultralytics"
-            print(f"[{self.name}] ERROR: {error_msg}")
             self.report_error(error_msg)
             self.model = None
         except Exception as e:
             error_msg = f"Error loading model: {e}"
-            print(f"[{self.name}] ERROR: {error_msg}")
             self.report_error(error_msg)
             self.model = None
     
@@ -122,7 +119,6 @@ class UltralyticsNode(BaseNode):
         
         if self.model is None:
             error_msg = "Model not loaded, skipping inference"
-            print(f"[{self.name}] {error_msg}")
             self.report_error(error_msg)
             return
         
@@ -130,7 +126,6 @@ class UltralyticsNode(BaseNode):
         payload = msg.get('payload')
         if payload is None:
             error_msg = "No image in payload"
-            print(f"[{self.name}] {error_msg}")
             self.report_error(error_msg)
             return
         
@@ -151,7 +146,6 @@ class UltralyticsNode(BaseNode):
                     image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
                 except Exception as e:
                     error_msg = f"Error decoding JPEG: {e}"
-                    print(f"[{self.name}] {error_msg}")
                     self.report_error(error_msg)
                     return
             elif img_format == 'bgr' and encoding == 'raw':
@@ -160,12 +154,10 @@ class UltralyticsNode(BaseNode):
                     image = np.array(data, dtype=np.uint8)
                 except Exception as e:
                     error_msg = f"Error converting raw BGR: {e}"
-                    print(f"[{self.name}] {error_msg}")
                     self.report_error(error_msg)
                     return
             else:
                 error_msg = f"Unsupported format: {img_format}/{encoding}"
-                print(f"[{self.name}] {error_msg}")
                 self.report_error(error_msg)
                 return
         
@@ -182,7 +174,6 @@ class UltralyticsNode(BaseNode):
                 image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
             except Exception as e:
                 error_msg = f"Error decoding base64 string: {e}"
-                print(f"[{self.name}] {error_msg}")
                 self.report_error(error_msg)
                 return
         
@@ -192,13 +183,11 @@ class UltralyticsNode(BaseNode):
         
         else:
             error_msg = f"Unsupported payload type: {type(payload)}"
-            print(f"[{self.name}] {error_msg}")
             self.report_error(error_msg)
             return
         
         if image is None:
             error_msg = "Failed to decode image"
-            print(f"[{self.name}] {error_msg}")
             self.report_error(error_msg)
             return
         
@@ -252,7 +241,7 @@ class UltralyticsNode(BaseNode):
                     'height': output_image.shape[0]
                 }
             else:
-                print(f"[{self.name}] Failed to encode output image")
+                self.report_error("Failed to encode output image")
                 return
             
             # Create output message
@@ -268,6 +257,5 @@ class UltralyticsNode(BaseNode):
             
         except Exception as e:
             error_msg = f"Error during inference: {e}"
-            print(f"[{self.name}] {error_msg}")
             self.report_error(error_msg)
 

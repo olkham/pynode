@@ -109,15 +109,14 @@ class MqttOutNode(BaseNode):
         """Callback when connected to broker."""
         if rc == 0:
             self._connected = True
-            print(f"[MQTT Out {self.name}] Connected to broker")
         else:
-            print(f"[MQTT Out {self.name}] Connection failed with code {rc}")
+            self.report_error(f"Connection failed with code {rc}")
     
     def on_disconnect(self, client, userdata, rc):
         """Callback when disconnected from broker."""
         self._connected = False
         if rc != 0:
-            print(f"[MQTT Out {self.name}] Unexpected disconnection")
+            self.report_error("Unexpected disconnection from broker")
     
     def on_publish(self, client, userdata, mid):
         """Callback when message is published."""
@@ -128,7 +127,7 @@ class MqttOutNode(BaseNode):
         super().on_start()  # Start base node worker thread
         
         if not MQTT_AVAILABLE:
-            print(f"[MQTT Out {self.name}] paho-mqtt not installed. Install with: pip install paho-mqtt")
+            self.report_error("paho-mqtt not installed. Install with: pip install paho-mqtt")
             return
         
         broker = self.config.get('broker', 'localhost')
@@ -147,13 +146,12 @@ class MqttOutNode(BaseNode):
                 self.client.username_pw_set(username, password)
             
             # Use blocking connect with timeout
-            print(f"[MQTT Out {self.name}] Connecting to {broker}:{port}...")
             self.client.connect(broker, port, 60)
             self.client.loop_start()
             self._connected = True
             
         except Exception as e:
-            print(f"[MQTT Out {self.name}] Failed to connect: {e}")
+            self.report_error(f"Failed to connect to {broker}:{port} - {e}")
     
     def on_stop(self):
         """Disconnect from MQTT broker when workflow stops."""
@@ -163,9 +161,8 @@ class MqttOutNode(BaseNode):
             try:
                 self.client.loop_stop()
                 self.client.disconnect()
-                print(f"[MQTT Out {self.name}] Disconnected")
             except Exception as e:
-                print(f"[MQTT Out {self.name}] Error disconnecting: {e}")
+                self.report_error(f"Error disconnecting: {e}")
     
     def on_close(self):
         """Cleanup when node is removed."""
@@ -179,7 +176,7 @@ class MqttOutNode(BaseNode):
             return
         
         if not self.client or not self._connected:
-            print(f"[MQTT Out {self.name}] Not connected to broker")
+            self.report_error("Not connected to broker")
             return
         
         topic = self.config.get('topic', 'test/topic')
@@ -190,7 +187,7 @@ class MqttOutNode(BaseNode):
         
         # Validate topic
         if not topic or topic.strip() == '':
-            print(f"[MQTT Out {self.name}] Error: Topic is empty. Configure a topic in node properties.")
+            self.report_error("Topic is empty. Configure a topic in node properties.")
             return
         
         qos = int(self.config.get('qos', '0'))
@@ -199,15 +196,17 @@ class MqttOutNode(BaseNode):
         # Get payload
         payload = msg.get('payload', '')
         
-        # Convert payload to string if needed
-        if not isinstance(payload, (str, bytes)):
+        # Serialize payload based on type
+        if isinstance(payload, (dict, list)):
+            # Convert structured data to JSON
+            import json
+            payload = json.dumps(payload)
+        elif not isinstance(payload, (str, bytes)):
             payload = str(payload)
         
         try:
             result = self.client.publish(topic, payload, qos=qos, retain=retain)
-            if result.rc == mqtt.MQTT_ERR_SUCCESS:
-                print(f"[MQTT Out {self.name}] Published to {topic}: {payload}")
-            else:
-                print(f"[MQTT Out {self.name}] Publish failed with code {result.rc}")
+            if result.rc != mqtt.MQTT_ERR_SUCCESS:
+                self.report_error(f"Publish failed to {topic} with code {result.rc}")
         except Exception as e:
-            print(f"[MQTT Out {self.name}] Error publishing to '{topic}': {e}")
+            self.report_error(f"Error publishing to '{topic}': {e}")

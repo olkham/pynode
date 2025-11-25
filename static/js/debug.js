@@ -1,6 +1,8 @@
 // Debug panel and SSE handling
 import { API_BASE } from './config.js';
 
+const MAX_DEBUG_MESSAGES = 100; // Maximum number of messages to keep in UI
+
 export function startDebugPolling() {
     const eventSource = new EventSource(`${API_BASE}/debug/stream`);
     
@@ -50,6 +52,9 @@ export function displayDebugMessages(messages) {
         container.appendChild(msgEl);
     });
     
+    // Limit number of messages
+    trimDebugMessages(container);
+    
     container.scrollTop = container.scrollHeight;
 }
 
@@ -70,7 +75,20 @@ export function displayErrorMessages(errors) {
         container.appendChild(msgEl);
     });
     
+    // Limit number of messages
+    trimDebugMessages(container);
+    
     container.scrollTop = container.scrollHeight;
+}
+
+function trimDebugMessages(container) {
+    const messages = container.querySelectorAll('.debug-message');
+    if (messages.length > MAX_DEBUG_MESSAGES) {
+        const removeCount = messages.length - MAX_DEBUG_MESSAGES;
+        for (let i = 0; i < removeCount; i++) {
+            messages[i].remove();
+        }
+    }
 }
 
 export function clearDebug() {
