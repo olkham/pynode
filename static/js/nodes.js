@@ -8,10 +8,29 @@ export function createNode(type, x, y) {
     const nodeType = state.nodeTypes.find(nt => nt.type === type);
     const displayName = nodeType ? nodeType.name : type;
     
+    // Generate unique name by checking existing nodes
+    let baseName = displayName;
+    let uniqueName = baseName;
+    let counter = 1;
+    
+    // Check if name already exists
+    const existingNames = new Set();
+    state.nodes.forEach(node => {
+        if (node.type === type) {
+            existingNames.add(node.name.toLowerCase());
+        }
+    });
+    
+    // If base name exists, try with numbers
+    while (existingNames.has(uniqueName.toLowerCase())) {
+        counter++;
+        uniqueName = `${baseName} ${counter}`;
+    }
+    
     const nodeData = {
         id: generateNodeId(),
         type: type,
-        name: displayName,
+        name: uniqueName,
         config: {},
         x: x,
         y: y

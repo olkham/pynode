@@ -92,10 +92,14 @@ class UltralyticsNode(BaseNode):
             self._model_loaded = True
             print(f"[{self.name}] Loaded model: {model_name}")
         except ImportError:
-            print(f"[{self.name}] ERROR: ultralytics package not installed. Run: pip install ultralytics")
+            error_msg = "ultralytics package not installed. Run: pip install ultralytics"
+            print(f"[{self.name}] ERROR: {error_msg}")
+            self.report_error(error_msg)
             self.model = None
         except Exception as e:
-            print(f"[{self.name}] ERROR loading model: {e}")
+            error_msg = f"Error loading model: {e}"
+            print(f"[{self.name}] ERROR: {error_msg}")
+            self.report_error(error_msg)
             self.model = None
     
     def configure(self, config: Dict[str, Any]):
@@ -117,13 +121,17 @@ class UltralyticsNode(BaseNode):
             self._load_model()
         
         if self.model is None:
-            print(f"[{self.name}] Model not loaded, skipping inference")
+            error_msg = "Model not loaded, skipping inference"
+            print(f"[{self.name}] {error_msg}")
+            self.report_error(error_msg)
             return
         
         # Get image from message
         payload = msg.get('payload')
         if payload is None:
-            print(f"[{self.name}] No image in payload")
+            error_msg = "No image in payload"
+            print(f"[{self.name}] {error_msg}")
+            self.report_error(error_msg)
             return
         
         # Handle different image formats
@@ -142,17 +150,23 @@ class UltralyticsNode(BaseNode):
                     nparr = np.frombuffer(img_bytes, np.uint8)
                     image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
                 except Exception as e:
-                    print(f"[{self.name}] Error decoding JPEG: {e}")
+                    error_msg = f"Error decoding JPEG: {e}"
+                    print(f"[{self.name}] {error_msg}")
+                    self.report_error(error_msg)
                     return
             elif img_format == 'bgr' and encoding == 'raw':
                 try:
                     # Convert list back to numpy array
                     image = np.array(data, dtype=np.uint8)
                 except Exception as e:
-                    print(f"[{self.name}] Error converting raw BGR: {e}")
+                    error_msg = f"Error converting raw BGR: {e}"
+                    print(f"[{self.name}] {error_msg}")
+                    self.report_error(error_msg)
                     return
             else:
-                print(f"[{self.name}] Unsupported format: {img_format}/{encoding}")
+                error_msg = f"Unsupported format: {img_format}/{encoding}"
+                print(f"[{self.name}] {error_msg}")
+                self.report_error(error_msg)
                 return
         
         # Direct base64 string
@@ -167,7 +181,9 @@ class UltralyticsNode(BaseNode):
                 nparr = np.frombuffer(img_bytes, np.uint8)
                 image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
             except Exception as e:
-                print(f"[{self.name}] Error decoding base64 string: {e}")
+                error_msg = f"Error decoding base64 string: {e}"
+                print(f"[{self.name}] {error_msg}")
+                self.report_error(error_msg)
                 return
         
         # Direct numpy array
@@ -175,11 +191,15 @@ class UltralyticsNode(BaseNode):
             image = payload
         
         else:
-            print(f"[{self.name}] Unsupported payload type: {type(payload)}")
+            error_msg = f"Unsupported payload type: {type(payload)}"
+            print(f"[{self.name}] {error_msg}")
+            self.report_error(error_msg)
             return
         
         if image is None:
-            print(f"[{self.name}] Failed to decode image")
+            error_msg = "Failed to decode image"
+            print(f"[{self.name}] {error_msg}")
+            self.report_error(error_msg)
             return
         
         try:
@@ -247,4 +267,7 @@ class UltralyticsNode(BaseNode):
             self.send(output_msg)
             
         except Exception as e:
-            print(f"[{self.name}] Error during inference: {e}")
+            error_msg = f"Error during inference: {e}"
+            print(f"[{self.name}] {error_msg}")
+            self.report_error(error_msg)
+

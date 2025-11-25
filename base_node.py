@@ -55,6 +55,23 @@ class BaseNode:
         self._worker_thread = None
         self._stop_worker_flag = False
         
+        # Error handling
+        self._workflow_engine = None  # Will be set by workflow engine
+        
+    def set_workflow_engine(self, engine):
+        """Set reference to the workflow engine for error reporting."""
+        self._workflow_engine = engine
+    
+    def report_error(self, error_msg: str):
+        """
+        Report an error to all ErrorNodes in the workflow.
+        
+        Args:
+            error_msg: The error message to report
+        """
+        if self._workflow_engine:
+            self._workflow_engine.broadcast_error(self.id, self.name, error_msg)
+        
     def connect(self, target_node: 'BaseNode', output_index: int = 0, target_input_index: int = 0):
         """
         Connect this node's output to another node's input.

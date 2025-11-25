@@ -10,6 +10,8 @@ export function startDebugPolling() {
             
             if (data.type === 'messages' && data.data.length > 0) {
                 displayDebugMessages(data.data);
+            } else if (data.type === 'errors' && data.data.length > 0) {
+                displayErrorMessages(data.data);
             } else if (data.type === 'frame') {
                 updateImageViewer(data.nodeId, data.data);
             }
@@ -44,6 +46,26 @@ export function displayDebugMessages(messages) {
             <span class="debug-timestamp">${msg.timestamp}</span>
             <span class="debug-node">[${msg.node}]</span>
             <div class="debug-output">${JSON.stringify(msg.output, null, 2)}</div>
+        `;
+        container.appendChild(msgEl);
+    });
+    
+    container.scrollTop = container.scrollHeight;
+}
+
+export function displayErrorMessages(errors) {
+    const container = document.getElementById('debug-messages');
+    
+    errors.forEach(error => {
+        const msgEl = document.createElement('div');
+        msgEl.className = 'debug-message error-message';
+        
+        const timestamp = new Date(error.timestamp * 1000).toLocaleTimeString();
+        
+        msgEl.innerHTML = `
+            <span class="debug-timestamp">${timestamp}</span>
+            <span class="debug-node error-node">[${error.source_node_name}]</span>
+            <div class="debug-output error-output">⚠️ ${error.message}</div>
         `;
         container.appendChild(msgEl);
     });

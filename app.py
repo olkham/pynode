@@ -77,8 +77,18 @@ def load_workflow_from_disk():
             working_engine.import_workflow(workflow_data)
             
             print(f"Loaded workflow: {len(working_engine.nodes)} nodes (deployed: running)")
+        else:
+            # No workflow file exists, but we still need to start the deployed engine
+            # to create the system error node
+            deployed_engine.start()
+            print("No workflow file found, starting with empty workflow")
     except Exception as e:
         print(f"Failed to load workflow: {e}")
+        # Even on error, start the deployed engine to ensure system nodes exist
+        try:
+            deployed_engine.start()
+        except:
+            pass
 
 
 @app.route('/')
@@ -89,9 +99,13 @@ def index():
 
 @app.route('/api/node-types', methods=['GET'])
 def get_node_types():
-    """Get all available node types."""
+    """Get all available node types (excluding system nodes like ErrorNode)."""
     node_types = []
-    for name, node_class in engine.node_types.items():
+    for name, node_class in working_engine.node_types.items():
+        # Skip ErrorNode - it's a system node that shouldn't be manually added
+        if name == 'ErrorNode':
+            continue
+            
         display_name = getattr(node_class, 'display_name', name)
         icon = getattr(node_class, 'icon', '◆')
         category = getattr(node_class, 'category', 'custom')
@@ -386,9 +400,18 @@ def debug_stream():
                             # Clear after copying
                             node.messages.clear()
                 
+                # Get errors from system error node
+                all_errors = deployed_engine.get_system_errors()
+                
                 if all_messages:
                     data = json.dumps({'type': 'messages', 'data': all_messages})
                     yield f'data: {data}\n\n'
+                
+                if all_errors:
+                    data = json.dumps({'type': 'errors', 'data': all_errors})
+                    yield f'data: {data}\n\n'
+                    # Clear after sending
+                    deployed_engine.clear_system_errors()
                 
                 # Check all image viewer nodes for frames
                 for node_id, node in deployed_engine.nodes.items():
