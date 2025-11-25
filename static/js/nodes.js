@@ -119,7 +119,7 @@ function buildNodeContent(nodeData, icon, inputCount, outputCount) {
         `;
     } else if (inputCount > 0 && outputCount === 0) {
         if (nodeData.type === 'DebugNode') {
-            const isEnabled = nodeData.debugEnabled !== undefined ? nodeData.debugEnabled : true;
+            const isEnabled = nodeData.enabled !== undefined ? nodeData.enabled : true;
             return `
                 <div class="node-content">
                     <div class="node-title">${nodeData.name}</div>
