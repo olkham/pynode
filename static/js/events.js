@@ -8,10 +8,14 @@ import { clearDebug } from './debug.js';
 
 export function setupEventListeners() {
     const nodesContainer = document.getElementById('nodes-container');
+    const canvasContainer = document.querySelector('.canvas-container');
     
     // Canvas drop event
     nodesContainer.addEventListener('dragover', (e) => e.preventDefault());
     nodesContainer.addEventListener('drop', handleCanvasDrop);
+    
+    // Middle mouse button panning
+    setupCanvasPanning(canvasContainer);
     
     // Header buttons
     document.getElementById('deploy-btn').addEventListener('click', deployWorkflow);
@@ -77,6 +81,9 @@ function setupSelectionBox() {
     const canvasContainer = document.querySelector('.canvas-container');
     
     canvasContainer.addEventListener('mousedown', (e) => {
+        // Only start selection box with left mouse button (button === 0)
+        if (e.button !== 0) return;
+        
         const isNode = e.target.closest('.node');
         const isPort = e.target.classList.contains('port');
         const isSvgPath = e.target.tagName === 'path';
@@ -204,6 +211,58 @@ function setupSelectionBox() {
             state.selectionBox.remove();
             state.selectionBox = null;
             state.selectionStart = null;
+        }
+    });
+}
+
+function setupCanvasPanning(canvasContainer) {
+    let isPanning = false;
+    let startScrollLeft = 0;
+    let startScrollTop = 0;
+    let startX = 0;
+    let startY = 0;
+    
+    canvasContainer.addEventListener('mousedown', (e) => {
+        // Middle mouse button (button === 1)
+        if (e.button === 1) {
+            isPanning = true;
+            startScrollLeft = canvasContainer.scrollLeft;
+            startScrollTop = canvasContainer.scrollTop;
+            startX = e.clientX;
+            startY = e.clientY;
+            canvasContainer.style.cursor = 'grabbing';
+            e.preventDefault();
+        }
+    });
+    
+    canvasContainer.addEventListener('mousemove', (e) => {
+        if (!isPanning) return;
+        
+        const deltaX = e.clientX - startX;
+        const deltaY = e.clientY - startY;
+        
+        canvasContainer.scrollLeft = startScrollLeft - deltaX;
+        canvasContainer.scrollTop = startScrollTop - deltaY;
+    });
+    
+    canvasContainer.addEventListener('mouseup', (e) => {
+        if (e.button === 1) {
+            isPanning = false;
+            canvasContainer.style.cursor = '';
+        }
+    });
+    
+    canvasContainer.addEventListener('mouseleave', () => {
+        if (isPanning) {
+            isPanning = false;
+            canvasContainer.style.cursor = '';
+        }
+    });
+    
+    // Prevent context menu on middle click
+    canvasContainer.addEventListener('contextmenu', (e) => {
+        if (e.button === 1) {
+            e.preventDefault();
         }
     });
 }
