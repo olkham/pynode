@@ -15,6 +15,7 @@
         <header class="header">
             <h1>PyNode Editor</h1>
             <div class="header-actions">
+                <button id="toggle-properties-btn" class="btn btn-secondary" title="Toggle Properties Panel">📋</button>
                 <button id="deploy-btn" class="btn btn-primary" disabled>Deploy</button>
                 <button id="clear-btn" class="btn btn-secondary">Clear</button>
                 <button id="export-btn" class="btn btn-secondary">Export</button>
@@ -60,7 +61,23 @@
             <aside class="debug-panel" id="debug-panel">
                 <div class="debug-header">
                     <h3>Debug Messages</h3>
-                    <button id="clear-debug-btn" class="btn btn-small">Clear</button>
+                    <div class="debug-controls">
+                        <button id="clear-debug-btn" class="btn btn-small">Clear</button>
+                    </div>
+                </div>
+                <div class="debug-filters">
+                    <label class="filter-toggle">
+                        <input type="checkbox" id="filter-info" checked>
+                        <span>ℹ️ Info</span>
+                    </label>
+                    <label class="filter-toggle">
+                        <input type="checkbox" id="filter-errors" checked>
+                        <span>⚠️ Errors</span>
+                    </label>
+                    <label class="filter-toggle">
+                        <input type="checkbox" id="collapse-similar" checked>
+                        <span>📦 Collapse</span>
+                    </label>
                 </div>
                 <div id="debug-messages"></div>
             </aside>

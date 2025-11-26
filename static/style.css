@@ -559,6 +559,17 @@ body {
     padding: 15px;
     position: relative;
     z-index: 100;
+    transition: margin-right 0.3s ease, opacity 0.3s ease;
+}
+
+.properties.hidden {
+    margin-right: -300px;
+    opacity: 0;
+    pointer-events: none;
+    min-width: 0;
+    max-width: 0;
+    padding: 0;
+    border: none;
 }
 
 .properties.resizing {
@@ -676,6 +687,38 @@ body {
     margin: 0;
 }
 
+.debug-controls {
+    display: flex;
+    gap: 5px;
+}
+
+.debug-filters {
+    display: flex;
+    gap: 10px;
+    padding: 10px 15px;
+    border-bottom: 1px solid #3e3e42;
+    flex-wrap: wrap;
+    background: #2d2d30;
+}
+
+.filter-toggle {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    font-size: 12px;
+    color: #d4d4d4;
+    user-select: none;
+}
+
+.filter-toggle input[type="checkbox"] {
+    cursor: pointer;
+}
+
+.filter-toggle:hover {
+    color: #fff;
+}
+
 #debug-messages {
     flex: 1;
     padding: 10px 15px;
@@ -690,11 +733,47 @@ body {
     border-radius: 3px;
     font-size: 12px;
     font-family: 'Consolas', 'Monaco', monospace;
+    cursor: pointer;
+    transition: background 0.2s ease;
+    position: relative;
+}
+
+.debug-message:hover {
+    background: #3d3d40;
 }
 
 .debug-message.error-message {
     background: #3d2020;
     border-left: 3px solid #E63946;
+}
+
+.debug-message.error-message:hover {
+    background: #4d2828;
+}
+
+.debug-message.hidden {
+    display: none;
+}
+
+.debug-message-header {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.debug-count {
+    display: inline-block;
+    background: #0e639c;
+    color: #fff;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: bold;
+    margin-left: 5px;
+}
+
+.debug-message.error-message .debug-count {
+    background: #E63946;
 }
 
 .debug-timestamp {
@@ -904,5 +983,16 @@ body {
 
 .mini-palette::-webkit-scrollbar-thumb:hover {
     background: #555;
+}
+
+/* Animations */
+@keyframes flash {
+    0%, 100% {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+    50% {
+        box-shadow: 0 0 0 4px rgba(0, 152, 255, 0.8), 0 0 20px rgba(0, 152, 255, 0.9);
+        border-color: #0098ff;
+    }
 }
 

@@ -1,0 +1,15 @@
+UI/UX
+- hide/close properties panel
+- unity like debug filter
+    - colapse similar errors (put a counter for the number of occurances)
+    - show/hide info messages
+    - show/hide error messages
+- make the error/debug messages clickable to take you to the node throwing them
+
+NODES
+- use FrameSource for general image capture (reuse from inference_node)
+- use inference engine (reuse from inference_node)
+- add multiple destinations (reuse from inference_node)
+
+GENERAL
+- workflow wide services like mqtt so we can reuse the same mqtt client for pub node and sub node

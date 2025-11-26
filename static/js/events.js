@@ -24,6 +24,28 @@ export function setupEventListeners() {
     document.getElementById('import-btn').addEventListener('click', importWorkflow);
     document.getElementById('clear-debug-btn').addEventListener('click', clearDebug);
     
+    // Properties panel toggle
+    document.getElementById('toggle-properties-btn').addEventListener('click', togglePropertiesPanel);
+    
+    // Debug filter controls
+    document.getElementById('filter-info').addEventListener('change', (e) => {
+        import('./debug.js').then(({ toggleInfoMessages }) => {
+            toggleInfoMessages(e.target.checked);
+        });
+    });
+    
+    document.getElementById('filter-errors').addEventListener('change', (e) => {
+        import('./debug.js').then(({ toggleErrorMessages }) => {
+            toggleErrorMessages(e.target.checked);
+        });
+    });
+    
+    document.getElementById('collapse-similar').addEventListener('change', (e) => {
+        import('./debug.js').then(({ toggleCollapseSimilar }) => {
+            toggleCollapseSimilar(e.target.checked);
+        });
+    });
+    
     // Properties panel resize
     setupPropertiesResize();
     
@@ -118,6 +140,11 @@ export function setupEventListeners() {
     });
     
     setupSelectionBox();
+}
+
+function togglePropertiesPanel() {
+    const propertiesPanel = document.getElementById('properties-panel-container');
+    propertiesPanel.classList.toggle('hidden');
 }
 
 function handleCanvasDrop(e) {
