@@ -89,9 +89,27 @@ export async function loadWorkflow() {
 
 export async function deployWorkflow() {
     try {
-        // Use /workflow/save endpoint which preserves runtime state
-        const response = await fetch(`${API_BASE}/workflow/save`, {
-            method: 'POST'
+        const nodes = [];
+        state.nodes.forEach((nodeData) => {
+            nodes.push({
+                id: nodeData.id,
+                type: nodeData.type,
+                name: nodeData.name,
+                config: nodeData.config,
+                x: nodeData.x,
+                y: nodeData.y
+            });
+        });
+        
+        const workflow = {
+            nodes: nodes,
+            connections: state.connections
+        };
+        
+        const response = await fetch(`${API_BASE}/workflow`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(workflow)
         });
         
         if (response.ok) {
