@@ -38,21 +38,21 @@ export async function loadWorkflow() {
             
             if (nodeData.type === 'GateNode') {
                 try {
-                    const gateResponse = await fetch(`${API_BASE}/nodes/${nodeData.id}/gate`);
-                    const gateData = await gateResponse.json();
-                    nodeData.gateOpen = gateData.open;
+                    const enabledResponse = await fetch(`${API_BASE}/nodes/${nodeData.id}/enabled`);
+                    const enabledData = await enabledResponse.json();
+                    nodeData.enabled = enabledData.enabled;
                 } catch (error) {
-                    nodeData.gateOpen = true;
+                    nodeData.enabled = true;
                 }
             }
             
             if (nodeData.type === 'DebugNode') {
                 try {
-                    const debugResponse = await fetch(`${API_BASE}/nodes/${nodeData.id}/debug-enabled`);
-                    const debugData = await debugResponse.json();
-                    nodeData.debugEnabled = debugData.enabled;
+                    const enabledResponse = await fetch(`${API_BASE}/nodes/${nodeData.id}/enabled`);
+                    const enabledData = await enabledResponse.json();
+                    nodeData.enabled = enabledData.enabled;
                 } catch (error) {
-                    nodeData.debugEnabled = true;
+                    nodeData.enabled = true;
                 }
             }
             
@@ -75,6 +75,11 @@ export async function loadWorkflow() {
         
         // Render connections immediately after nodes are in DOM
         updateConnections();
+        
+        // Clear history after loading workflow
+        import('./history.js').then(({ clearHistory }) => {
+            clearHistory();
+        });
         
         setModified(false);
     } catch (error) {
@@ -112,6 +117,12 @@ export function clearWorkflow() {
     document.getElementById('connections').innerHTML = '';
     
     deselectAllNodes();
+    
+    // Clear history when clearing workflow
+    import('./history.js').then(({ clearHistory }) => {
+        clearHistory();
+    });
+    
     setModified(true);
 }
 
@@ -186,6 +197,11 @@ export function importWorkflow() {
             workflow.connections.forEach(conn => {
                 state.connections.push(conn);
                 renderConnection(conn);
+            });
+            
+            // Clear history after importing workflow
+            import('./history.js').then(({ clearHistory }) => {
+                clearHistory();
             });
             
             setModified(true);

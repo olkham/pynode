@@ -99,6 +99,13 @@ class MqttInNode(BaseNode):
         """Callback when message is received."""
         try:
             payload = message.payload.decode('utf-8')
+            # Try to parse as JSON for structured data
+            import json
+            try:
+                payload = json.loads(payload)
+            except (json.JSONDecodeError, ValueError):
+                # Not JSON, keep as string
+                pass
         except:
             payload = message.payload
         
@@ -115,22 +122,21 @@ class MqttInNode(BaseNode):
             topic = self.config.get('topic', 'test/topic')
             qos = int(self.config.get('qos', '0'))
             client.subscribe(topic, qos)
-            print(f"[MQTT In {self.name}] Connected and subscribed to {topic}")
         else:
-            print(f"[MQTT In {self.name}] Connection failed with code {rc}")
+            self.report_error(f"Connection failed with code {rc}")
     
     def on_disconnect(self, client, userdata, rc):
         """Callback when disconnected from broker."""
         self._connected = False
         if rc != 0:
-            print(f"[MQTT In {self.name}] Unexpected disconnection")
+            self.report_error("Unexpected disconnection from broker")
     
     def on_start(self):
         """Connect to MQTT broker when workflow starts."""
         super().on_start()  # Start base node worker thread
         
         if not MQTT_AVAILABLE:
-            print(f"[MQTT In {self.name}] paho-mqtt not installed. Install with: pip install paho-mqtt")
+            self.report_error("paho-mqtt not installed. Install with: pip install paho-mqtt")
             return
         
         broker = self.config.get('broker', 'localhost')
@@ -149,13 +155,12 @@ class MqttInNode(BaseNode):
                 self.client.username_pw_set(username, password)
             
             # Use blocking connect with timeout
-            print(f"[MQTT In {self.name}] Connecting to {broker}:{port}...")
             self.client.connect(broker, port, 60)
             self.client.loop_start()
             self._connected = True
             
         except Exception as e:
-            print(f"[MQTT In {self.name}] Failed to connect: {e}")
+            self.report_error(f"Failed to connect to {broker}:{port} - {e}")
     
     def on_stop(self):
         """Disconnect from MQTT broker when workflow stops."""
@@ -165,9 +170,8 @@ class MqttInNode(BaseNode):
             try:
                 self.client.loop_stop()
                 self.client.disconnect()
-                print(f"[MQTT In {self.name}] Disconnected")
             except Exception as e:
-                print(f"[MQTT In {self.name}] Error disconnecting: {e}")
+                self.report_error(f"Error disconnecting: {e}")
     
     def on_close(self):
         """Cleanup when node is removed."""

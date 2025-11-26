@@ -148,3 +148,6 @@ Thumbs.db
 
 # Project specific - ignore all JSON files (workflows and backups)
 *.json
+
+# PyTorch model files
+*.pt

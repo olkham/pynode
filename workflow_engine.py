@@ -18,6 +18,7 @@ class WorkflowEngine:
         self.node_types: Dict[str, Type[BaseNode]] = {}
         self.running = False
         self._lock = threading.RLock()  # Use RLock (reentrant lock) to allow nested locking
+        self._system_error_node = None  # System error node that's always present
     
     def register_node_type(self, node_class: Type[BaseNode]):
         """
@@ -48,6 +49,9 @@ class WorkflowEngine:
         with self._lock:
             node_class = self.node_types[node_type]
             node = node_class(node_id=node_id, name=name)
+            
+            # Set workflow engine reference for error reporting
+            node.set_workflow_engine(self)
             
             if config:
                 node.configure(config)
@@ -137,6 +141,9 @@ class WorkflowEngine:
             
             self.running = True
             
+            # Create system error node if it doesn't exist
+            self._ensure_system_error_node()
+            
             for node in self.nodes.values():
                 try:
                     node.on_start()
@@ -198,9 +205,98 @@ class WorkflowEngine:
         if node and hasattr(node, 'messages'):
             node.messages.clear()
     
+    def broadcast_error(self, source_node_id: str, source_node_name: str, error_msg: str):
+        """
+        Broadcast an error to all ErrorNodes in the workflow, including the system error node.
+        
+        Args:
+            source_node_id: ID of the node that generated the error
+            source_node_name: Name of the node that generated the error
+            error_msg: The error message
+        """
+        with self._lock:
+            # Ensure system error node exists
+            self._ensure_system_error_node()
+            
+            # Broadcast to all error nodes including system node
+            for node in self.nodes.values():
+                if node.type == 'ErrorNode' and hasattr(node, 'handle_error'):
+                    try:
+                        node.handle_error(source_node_id, source_node_name, error_msg)
+                    except Exception as e:
+                        print(f"Error broadcasting to ErrorNode {node.id}: {e}")
+    
+    def _ensure_system_error_node(self):
+        """
+        Ensure the system error node exists. Creates it if not present.
+        This node is always available and doesn't appear on the canvas.
+        """
+        if self._system_error_node is None or '__system_error__' not in self.nodes:
+            # Check if ErrorNode type is registered
+            if 'ErrorNode' in self.node_types:
+                try:
+                    self._system_error_node = self.create_node(
+                        'ErrorNode',
+                        node_id='__system_error__',
+                        name='System Errors',
+                        config={}
+                    )
+                    # Mark as system node so it won't be exported/displayed
+                    if hasattr(self._system_error_node, 'is_system_node'):
+                        self._system_error_node.is_system_node = True
+                except Exception as e:
+                    print(f"Failed to create system error node: {e}")
+    
+    def get_system_errors(self) -> List[Dict[str, Any]]:
+        """
+        Get errors from the system error node.
+        
+        Returns:
+            List of error messages from system error node
+        """
+        self._ensure_system_error_node()
+        if self._system_error_node and hasattr(self._system_error_node, 'get_errors'):
+            return self._system_error_node.get_errors()
+        return []
+    
+    def clear_system_errors(self):
+        """
+        Clear errors from the system error node.
+        """
+        self._ensure_system_error_node()
+        if self._system_error_node and hasattr(self._system_error_node, 'clear_errors'):
+            self._system_error_node.clear_errors()
+    
+    def get_error_messages(self, node_id: str) -> List[Dict[str, Any]]:
+        """
+        Get error messages from an error node.
+        
+        Args:
+            node_id: ID of the error node
+            
+        Returns:
+            List of error messages
+        """
+        node = self.get_node(node_id)
+        if node and hasattr(node, 'get_errors'):
+            return node.get_errors()
+        return []
+    
+    def clear_error_messages(self, node_id: str):
+        """
+        Clear error messages from an error node.
+        
+        Args:
+            node_id: ID of the error node
+        """
+        node = self.get_node(node_id)
+        if node and hasattr(node, 'clear_errors'):
+            node.clear_errors()
+    
     def export_workflow(self) -> Dict[str, Any]:
         """
         Export the entire workflow to a dictionary.
+        Excludes system nodes (like the system error node).
         
         Returns:
             Dictionary representation of the workflow
@@ -209,6 +305,10 @@ class WorkflowEngine:
         connections_data = []
         
         for node in self.nodes.values():
+            # Skip system nodes
+            if node.id == '__system_error__' or getattr(node, 'is_system_node', False):
+                continue
+                
             nodes_data.append({
                 'id': node.id,
                 'type': node.type,
@@ -221,6 +321,9 @@ class WorkflowEngine:
             
             for output_idx, targets in node.outputs.items():
                 for target_node, input_idx in targets:
+                    # Skip connections to system nodes
+                    if target_node.id == '__system_error__' or getattr(target_node, 'is_system_node', False):
+                        continue
                     connections_data.append({
                         'source': node.id,
                         'target': target_node.id,
@@ -241,8 +344,10 @@ class WorkflowEngine:
             workflow_data: Dictionary with 'nodes' and 'connections'
         """
         with self._lock:
-            # Clear existing workflow
+            # Clear existing workflow (but preserve system error node)
+            system_error_node = self._system_error_node
             self.nodes.clear()
+            self._system_error_node = None
             
             # Create nodes
             for node_data in workflow_data.get('nodes', []):
@@ -265,6 +370,10 @@ class WorkflowEngine:
                     output_index=conn_data.get('sourceOutput', 0),
                     input_index=conn_data.get('targetInput', 0)
                 )
+            
+            # Recreate system error node if the workflow is running
+            if self.running:
+                self._ensure_system_error_node()
     
     def get_workflow_stats(self) -> Dict[str, Any]:
         """

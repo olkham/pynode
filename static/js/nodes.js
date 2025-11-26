@@ -8,10 +8,34 @@ export function createNode(type, x, y) {
     const nodeType = state.nodeTypes.find(nt => nt.type === type);
     const displayName = nodeType ? nodeType.name : type;
     
+    // Generate unique name by checking existing nodes
+    let baseName = displayName;
+    let uniqueName = baseName;
+    let counter = 1;
+    
+    // Check if name already exists
+    const existingNames = new Set();
+    state.nodes.forEach(node => {
+        if (node.type === type) {
+            existingNames.add(node.name.toLowerCase());
+        }
+    });
+    
+    // If base name exists, try with numbers
+    while (existingNames.has(uniqueName.toLowerCase())) {
+        counter++;
+        uniqueName = `${baseName} ${counter}`;
+    }
+    
+    // Save state before creating node
+    import('./history.js').then(({ saveState }) => {
+        saveState('create node');
+    });
+    
     const nodeData = {
         id: generateNodeId(),
         type: type,
-        name: displayName,
+        name: uniqueName,
         config: {},
         x: x,
         y: y
@@ -30,6 +54,8 @@ export function createNode(type, x, y) {
     renderNode(nodeData);
     markNodeModified(nodeData.id);
     setModified(true);
+    
+    return nodeData.id;
 }
 
 export function renderNode(nodeData) {
@@ -119,7 +145,7 @@ function buildNodeContent(nodeData, icon, inputCount, outputCount) {
         `;
     } else if (inputCount > 0 && outputCount === 0) {
         if (nodeData.type === 'DebugNode') {
-            const isEnabled = nodeData.debugEnabled !== undefined ? nodeData.debugEnabled : true;
+            const isEnabled = nodeData.enabled !== undefined ? nodeData.enabled : true;
             return `
                 <div class="node-content">
                     <div class="node-title">${nodeData.name}</div>
@@ -141,7 +167,7 @@ function buildNodeContent(nodeData, icon, inputCount, outputCount) {
         }
     } else {
         if (nodeData.type === 'GateNode') {
-            const isOpen = nodeData.gateOpen !== undefined ? nodeData.gateOpen : true;
+            const isOpen = nodeData.enabled !== undefined ? nodeData.enabled : true;
             return `
                 <div class="node-content">
                     <div class="node-icon-container"><div class="node-icon">${icon}</div></div>
@@ -167,11 +193,13 @@ function buildNodeContent(nodeData, icon, inputCount, outputCount) {
 function attachNodeEventHandlers(nodeEl, nodeData) {
     let isDragging = false;
     let startX, startY;
+    let hasMoved = false;
     
     nodeEl.addEventListener('mousedown', (e) => {
         if (e.target.classList.contains('port')) return;
         
         isDragging = true;
+        hasMoved = false;
         startX = e.clientX - nodeData.x;
         startY = e.clientY - nodeData.y;
         
@@ -186,6 +214,14 @@ function attachNodeEventHandlers(nodeEl, nodeData) {
     
     document.addEventListener('mousemove', (e) => {
         if (!isDragging) return;
+        
+        if (!hasMoved) {
+            // Save state when movement starts
+            hasMoved = true;
+            import('./history.js').then(({ saveState }) => {
+                saveState('move node');
+            });
+        }
         
         const deltaX = (e.clientX - startX) - nodeData.x;
         const deltaY = (e.clientY - startY) - nodeData.y;
@@ -209,6 +245,7 @@ function attachNodeEventHandlers(nodeEl, nodeData) {
     
     document.addEventListener('mouseup', () => {
         isDragging = false;
+        hasMoved = false;
     });
     
     // Port connection handling - support multiple output ports
@@ -273,14 +310,14 @@ window.toggleDebug = async function(nodeId, enabled) {
     const newEnabled = enabled;
     
     try {
-        const response = await fetch(`${API_BASE}/nodes/${nodeId}/debug-enabled`, {
+        const response = await fetch(`${API_BASE}/nodes/${nodeId}/enabled`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ enabled: newEnabled })
         });
         
         if (response.ok) {
-            nodeData.debugEnabled = newEnabled;
+            nodeData.enabled = newEnabled;
         }
     } catch (error) {
         console.error('Failed to toggle debug state:', error);

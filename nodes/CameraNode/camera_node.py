@@ -83,14 +83,12 @@ class CameraNode(BaseNode):
             self.camera = cv2.VideoCapture(camera_index)
             
             if not self.camera.isOpened():
-                print(f"[Camera {self.id}] Failed to open camera {camera_index}")
+                self.report_error(f"Failed to open camera {camera_index}")
                 return
             
             # Set resolution
             self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, width)
             self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
-            
-            print(f"[Camera {self.id}] Opened camera {camera_index} at {width}x{height}")
             
             # Start capture thread
             self.running = True
@@ -98,7 +96,7 @@ class CameraNode(BaseNode):
             self.capture_thread.start()
             
         except Exception as e:
-            print(f"[Camera {self.id}] Error starting camera: {e}")
+            self.report_error(f"Error starting camera: {e}")
     
     def on_stop(self):
         """Stop the camera capture when workflow stops."""
@@ -113,7 +111,6 @@ class CameraNode(BaseNode):
         if self.camera:
             self.camera.release()
             self.camera = None
-            print(f"[Camera {self.id}] Camera released")
     
     def on_close(self):
         """Cleanup when node is deleted."""
@@ -131,7 +128,7 @@ class CameraNode(BaseNode):
                 ret, frame = self.camera.read()
                 
                 if not ret or frame is None:
-                    print(f"[Camera {self.id}] Failed to capture frame")
+                    self.report_error("Failed to capture frame")
                     time.sleep(frame_interval)
                     continue
                 
@@ -150,7 +147,7 @@ class CameraNode(BaseNode):
                             'height': frame.shape[0]
                         }
                     else:
-                        print(f"[Camera {self.id}] Failed to encode JPEG")
+                        self.report_error("Failed to encode JPEG")
                         continue
                 else:
                     # Send raw frame data
@@ -167,7 +164,7 @@ class CameraNode(BaseNode):
                 self.send(msg)
                 
             except Exception as e:
-                print(f"[Camera {self.id}] Error capturing frame: {e}")
+                self.report_error(f"Error capturing frame: {e}")
             
             # Maintain frame rate
             elapsed = time.time() - start_time

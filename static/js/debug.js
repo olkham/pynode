@@ -1,6 +1,8 @@
 // Debug panel and SSE handling
 import { API_BASE } from './config.js';
 
+const MAX_DEBUG_MESSAGES = 100; // Maximum number of messages to keep in UI
+
 export function startDebugPolling() {
     const eventSource = new EventSource(`${API_BASE}/debug/stream`);
     
@@ -10,6 +12,8 @@ export function startDebugPolling() {
             
             if (data.type === 'messages' && data.data.length > 0) {
                 displayDebugMessages(data.data);
+            } else if (data.type === 'errors' && data.data.length > 0) {
+                displayErrorMessages(data.data);
             } else if (data.type === 'frame') {
                 updateImageViewer(data.nodeId, data.data);
             }
@@ -48,7 +52,43 @@ export function displayDebugMessages(messages) {
         container.appendChild(msgEl);
     });
     
+    // Limit number of messages
+    trimDebugMessages(container);
+    
     container.scrollTop = container.scrollHeight;
+}
+
+export function displayErrorMessages(errors) {
+    const container = document.getElementById('debug-messages');
+    
+    errors.forEach(error => {
+        const msgEl = document.createElement('div');
+        msgEl.className = 'debug-message error-message';
+        
+        const timestamp = new Date(error.timestamp * 1000).toLocaleTimeString();
+        
+        msgEl.innerHTML = `
+            <span class="debug-timestamp">${timestamp}</span>
+            <span class="debug-node error-node">[${error.source_node_name}]</span>
+            <div class="debug-output error-output">⚠️ ${error.message}</div>
+        `;
+        container.appendChild(msgEl);
+    });
+    
+    // Limit number of messages
+    trimDebugMessages(container);
+    
+    container.scrollTop = container.scrollHeight;
+}
+
+function trimDebugMessages(container) {
+    const messages = container.querySelectorAll('.debug-message');
+    if (messages.length > MAX_DEBUG_MESSAGES) {
+        const removeCount = messages.length - MAX_DEBUG_MESSAGES;
+        for (let i = 0; i < removeCount; i++) {
+            messages[i].remove();
+        }
+    }
 }
 
 export function clearDebug() {

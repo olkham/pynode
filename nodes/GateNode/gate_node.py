@@ -25,26 +25,13 @@ class GateNode(BaseNode):
     
     def __init__(self, node_id=None, name="gate"):
         super().__init__(node_id, name)
-        self.gate_open = True  # Gate is open by default
+        self.enabled = True  # Gate is open (enabled) by default
         self.configure({})
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """
-        Pass message through if gate is open, otherwise discard it.
+        Pass message through if gate is enabled, otherwise discard it.
         """
-        if self.gate_open:
+        if self.enabled:
             self.send(msg)
-        # If gate is closed, message is silently discarded
-    
-    def set_gate_state(self, open: bool):
-        """
-        Set the gate state (open/closed).
-        This is called from the API without requiring redeployment.
-        """
-        self.gate_open = open
-    
-    def get_gate_state(self) -> bool:
-        """
-        Get the current gate state.
-        """
-        return self.gate_open
+        # If gate is disabled, message is silently discarded
