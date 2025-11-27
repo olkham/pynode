@@ -426,7 +426,7 @@ def debug_stream():
                                 })
                                 yield f'data: {frame_data}\n\n'
                 
-                time.sleep(0.1)
+                time.sleep(0.01)  # 10ms sleep for up to 100 FPS
         except GeneratorExit:
             # Client disconnected
             debug_message_queues.pop(client_id, None)

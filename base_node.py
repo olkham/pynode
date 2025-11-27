@@ -170,7 +170,7 @@ class BaseNode:
         while not self._stop_worker_flag:
             try:
                 # Wait for a message with timeout to allow checking stop flag
-                msg, input_index = self._message_queue.get(timeout=0.1)
+                msg, input_index = self._message_queue.get(timeout=0.01)
                 
                 # Process the message
                 try:

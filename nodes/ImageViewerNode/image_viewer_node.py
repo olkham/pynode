@@ -37,6 +37,8 @@ class ImageViewerNode(BaseNode):
     def __init__(self, node_id=None, name="image viewer"):
         super().__init__(node_id, name)
         self.current_frame = None
+        self.frame_timestamp = 0
+        self.last_sent_timestamp = 0
         self.configure({
             'width': 320,
             'height': 240
@@ -46,14 +48,20 @@ class ImageViewerNode(BaseNode):
         """
         Receive image data and store it for display.
         """
+        import time
         payload = msg.get('payload')
         
         if payload and isinstance(payload, dict):
             # Store the frame data for the UI to retrieve
             self.current_frame = payload
+            self.frame_timestamp = time.time()
     
     def get_current_frame(self):
         """
         Get the current frame for display in the UI.
+        Only returns frames that haven't been sent yet.
         """
-        return self.current_frame
+        if self.current_frame and self.frame_timestamp > self.last_sent_timestamp:
+            self.last_sent_timestamp = self.frame_timestamp
+            return self.current_frame
+        return None

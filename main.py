@@ -52,8 +52,6 @@ if __name__ == '__main__':
     load_workflow_from_disk()
     
     print("Starting PyNode server...")
-    print("API available at: http://localhost:5000")
-    print("UI available at: http://localhost:5000")
     
     # Run the Flask app
     app.run(debug=False, host='0.0.0.0', port=5000)

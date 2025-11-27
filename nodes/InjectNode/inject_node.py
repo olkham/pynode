@@ -139,11 +139,25 @@ class InjectNode(BaseNode):
     def _repeat_timer(self, interval):
         """
         Background timer for repeated injections.
+        Uses absolute timing to prevent drift.
         """
+        next_time = time.time() + interval
+        
         while not self._stop_timer:
-            time.sleep(interval)
+            current_time = time.time()
+            sleep_time = next_time - current_time
+            
+            if sleep_time > 0:
+                time.sleep(sleep_time)
+            
             if not self._stop_timer:
                 self.inject()
+                # Schedule next injection at fixed interval from the scheduled time
+                next_time += interval
+                
+                # If we're running behind, catch up by skipping to the next valid time
+                if next_time < time.time():
+                    next_time = time.time() + interval
     
     def on_stop(self):
         """
