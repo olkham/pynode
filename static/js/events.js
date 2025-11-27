@@ -24,25 +24,65 @@ export function setupEventListeners() {
     document.getElementById('import-btn').addEventListener('click', importWorkflow);
     document.getElementById('clear-debug-btn').addEventListener('click', clearDebug);
     
-    // Properties panel toggle
-    document.getElementById('toggle-properties-btn').addEventListener('click', togglePropertiesPanel);
+    // Hamburger menu toggle
+    const menuBtn = document.getElementById('menu-btn');
+    const menuDropdown = document.getElementById('menu-dropdown');
+    
+    menuBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        menuDropdown.classList.toggle('hidden');
+    });
+    
+    // Close menu when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!menuDropdown.classList.contains('hidden') && 
+            !menuDropdown.contains(e.target) && 
+            e.target !== menuBtn) {
+            menuDropdown.classList.add('hidden');
+        }
+    });
+    
+    // Close menu after clicking a menu item
+    document.getElementById('clear-btn').addEventListener('click', () => {
+        menuDropdown.classList.add('hidden');
+    });
+    
+    document.getElementById('export-btn').addEventListener('click', () => {
+        menuDropdown.classList.add('hidden');
+    });
+    
+    document.getElementById('import-btn').addEventListener('click', () => {
+        menuDropdown.classList.add('hidden');
+    });
+    
+    // Close properties button
+    document.getElementById('close-properties-btn').addEventListener('click', () => {
+        const propertiesPanel = document.getElementById('properties-panel-container');
+        propertiesPanel.classList.add('hidden');
+    });
     
     // Debug filter controls
-    document.getElementById('filter-info').addEventListener('change', (e) => {
+    document.getElementById('filter-info').addEventListener('click', (e) => {
+        e.currentTarget.classList.toggle('active');
+        const isActive = e.currentTarget.classList.contains('active');
         import('./debug.js').then(({ toggleInfoMessages }) => {
-            toggleInfoMessages(e.target.checked);
+            toggleInfoMessages(isActive);
         });
     });
     
-    document.getElementById('filter-errors').addEventListener('change', (e) => {
+    document.getElementById('filter-errors').addEventListener('click', (e) => {
+        e.currentTarget.classList.toggle('active');
+        const isActive = e.currentTarget.classList.contains('active');
         import('./debug.js').then(({ toggleErrorMessages }) => {
-            toggleErrorMessages(e.target.checked);
+            toggleErrorMessages(isActive);
         });
     });
     
-    document.getElementById('collapse-similar').addEventListener('change', (e) => {
+    document.getElementById('collapse-similar').addEventListener('click', (e) => {
+        e.currentTarget.classList.toggle('active');
+        const isActive = e.currentTarget.classList.contains('active');
         import('./debug.js').then(({ toggleCollapseSimilar }) => {
-            toggleCollapseSimilar(e.target.checked);
+            toggleCollapseSimilar(isActive);
         });
     });
     

@@ -15,11 +15,15 @@
         <header class="header">
             <h1>PyNode Editor</h1>
             <div class="header-actions">
-                <button id="toggle-properties-btn" class="btn btn-secondary" title="Toggle Properties Panel">📋</button>
                 <button id="deploy-btn" class="btn btn-primary" disabled>Deploy</button>
-                <button id="clear-btn" class="btn btn-secondary">Clear</button>
-                <button id="export-btn" class="btn btn-secondary">Export</button>
-                <button id="import-btn" class="btn btn-secondary">Import</button>
+                <div class="menu-container">
+                    <button id="menu-btn" class="btn btn-secondary" title="Menu">☰</button>
+                    <div id="menu-dropdown" class="menu-dropdown hidden">
+                        <button id="clear-btn" class="menu-item">Clear Workflow</button>
+                        <button id="export-btn" class="menu-item">Export</button>
+                        <button id="import-btn" class="menu-item">Import</button>
+                    </div>
+                </div>
             </div>
         </header>
 
@@ -51,7 +55,10 @@
             <!-- Properties Panel -->
             <aside class="properties" id="properties-panel-container">
                 <div class="resize-handle" id="properties-resize-handle"></div>
-                <h3>Properties</h3>
+                <div class="properties-header">
+                    <h3>Properties</h3>
+                    <button class="properties-close-btn" id="close-properties-btn" title="Close Properties">✕</button>
+                </div>
                 <div id="properties-panel">
                     <p class="placeholder">Select a node to edit properties</p>
                 </div>
@@ -62,22 +69,19 @@
                 <div class="debug-header">
                     <h3>Debug Messages</h3>
                     <div class="debug-controls">
-                        <button id="clear-debug-btn" class="btn btn-small">Clear</button>
+                        <button id="clear-debug-btn" class="btn btn-secondary btn-small" title="Clear">🗑️</button>
                     </div>
                 </div>
                 <div class="debug-filters">
-                    <label class="filter-toggle">
-                        <input type="checkbox" id="filter-info" checked>
-                        <span>ℹ️ Info</span>
-                    </label>
-                    <label class="filter-toggle">
-                        <input type="checkbox" id="filter-errors" checked>
-                        <span>⚠️ Errors</span>
-                    </label>
-                    <label class="filter-toggle">
-                        <input type="checkbox" id="collapse-similar" checked>
-                        <span>📦 Collapse</span>
-                    </label>
+                    <button class="filter-toggle-btn active" id="filter-info" data-filter="info">
+                        Info
+                    </button>
+                    <button class="filter-toggle-btn active" id="filter-errors" data-filter="errors">
+                        Errors
+                    </button>
+                    <button class="filter-toggle-btn active" id="collapse-similar" data-filter="collapse">
+                        Collapse
+                    </button>
                 </div>
                 <div id="debug-messages"></div>
             </aside>

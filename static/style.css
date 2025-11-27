@@ -56,6 +56,53 @@ body {
 .header-actions {
     display: flex;
     gap: 10px;
+    align-items: center;
+}
+
+.menu-container {
+    position: relative;
+}
+
+.menu-dropdown {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 5px;
+    background: #252526;
+    border: 1px solid #3e3e42;
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    min-width: 180px;
+    z-index: 1000;
+}
+
+.menu-dropdown.hidden {
+    display: none;
+}
+
+.menu-item {
+    display: block;
+    width: 100%;
+    padding: 10px 15px;
+    background: transparent;
+    border: none;
+    color: #d4d4d4;
+    text-align: left;
+    cursor: pointer;
+    font-size: 13px;
+    transition: background 0.2s;
+}
+
+.menu-item:hover {
+    background: #2a2d2e;
+}
+
+.menu-item:first-child {
+    border-radius: 4px 4px 0 0;
+}
+
+.menu-item:last-child {
+    border-radius: 0 0 4px 4px;
 }
 
 /* Buttons */
@@ -596,8 +643,32 @@ body {
 
 .properties h3 {
     font-size: 14px;
-    margin-bottom: 15px;
+    margin: 0;
     color: #cccccc;
+}
+
+.properties-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.properties-close-btn {
+    background: transparent;
+    border: none;
+    color: #888;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 4px 8px;
+    line-height: 1;
+    border-radius: 3px;
+    transition: all 0.2s;
+}
+
+.properties-close-btn:hover {
+    background: #3e3e42;
+    color: #d4d4d4;
 }
 
 .placeholder {
@@ -701,22 +772,42 @@ body {
     background: #2d2d30;
 }
 
-.filter-toggle {
+.filter-toggle-btn {
     display: flex;
     align-items: center;
-    gap: 5px;
+    justify-content: center;
+    background: #3e3e42;
+    border: 1px solid #555;
+    border-radius: 4px;
+    padding: 6px 12px;
     cursor: pointer;
     font-size: 12px;
     color: #d4d4d4;
-    user-select: none;
+    transition: all 0.15s;
+    min-width: 80px;
+    /* Raised 3D effect (off state) */
+    box-shadow: 
+        0 2px 4px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+    transform: translateY(0);
 }
 
-.filter-toggle input[type="checkbox"] {
-    cursor: pointer;
+.filter-toggle-btn:hover {
+    background: #45454a;
+    border-color: #666;
 }
 
-.filter-toggle:hover {
+.filter-toggle-btn.active {
     color: #fff;
+    background: #2d2d30;
+    border-color: #0e639c;
+    /* Embossed/pressed effect (on state) */
+    box-shadow: 
+        inset 0 2px 4px rgba(0, 0, 0, 0.4),
+        inset 0 1px 2px rgba(0, 0, 0, 0.3),
+        0 1px 0 rgba(255, 255, 255, 0.05);
+    transform: translateY(1px);
 }
 
 #debug-messages {

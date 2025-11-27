@@ -212,6 +212,24 @@ function attachNodeEventHandlers(nodeEl, nodeData) {
         e.preventDefault();
     });
     
+    // Double-click to open properties
+    nodeEl.addEventListener('dblclick', (e) => {
+        if (e.target.classList.contains('port')) return;
+        
+        // Select the node if not already selected
+        if (!state.selectedNodes.has(nodeData.id)) {
+            selectNode(nodeData.id, false);
+        }
+        
+        // Show properties panel if it's hidden
+        const propertiesPanel = document.getElementById('properties-panel-container');
+        if (propertiesPanel.classList.contains('hidden')) {
+            propertiesPanel.classList.remove('hidden');
+        }
+        
+        e.preventDefault();
+    });
+    
     document.addEventListener('mousemove', (e) => {
         if (!isDragging) return;
         
