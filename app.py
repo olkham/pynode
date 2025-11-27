@@ -114,7 +114,20 @@ def get_node_types():
         text_color = getattr(node_class, 'text_color', '#d4d4d4')
         input_count = getattr(node_class, 'input_count', 1)
         output_count = getattr(node_class, 'output_count', 1)
-        properties = getattr(node_class, 'properties', [])
+        
+        # Merge base properties with node-specific properties
+        from base_node import BaseNode
+        base_properties = getattr(BaseNode, 'properties', [])
+        node_properties = getattr(node_class, 'properties', [])
+        
+        # Get property names from node-specific properties to avoid duplicates
+        node_prop_names = {prop.get('name') for prop in node_properties if isinstance(prop, dict)}
+        
+        # Add base properties that aren't overridden by node-specific properties
+        merged_properties = [prop for prop in base_properties if prop.get('name') not in node_prop_names]
+        # Add all node-specific properties
+        merged_properties.extend(node_properties)
+        
         node_types.append({
             'type': name,
             'name': display_name,
@@ -125,7 +138,7 @@ def get_node_types():
             'textColor': text_color,
             'inputCount': input_count,
             'outputCount': output_count,
-            'properties': properties
+            'properties': merged_properties
         })
     return jsonify(node_types)
 

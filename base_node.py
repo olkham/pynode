@@ -27,7 +27,18 @@ class BaseNode:
     
     # Property schema for the properties panel
     # Format: [{'name': 'propName', 'label': 'Display Label', 'type': 'text|textarea|select|button', 'options': [...], 'action': 'methodName'}]
-    properties = []
+    properties = [
+        {
+            'name': 'drop_messages',
+            'label': 'Drop Messages When Busy',
+            'type': 'select',
+            'options': [
+                {'value': 'false', 'label': 'No (Queue messages)'},
+                {'value': 'true', 'label': 'Yes (Drop when busy)'}
+            ],
+            'default': 'false'
+        }
+    ]
     
     def __init__(self, node_id: Optional[str] = None, name: str = ""):
         """
@@ -49,12 +60,14 @@ class BaseNode:
         
         # Node state
         self.enabled = True
-        self.drop_while_busy = False  # If True, drop messages when busy instead of queuing
         
         # Non-blocking message queue
         self._message_queue = queue.Queue(maxsize=1000)  # Limit queue size to prevent memory issues
         self._worker_thread = None
         self._stop_worker_flag = False
+        
+        # Initialize drop_while_busy flag from config (defaults to False)
+        self.drop_while_busy = False
         
         # Error handling
         self._workflow_engine = None  # Will be set by workflow engine
@@ -232,6 +245,8 @@ class BaseNode:
             config: Configuration dictionary
         """
         self.config.update(config)
+        # Update drop_while_busy flag from config
+        self.drop_while_busy = self.config.get('drop_messages', 'false') == 'true'
     
     def to_dict(self) -> Dict[str, Any]:
         """
