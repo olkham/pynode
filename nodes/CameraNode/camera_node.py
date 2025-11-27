@@ -34,7 +34,7 @@ class CameraNode(BaseNode):
             'name': 'fps',
             'label': 'Frame Rate (FPS)',
             'type': 'number',
-            'default': 10
+            'default': 30
         },
         {
             'name': 'width',
@@ -53,6 +53,12 @@ class CameraNode(BaseNode):
             'label': 'Encode as JPEG',
             'type': 'checkbox',
             'default': True
+        },
+        {
+            'name': 'jpeg_quality',
+            'label': 'JPEG Quality (1-100)',
+            'type': 'number',
+            'default': 75
         }
     ]
     
@@ -63,10 +69,11 @@ class CameraNode(BaseNode):
         self.running = False
         self.configure({
             'camera_index': 0,
-            'fps': 10,
+            'fps': 30,
             'width': 640,
             'height': 480,
-            'encode_jpeg': True
+            'encode_jpeg': True,
+            'jpeg_quality': 75
         })
     
     def on_start(self):
@@ -134,11 +141,15 @@ class CameraNode(BaseNode):
                 
                 # Prepare the payload
                 if encode_jpeg:
-                    # Encode frame as JPEG
-                    ret, buffer = cv2.imencode('.jpg', frame)
+                    # Encode frame as JPEG with quality setting
+                    jpeg_quality = int(self.config.get('jpeg_quality', 75))
+                    encode_params = [cv2.IMWRITE_JPEG_QUALITY, jpeg_quality]
+                    ret, buffer = cv2.imencode('.jpg', frame, encode_params)
                     if ret:
-                        # Convert to base64 for easy transmission
-                        jpeg_base64 = base64.b64encode(buffer).decode('utf-8')
+                        # Convert to bytes (more efficient than base64)
+                        jpeg_bytes = buffer.tobytes()
+                        # Convert to base64 for JSON transmission
+                        jpeg_base64 = base64.b64encode(jpeg_bytes).decode('utf-8')
                         payload = {
                             'format': 'jpeg',
                             'encoding': 'base64',

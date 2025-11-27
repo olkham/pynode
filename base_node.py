@@ -49,6 +49,7 @@ class BaseNode:
         
         # Node state
         self.enabled = True
+        self.drop_while_busy = False  # If True, drop messages when busy instead of queuing
         
         # Non-blocking message queue
         self._message_queue = queue.Queue(maxsize=1000)  # Limit queue size to prevent memory issues
@@ -133,14 +134,33 @@ class BaseNode:
             return
             
         if output_index in self.outputs:
-            for target_node, target_input in self.outputs[output_index]:
+            connections = self.outputs[output_index]
+            num_connections = len(connections)
+            
+            for i, (target_node, target_input) in enumerate(connections):
                 if target_node.enabled:
-                    # Queue message for target node (non-blocking)
-                    try:
-                        target_node._message_queue.put_nowait((msg.copy(), target_input))
-                    except queue.Full:
-                        # Queue full - drop message or handle overflow
-                        print(f"Warning: Message queue full for node {target_node.id}, dropping message")
+                    # Only copy message if sending to multiple targets and not the last one
+                    msg_to_send = msg.copy() if i < num_connections - 1 else msg
+                    
+                    # Check if target node prefers direct processing (no outputs = sink node)
+                    if target_node.output_count == 0 and hasattr(target_node, 'on_input_direct'):
+                        # Direct processing for sink nodes (no queuing overhead)
+                        try:
+                            target_node.on_input_direct(msg_to_send, target_input)
+                        except Exception as e:
+                            print(f"Error in direct processing for node {target_node.id}: {e}")
+                    else:
+                        # Queue message for target node (non-blocking)
+                        try:
+                            # Check if target wants to drop messages when busy
+                            if target_node.drop_while_busy and not target_node._message_queue.empty():
+                                # Drop message instead of queuing
+                                continue
+                            
+                            target_node._message_queue.put_nowait((msg_to_send, target_input))
+                        except queue.Full:
+                            # Queue full - drop message or handle overflow
+                            print(f"Warning: Message queue full for node {target_node.id}, dropping message")
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """

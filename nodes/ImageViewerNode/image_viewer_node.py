@@ -56,6 +56,12 @@ class ImageViewerNode(BaseNode):
             self.current_frame = payload
             self.frame_timestamp = time.time()
     
+    def on_input_direct(self, msg: Dict[str, Any], input_index: int = 0):
+        """
+        Direct input processing (bypasses queue for better performance).
+        """
+        self.on_input(msg, input_index)
+    
     def get_current_frame(self):
         """
         Get the current frame for display in the UI.

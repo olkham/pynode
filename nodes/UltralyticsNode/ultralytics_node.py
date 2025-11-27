@@ -65,6 +65,15 @@ class UltralyticsNode(BaseNode):
             'label': 'Max Detections',
             'type': 'text',
             'placeholder': '300'
+        },
+        {
+            'name': 'drop_frames',
+            'label': 'Drop Frames When Busy',
+            'type': 'select',
+            'options': [
+                {'value': 'true', 'label': 'Yes (Recommended)'},
+                {'value': 'false', 'label': 'No'}
+            ]
         }
     ]
     
@@ -75,10 +84,13 @@ class UltralyticsNode(BaseNode):
             'confidence': '0.25',
             'iou': '0.45',
             'draw_results': 'true',
-            'max_det': '300'
+            'max_det': '300',
+            'drop_frames': 'true'
         })
         self.model = None
         self._model_loaded = False
+        # Set drop_while_busy flag from config
+        self.drop_while_busy = self.config.get('drop_frames', 'true') == 'true'
     
     def _load_model(self):
         """Load the YOLO model (lazy loading on first use)."""
@@ -100,10 +112,13 @@ class UltralyticsNode(BaseNode):
             self.model = None
     
     def configure(self, config: Dict[str, Any]):
-        """Override configure to reload model when model changes."""
+        """Override configure to reload model when model changes and update drop flag."""
         old_model = self.config.get('model') if hasattr(self, 'config') else None
         super().configure(config)
         new_model = self.config.get('model')
+        
+        # Update drop_while_busy flag
+        self.drop_while_busy = self.config.get('drop_frames', 'true') == 'true'
         
         # Reload model if it changed
         if old_model != new_model and old_model is not None:
