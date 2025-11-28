@@ -1,9 +1,4 @@
 UI/UX
-- hide/close properties panel
-- unity like debug filter
-    - colapse similar errors (put a counter for the number of occurances)
-    - show/hide info messages
-    - show/hide error messages
 - make the error/debug messages clickable to take you to the node throwing them
 
 NODES
