@@ -58,12 +58,21 @@ export function createNode(type, x, y) {
     return nodeData.id;
 }
 
+// Track z-index for node layering
+let nodeZIndex = 1;
+
 export function renderNode(nodeData) {
     const nodeEl = document.createElement('div');
     nodeEl.className = 'node';
     nodeEl.id = `node-${nodeData.id}`;
     nodeEl.style.left = `${nodeData.x}px`;
     nodeEl.style.top = `${nodeData.y}px`;
+    nodeEl.style.zIndex = nodeZIndex++;
+    
+    // Add disabled class if node is disabled
+    if (nodeData.enabled === false) {
+        nodeEl.classList.add('disabled');
+    }
     
     // Apply custom colors
     if (nodeData.color) nodeEl.style.backgroundColor = nodeData.color;
@@ -197,6 +206,9 @@ function attachNodeEventHandlers(nodeEl, nodeData) {
     
     nodeEl.addEventListener('mousedown', (e) => {
         if (e.target.classList.contains('port')) return;
+        
+        // Bring node to front
+        nodeEl.style.zIndex = nodeZIndex++;
         
         isDragging = true;
         hasMoved = false;
@@ -336,6 +348,21 @@ window.toggleDebug = async function(nodeId, enabled) {
         
         if (response.ok) {
             nodeData.enabled = newEnabled;
+            
+            // Update node visual state
+            const nodeEl = document.getElementById(`node-${nodeId}`);
+            if (nodeEl) {
+                nodeEl.classList.toggle('disabled', !newEnabled);
+            }
+            
+            // Update connections (dashed when disabled)
+            updateConnections();
+            
+            // Sync properties panel if this node is selected
+            if (state.selectedNode === nodeId) {
+                const propsToggle = document.querySelector('#properties-panel .gate-switch input');
+                if (propsToggle) propsToggle.checked = newEnabled;
+            }
         }
     } catch (error) {
         console.error('Failed to toggle debug state:', error);

@@ -362,6 +362,10 @@ body {
     box-shadow: 0 0 0 4px rgba(0, 152, 255, 0.5), 0 0 16px rgba(0, 152, 255, 0.7);
 }
 
+.node.disabled {
+    opacity: 0.5;
+}
+
 .node-modified-indicator {
     position: absolute;
     top: -7px;
@@ -372,7 +376,6 @@ body {
     border: 2px solid #1e1e1e;
     border-radius: 50%;
     display: none;
-    z-index: 10;
 }
 
 .node.modified .node-modified-indicator {
@@ -557,7 +560,6 @@ body {
     cursor: crosshair;
     transition: all 0.2s;
     position: relative;
-    z-index: 10;
 }
 
 .port:hover {
@@ -592,6 +594,11 @@ body {
 .connection.selected {
     stroke: #0098ff;
     filter: drop-shadow(0 0 6px rgba(0, 152, 255, 0.8));
+}
+
+.connection.disabled {
+    stroke-dasharray: 5, 5;
+    opacity: 0.6;
 }
 
 /* Properties Panel */
@@ -678,6 +685,16 @@ body {
 
 .property-group {
     margin-bottom: 15px;
+}
+
+.property-enabled-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.property-enabled-row .property-label {
+    margin-bottom: 0;
 }
 
 .property-label {

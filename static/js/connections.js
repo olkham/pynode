@@ -76,6 +76,11 @@ export function renderConnection(connection) {
     path.setAttribute('data-source-output', connection.sourceOutput || 0);
     path.style.pointerEvents = 'none';
     
+    // Add disabled class if either node is disabled
+    if (sourceNode.enabled === false || targetNode.enabled === false) {
+        path.classList.add('disabled');
+    }
+    
     // Check if this connection is selected
     if (state.selectedConnection && 
         state.selectedConnection.source === connection.source &&

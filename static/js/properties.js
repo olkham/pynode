@@ -2,15 +2,26 @@
 import { state, markNodeModified, setModified } from './state.js';
 import { API_BASE } from './config.js';
 import { updateNodeOutputCount } from './nodes.js';
+import { updateConnections } from './connections.js';
 
 export function renderProperties(nodeData) {
     const panel = document.getElementById('properties-panel');
+    
+    const isEnabled = nodeData.enabled !== undefined ? nodeData.enabled : true;
     
     let html = `
         <div class="property-group">
             <label class="property-label">Name</label>
             <input type="text" class="property-input" value="${nodeData.name}" 
                    onchange="window.updateNodeProperty('${nodeData.id}', 'name', this.value)">
+        </div>
+        <div class="property-group property-enabled-row">
+            <span class="property-label">Enabled</span>
+            <label class="gate-switch">
+                <input type="checkbox" ${isEnabled ? 'checked' : ''} 
+                       onchange="window.toggleNodeEnabled('${nodeData.id}', this.checked)">
+                <span class="gate-slider"></span>
+            </label>
         </div>
     `;
     
@@ -123,9 +134,56 @@ export async function toggleGate(nodeId, open) {
         const nodeData = state.nodes.get(nodeId);
         if (nodeData) {
             nodeData.enabled = open;
+            
+            // Update node visual state
+            const nodeEl = document.getElementById(`node-${nodeId}`);
+            if (nodeEl) {
+                nodeEl.classList.toggle('disabled', !open);
+            }
+            
+            // Update connections (dashed when disabled)
+            updateConnections();
+            
+            // Sync properties panel if this node is selected
+            if (state.selectedNode === nodeId) {
+                const propsToggle = document.querySelector('#properties-panel .gate-switch input');
+                if (propsToggle) propsToggle.checked = open;
+            }
         }
     } catch (error) {
         console.error('Failed to toggle gate:', error);
+    }
+}
+
+export async function toggleNodeEnabled(nodeId, enabled) {
+    try {
+        await fetch(`${API_BASE}/nodes/${nodeId}/enabled`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enabled: enabled })
+        });
+        
+        const nodeData = state.nodes.get(nodeId);
+        if (nodeData) {
+            nodeData.enabled = enabled;
+            
+            // Update node visual state
+            const nodeEl = document.getElementById(`node-${nodeId}`);
+            if (nodeEl) {
+                nodeEl.classList.toggle('disabled', !enabled);
+            }
+            
+            // Update connections (dashed when disabled)
+            updateConnections();
+            
+            // Update any visual toggle switches on the node (DebugNode, GateNode)
+            const gateCheckbox = document.getElementById(`gate-${nodeId}`);
+            const debugCheckbox = document.getElementById(`debug-${nodeId}`);
+            if (gateCheckbox) gateCheckbox.checked = enabled;
+            if (debugCheckbox) debugCheckbox.checked = enabled;
+        }
+    } catch (error) {
+        console.error('Failed to toggle node enabled:', error);
     }
 }
 
