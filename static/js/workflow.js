@@ -96,6 +96,7 @@ export async function deployWorkflow() {
                 type: nodeData.type,
                 name: nodeData.name,
                 config: nodeData.config,
+                enabled: nodeData.enabled !== undefined ? nodeData.enabled : true,
                 x: nodeData.x,
                 y: nodeData.y
             });

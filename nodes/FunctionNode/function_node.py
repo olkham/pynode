@@ -27,6 +27,14 @@ class FunctionNode(BaseNode):
             'name': 'func',
             'label': 'Function',
             'type': 'textarea'
+        },
+        {
+            'name': 'outputs',
+            'label': 'Outputs',
+            'type': 'number',
+            'default': 1,
+            'min': 1,
+            'max': 10
         }
     ]
     
@@ -36,6 +44,11 @@ class FunctionNode(BaseNode):
             'func': 'msg["payload"] = msg["payload"]\nreturn msg',
             'outputs': 1
         })
+    
+    def configure(self, config: Dict[str, Any]):
+        """Configure the node and update output_count based on outputs setting."""
+        super().configure(config)
+        self.output_count = int(self.config.get('outputs', 1))
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """

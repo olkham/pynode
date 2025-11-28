@@ -95,6 +95,11 @@ export function updateNodeConfig(nodeId, key, value) {
     const nodeData = state.nodes.get(nodeId);
     nodeData.config[key] = value;
     
+    // If outputs property changed, update the node's output ports
+    if (key === 'outputs') {
+        updateNodeOutputCount(nodeId, parseInt(value, 10));
+    }
+    
     markNodeModified(nodeId);
     setModified(true);
 }
