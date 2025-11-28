@@ -189,6 +189,14 @@ function buildNodeContent(nodeData, icon, inputCount, outputCount) {
                     </label>
                 </div>
             `;
+        } else if (nodeData.type === 'RateProbeNode') {
+            return `
+                <div class="node-content">
+                    <div class="node-icon-container"><div class="node-icon">${icon}</div></div>
+                    <div class="node-title">${nodeData.name}</div>
+                    <div class="rate-display" id="rate-${nodeData.id}">0/s</div>
+                </div>
+            `;
         } else {
             return `
                 <div class="node-content">

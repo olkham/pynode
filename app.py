@@ -579,6 +579,18 @@ def debug_stream():
                                 })
                                 yield f'data: {frame_data}\n\n'
                 
+                # Check all rate probe nodes for rate updates
+                for node_id, node in deployed_engine.nodes.items():
+                    if node.type == 'RateProbeNode':
+                        if hasattr(node, 'get_rate_display'):
+                            rate_data = json.dumps({
+                                'type': 'rate',
+                                'nodeId': node_id,
+                                'display': node.get_rate_display(),
+                                'rate': node.get_rate()
+                            })
+                            yield f'data: {rate_data}\n\n'
+                
                 time.sleep(0.01)  # 10ms sleep for up to 100 FPS
         except GeneratorExit:
             # Client disconnected
@@ -617,6 +629,28 @@ def get_image_frame(node_id):
             return jsonify(frame)
         else:
             return jsonify({'error': 'No frame available'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+
+@app.route('/api/nodes/<node_id>/rate', methods=['GET'])
+def get_node_rate(node_id):
+    """Get the current message rate from a rate probe node."""
+    try:
+        node = deployed_engine.get_node(node_id)
+        if not node:
+            return jsonify({'error': 'Node not found'}), 404
+        
+        if not hasattr(node, 'get_rate'):
+            return jsonify({'error': 'Node does not support rate monitoring'}), 400
+        
+        rate = node.get_rate()
+        display = node.get_rate_display() if hasattr(node, 'get_rate_display') else f"{rate:.1f}/s"
+        
+        return jsonify({
+            'rate': rate,
+            'display': display
+        })
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 

@@ -22,6 +22,8 @@ export function startDebugPolling() {
                 displayErrorMessages(data.data);
             } else if (data.type === 'frame') {
                 updateImageViewer(data.nodeId, data.data);
+            } else if (data.type === 'rate') {
+                updateRateDisplay(data.nodeId, data.display);
             }
         } catch (error) {
             console.error('Error processing SSE message:', error);
@@ -33,6 +35,13 @@ export function startDebugPolling() {
     };
     
     window.debugEventSource = eventSource;
+}
+
+export function updateRateDisplay(nodeId, displayText) {
+    const rateEl = document.getElementById(`rate-${nodeId}`);
+    if (rateEl) {
+        rateEl.textContent = displayText;
+    }
 }
 
 export function updateImageViewer(nodeId, frameData) {
