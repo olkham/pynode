@@ -167,6 +167,46 @@ export async function deployWorkflow() {
     }
 }
 
+export async function deployWorkflowFull() {
+    try {
+        const nodes = [];
+        state.nodes.forEach((nodeData) => {
+            nodes.push({
+                id: nodeData.id,
+                type: nodeData.type,
+                name: nodeData.name,
+                config: nodeData.config,
+                enabled: nodeData.enabled !== undefined ? nodeData.enabled : true,
+                x: nodeData.x,
+                y: nodeData.y
+            });
+        });
+        
+        const workflow = {
+            nodes: nodes,
+            connections: state.connections
+        };
+        
+        const response = await fetch(`${API_BASE}/workflow`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(workflow)
+        });
+        
+        if (response.ok) {
+            clearAllNodeModifiedIndicators();
+            clearChangeTracking();
+            setModified(false);
+            showToast('Full workflow deployed!');
+        } else {
+            throw new Error('Failed to deploy workflow');
+        }
+    } catch (error) {
+        console.error('Failed to deploy workflow:', error);
+        showToast('Failed to deploy workflow');
+    }
+}
+
 export function clearWorkflow() {
     if (!confirm('Clear all nodes and connections?')) return;
     

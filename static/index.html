@@ -15,7 +15,29 @@
         <header class="header">
             <h1>PyNode Editor</h1>
             <div class="header-actions">
-                <button id="deploy-btn" class="btn btn-primary" disabled>Deploy</button>
+                <div class="deploy-container">
+                    <button id="deploy-btn" class="btn btn-primary deploy-main" disabled>
+                        <span id="deploy-mode-icon" class="deploy-btn-icon">◐</span>
+                        Deploy
+                    </button>
+                    <button id="deploy-dropdown-btn" class="btn btn-primary deploy-arrow">▼</button>
+                    <div id="deploy-dropdown" class="deploy-dropdown hidden">
+                        <button id="deploy-modified-btn" class="menu-item deploy-option active">
+                            <span class="deploy-icon">◐</span>
+                            <span class="deploy-text">
+                                <span class="deploy-label">Modified Nodes</span>
+                                <span class="deploy-desc">Only deploy nodes that have changed</span>
+                            </span>
+                        </button>
+                        <button id="deploy-full-btn" class="menu-item deploy-option">
+                            <span class="deploy-icon">●</span>
+                            <span class="deploy-text">
+                                <span class="deploy-label">Full</span>
+                                <span class="deploy-desc">Deploy all nodes, restarting the entire flow</span>
+                            </span>
+                        </button>
+                    </div>
+                </div>
                 <div class="menu-container">
                     <button id="menu-btn" class="btn btn-secondary" title="Menu">☰</button>
                     <div id="menu-dropdown" class="menu-dropdown hidden">

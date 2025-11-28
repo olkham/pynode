@@ -3,8 +3,11 @@ import { state } from './state.js';
 import { createNode } from './nodes.js';
 import { deselectNode, deselectAllNodes, selectNode } from './selection.js';
 import { deleteNode } from './nodes.js';
-import { deployWorkflow, clearWorkflow, exportWorkflow, importWorkflow } from './workflow.js';
+import { deployWorkflow, deployWorkflowFull, clearWorkflow, exportWorkflow, importWorkflow } from './workflow.js';
 import { clearDebug } from './debug.js';
+
+// Track deploy mode: 'modified' or 'full'
+let deployMode = 'modified';
 
 export function setupEventListeners() {
     const nodesContainer = document.getElementById('nodes-container');
@@ -17,12 +20,55 @@ export function setupEventListeners() {
     // Middle mouse button panning
     setupCanvasPanning(canvasContainer);
     
-    // Header buttons
-    document.getElementById('deploy-btn').addEventListener('click', deployWorkflow);
+    // Header buttons - deploy with current mode
+    document.getElementById('deploy-btn').addEventListener('click', () => {
+        if (deployMode === 'full') {
+            deployWorkflowFull();
+        } else {
+            deployWorkflow();
+        }
+    });
     document.getElementById('clear-btn').addEventListener('click', clearWorkflow);
     document.getElementById('export-btn').addEventListener('click', exportWorkflow);
     document.getElementById('import-btn').addEventListener('click', importWorkflow);
     document.getElementById('clear-debug-btn').addEventListener('click', clearDebug);
+    
+    // Deploy dropdown
+    const deployDropdownBtn = document.getElementById('deploy-dropdown-btn');
+    const deployDropdown = document.getElementById('deploy-dropdown');
+    const deployModifiedBtn = document.getElementById('deploy-modified-btn');
+    const deployFullBtn = document.getElementById('deploy-full-btn');
+    const deployModeIcon = document.getElementById('deploy-mode-icon');
+    
+    deployDropdownBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        deployDropdown.classList.toggle('hidden');
+    });
+    
+    deployModifiedBtn.addEventListener('click', () => {
+        deployMode = 'modified';
+        deployModifiedBtn.classList.add('active');
+        deployFullBtn.classList.remove('active');
+        deployModeIcon.textContent = '◐';
+        deployDropdown.classList.add('hidden');
+    });
+    
+    deployFullBtn.addEventListener('click', () => {
+        deployMode = 'full';
+        deployFullBtn.classList.add('active');
+        deployModifiedBtn.classList.remove('active');
+        deployModeIcon.textContent = '●';
+        deployDropdown.classList.add('hidden');
+    });
+    
+    // Close deploy dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!deployDropdown.classList.contains('hidden') && 
+            !deployDropdown.contains(e.target) && 
+            e.target !== deployDropdownBtn) {
+            deployDropdown.classList.add('hidden');
+        }
+    });
     
     // Hamburger menu toggle
     const menuBtn = document.getElementById('menu-btn');

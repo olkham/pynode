@@ -32,6 +32,7 @@ export function setModified(modified) {
     if (deployBtn) {
         deployBtn.disabled = !modified;
     }
+    // Note: deploy-dropdown-btn stays enabled so user can change mode anytime
 }
 
 // Mark a node as modified

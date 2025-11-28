@@ -135,6 +135,103 @@ body {
     background: #3e3e42;
 }
 
+/* Deploy button with dropdown */
+.deploy-container {
+    position: relative;
+    display: flex;
+}
+
+.deploy-main {
+    border-radius: 4px 0 0 4px;
+    border-right: 1px solid rgba(0, 0, 0, 0.2);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.deploy-btn-icon {
+    font-size: 12px;
+}
+
+.deploy-arrow {
+    border-radius: 0 4px 4px 0;
+    padding: 8px 6px;
+    min-width: 28px;
+}
+
+.deploy-arrow:disabled {
+    background: #3e3e42;
+    color: #808080;
+    cursor: not-allowed;
+}
+
+.deploy-dropdown {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 4px;
+    background: #2d2d30;
+    border: 1px solid #454545;
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    z-index: 1000;
+    min-width: 280px;
+    overflow: hidden;
+}
+
+.deploy-dropdown.hidden {
+    display: none;
+}
+
+.deploy-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 14px;
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: none;
+    color: #d4d4d4;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.deploy-option:hover {
+    background: #094771;
+}
+
+.deploy-option.active {
+    background: #0e639c;
+}
+
+.deploy-option .deploy-icon {
+    font-size: 16px;
+    width: 20px;
+    text-align: center;
+    margin-top: 2px;
+}
+
+.deploy-option .deploy-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.deploy-option .deploy-label {
+    font-weight: 500;
+    font-size: 13px;
+}
+
+.deploy-option .deploy-desc {
+    font-size: 11px;
+    color: #a0a0a0;
+}
+
+.deploy-option.active .deploy-desc {
+    color: #c0c0c0;
+}
+
 .btn-success {
     background: #0e8a16;
     color: white;
