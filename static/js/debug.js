@@ -49,7 +49,7 @@ export function displayDebugMessages(messages) {
     
     messages.forEach(msg => {
         const messageKey = `${msg.node}:${JSON.stringify(msg.output)}`;
-        
+
         if (debugState.collapseSimilar && debugState.messageMap.has(messageKey)) {
             // Update existing message count
             const existingData = debugState.messageMap.get(messageKey);
@@ -65,13 +65,14 @@ export function displayDebugMessages(messages) {
                 output: msg.output,
                 timestamp: msg.timestamp,
                 count: 1,
-                isError: false
+                isError: false,
+                display_key: msg.display_key || ''
             };
-            
+
             if (debugState.collapseSimilar) {
                 debugState.messageMap.set(messageKey, messageData);
             }
-            
+
             createMessageElement(messageData, container);
         }
     });
@@ -153,12 +154,15 @@ function updateMessageContent(msgEl, messageData) {
     const nodeClass = messageData.isError ? 'debug-node error-node' : 'debug-node';
     const outputClass = messageData.isError ? 'debug-output error-output' : 'debug-output';
     
+    // Show display_key (e.g. "msg.payload") before node name in header, if present
+    const keyLabel = messageData.display_key ? `<span class="debug-key">${messageData.display_key}</span> ` : '';
     msgEl.innerHTML = `
         <div class="debug-message-header">
             <span class="debug-timestamp">${messageData.timestamp}</span>
             <span class="${nodeClass}">[${messageData.node}]</span>
             ${countBadge}
         </div>
+        ${keyLabel ? `<div class="debug-key-label">${keyLabel}:</div>` : ''}
         <div class="${outputClass}">${icon} ${typeof messageData.output === 'string' ? messageData.output : JSON.stringify(messageData.output, null, 2)}</div>
     `;
 }

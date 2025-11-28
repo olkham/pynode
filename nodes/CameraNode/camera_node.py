@@ -16,7 +16,7 @@ class CameraNode(BaseNode):
     """
     display_name = 'Camera'
     icon = '📷'
-    category = 'input'
+    category = 'sensors'
     color = '#C0DEED'
     border_color = '#7FA7C9'
     text_color = '#000000'

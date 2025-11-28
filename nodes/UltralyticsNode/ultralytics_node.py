@@ -18,7 +18,7 @@ class UltralyticsNode(BaseNode):
     # Visual properties
     display_name = 'YOLO'
     icon = '🎯'
-    category = 'function'
+    category = 'vision'
     color = '#00D9FF'
     border_color = '#00A8CC'
     text_color = '#000000'
@@ -65,6 +65,18 @@ class UltralyticsNode(BaseNode):
             'label': 'Max Detections',
             'type': 'text',
             'placeholder': '300'
+        },
+        {
+            'name': 'include_image',
+            'label': 'Include Image in Output',
+            'type': 'checkbox',
+            'default': True
+        },
+        {
+            'name': 'include_predictions',
+            'label': 'Include Predictions in Output',
+            'type': 'checkbox',
+            'default': True
         }
     ]
     
@@ -76,6 +88,8 @@ class UltralyticsNode(BaseNode):
             'iou': '0.45',
             'draw_results': 'true',
             'max_det': '300',
+            'include_image': True,
+            'include_predictions': True,
             'drop_messages': 'true'  # Enable by default for YOLO to prevent queue buildup
         })
         self.model = None
@@ -246,10 +260,23 @@ class UltralyticsNode(BaseNode):
                 return
             
             # Create output message
+            include_image = self.config.get('include_image', True)
+            include_predictions = self.config.get('include_predictions', True)
+            predictions = []
+            if include_predictions and len(results) > 0 and hasattr(result, 'boxes') and result.boxes is not None:
+                predictions = [
+                    box.xyxy[0].cpu().numpy().tolist() if hasattr(box, 'xyxy') else None
+                    for box in result.boxes
+                ]
+            payload_out = {}
+            if include_image:
+                payload_out['image'] = payload_data
+            # Always include detections and detection_count if include_predictions is True (for backward compatibility)
+            if include_predictions or True:
+                payload_out['detections'] = detections
+                payload_out['detection_count'] = len(detections)
             output_msg = {
-                'payload': payload_data,
-                'detections': detections,
-                'detection_count': len(detections),
+                'payload': payload_out,
                 'topic': msg.get('topic', 'yolo')
             }
             

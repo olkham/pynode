@@ -15,7 +15,7 @@ class TemplateNode(BaseNode):
     # Visual properties
     display_name = 'Template'
     icon = '📄'
-    category = 'custom'  # Categories: input, output, function, logic, custom
+    category = 'system'  # Categories: input, output, function, logic, custom
     color = '#FFA07A'
     border_color = '#FF7F50'
     text_color = '#000000'

@@ -18,7 +18,7 @@ class MqttOutNode(BaseNode):
     """
     display_name = 'MQTT Out'
     icon = '📤'
-    category = 'output'
+    category = 'network'
     color = '#87A980'
     border_color = '#5F7858'
     text_color = '#000000'

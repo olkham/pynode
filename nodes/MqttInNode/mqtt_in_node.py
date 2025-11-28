@@ -19,7 +19,7 @@ class MqttInNode(BaseNode):
     """
     display_name = 'MQTT In'
     icon = '📥'
-    category = 'input'
+    category = 'network'
     color = '#87A980'
     border_color = '#5F7858'
     text_color = '#000000'

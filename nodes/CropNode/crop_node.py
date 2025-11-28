@@ -16,7 +16,7 @@ class CropNode(BaseNode):
     """
     display_name = 'Crop'
     icon = '✂️'
-    category = 'function'
+    category = 'vision'
     color = '#98D8C8'
     border_color = '#6DB6A3'
     text_color = '#000000'

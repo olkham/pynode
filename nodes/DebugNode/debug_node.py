@@ -15,7 +15,7 @@ class DebugNode(BaseNode):
     """
     display_name = 'Debug'
     icon = '🐛'
-    category = 'output'
+    category = 'common'
     color = '#87A980'
     border_color = '#5F7858'
     text_color = '#000000'
@@ -54,16 +54,20 @@ class DebugNode(BaseNode):
         
         if complete == 'msg':
             output = msg
+            display_key = 'Complete msg'
         elif complete == 'payload':
             output = msg.get('payload')
+            display_key = 'msg.payload'
         else:
-            # Try to get nested property
+            # Try to get nested property (only top-level for now)
             output = msg.get(complete, msg.get('payload'))
-        
+            display_key = f"msg.{complete}"
+
         timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
         debug_entry = {
             'timestamp': timestamp,
             'node': self.name,
+            'display_key': display_key,
             'output': output
         }
         
