@@ -63,12 +63,29 @@ class DebugNode(BaseNode):
             output = msg.get(complete, msg.get('payload'))
             display_key = f"msg.{complete}"
 
+
+        # Recursively truncate large values in dicts/lists, but not the whole message
+        def truncate_values(val, maxlen=300):
+            if isinstance(val, (bytes, bytearray)):
+                return f"<binary data, {len(val)} bytes>"
+            elif isinstance(val, dict):
+                return {k: truncate_values(v, maxlen) for k, v in val.items()}
+            elif isinstance(val, list):
+                return [truncate_values(v, maxlen) for v in val]
+            else:
+                s = str(val)
+                if len(s) > maxlen:
+                    return s[:maxlen] + f"... [truncated, {len(s)} chars]"
+                return val
+
+        display_output = truncate_values(output)
+
         timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
         debug_entry = {
             'timestamp': timestamp,
             'node': self.name,
             'display_key': display_key,
-            'output': output
+            'output': display_output
         }
         
         self.messages.append(debug_entry)

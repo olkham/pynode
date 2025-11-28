@@ -31,6 +31,13 @@ class ImageViewerNode(BaseNode):
             'label': 'Display Height (px)',
             'type': 'number',
             'default': 240
+        },
+        {
+            'name': 'image_path',
+            'label': 'Image Data Path',
+            'type': 'text',
+            'default': 'payload',
+            'description': 'Dot-separated path to image data (e.g. payload or payload.image)'
         }
     ]
     
@@ -41,7 +48,8 @@ class ImageViewerNode(BaseNode):
         self.last_sent_timestamp = 0
         self.configure({
             'width': 320,
-            'height': 240
+            'height': 240,
+            'image_path': 'payload'
         })
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
@@ -49,12 +57,29 @@ class ImageViewerNode(BaseNode):
         Receive image data and store it for display.
         """
         import time
-        payload = msg.get('payload')
-        
-        if payload and isinstance(payload, dict):
+        image_path = self.config.get('image_path', 'payload')
+
+        def get_by_path(obj, path):
+            parts = path.split('.')
+            for part in parts:
+                if isinstance(obj, dict) and part in obj:
+                    obj = obj[part]
+                else:
+                    return None
+            return obj
+
+        image_data = get_by_path(msg, image_path)
+
+        if image_data is not None:
             # Store the frame data for the UI to retrieve
-            self.current_frame = payload
+            self.current_frame = image_data
             self.frame_timestamp = time.time()
+        else:
+            # Optionally, raise/log an error if data not found
+            if hasattr(self, 'send_error'):
+                self.send_error(f"ImageViewerNode: No data found at path '{image_path}' in message.")
+            else:
+                print(f"ImageViewerNode: No data found at path '{image_path}' in message.")
     
     def on_input_direct(self, msg: Dict[str, Any], input_index: int = 0):
         """

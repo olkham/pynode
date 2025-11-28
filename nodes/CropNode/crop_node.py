@@ -29,7 +29,7 @@ class CropNode(BaseNode):
             'label': 'Bounding Box Source',
             'type': 'select',
             'options': [
-                {'value': 'detections', 'label': 'From msg.detections'},
+                {'value': 'detections', 'label': 'From msg.payload.detections'},
                 {'value': 'manual', 'label': 'Manual coordinates'}
             ]
         },
@@ -96,12 +96,12 @@ class CropNode(BaseNode):
         crops = []
         
         if bbox_source == 'detections':
-            # Extract from msg.detections
-            detections = msg.get('detections', [])
+            # Extract from msg.payload.detections
+            detections = payload.get('detections', [])
             if not detections:
-                self.report_error("No detections found in message")
+                self.report_error("No detections found in payload")
                 return
-            
+
             for i, detection in enumerate(detections):
                 bbox = detection.get('bbox')
                 if bbox and len(bbox) >= 4:
@@ -133,47 +133,35 @@ class CropNode(BaseNode):
             self.report_error("No valid crops produced")
             return
         
-        output_mode = self.config.get('output_mode', 'separate')
-        
-        if output_mode == 'separate':
-            # Send separate message for each crop
-            for crop_data in crops:
-                encoded = self._encode_image(crop_data['image'])
-                if encoded:
-                    out_msg = self.create_message(
-                        payload=encoded,
-                        topic=msg.get('topic', 'crop'),
-                        bbox=crop_data['bbox'],
-                        crop_index=crop_data['index']
-                    )
-                    if 'detection' in crop_data:
-                        out_msg['detection'] = crop_data['detection']
-                    self.send(out_msg)
-        else:
-            # Send all crops in one message
-            encoded_crops = []
-            for crop_data in crops:
-                encoded = self._encode_image(crop_data['image'])
-                if encoded:
-                    encoded_crops.append({
-                        'image': encoded,
-                        'bbox': crop_data['bbox'],
-                        'index': crop_data['index']
-                    })
-            
-            out_msg = self.create_message(
-                payload=encoded_crops,
-                topic=msg.get('topic', 'crops'),
-                crop_count=len(encoded_crops)
-            )
-            self.send(out_msg)
+        # Always output a list of crops as the payload
+        encoded_crops = []
+        for crop_data in crops:
+            encoded = self._encode_image(crop_data['image'])
+            if encoded:
+                crop_info = {
+                    'image': encoded,
+                    'bbox': crop_data['bbox'],
+                    'index': crop_data['index']
+                }
+                if 'detection' in crop_data:
+                    crop_info['detection'] = crop_data['detection']
+                encoded_crops.append(crop_info)
+
+        out_msg = self.create_message(
+            payload=encoded_crops,
+            topic=msg.get('topic', 'crops'),
+            crop_count=len(encoded_crops)
+        )
+        self.send(out_msg)
     
     def _decode_image(self, payload: Dict[str, Any]) -> np.ndarray:
         """Decode image from payload."""
         try:
-            img_format = payload.get('format')
-            encoding = payload.get('encoding')
-            data = payload.get('data')
+            image = payload.get('image', None)
+            if image is not None:
+                img_format = image.get('format', None)
+                encoding = image.get('encoding')
+                data = image.get('data')
             
             if img_format == 'jpeg' and encoding == 'base64':
                 img_bytes = base64.b64decode(data)
