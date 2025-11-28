@@ -43,11 +43,17 @@ export function renderConnection(connection) {
     const x2 = targetRect.left + targetRect.width / 2 - canvasRect.left;
     const y2 = targetRect.top + targetRect.height / 2 - canvasRect.top;
     
-    const x2End = x2 - 20;
-    const dx = x2End - x1;
-    const controlDistance = Math.abs(dx) * 0.5;
-    
-    const pathData = `M ${x1} ${y1} C ${x1 + controlDistance} ${y1}, ${x2End - controlDistance} ${y2}, ${x2End} ${y2}`;
+    // Arrowhead always ends at the target port
+    // For near-vertical connections, adjust control points for a visible curve
+    // Arrowhead is always at the target port (x2, y2)
+    // Control points are adjusted for a smooth curve, but never move the end point
+    const dx = x2 - x1;
+    let minCurve = 40;
+    let control = Math.max(Math.abs(dx) * 0.5, minCurve);
+    // Control points: always horizontally offset from source/target
+    const cx1 = x1 + control;
+    const cx2 = x2 - control;
+    const pathData = `M ${x1} ${y1} C ${cx1} ${y1}, ${cx2} ${y2}, ${x2} ${y2}`;
     
     // Create invisible wider path for easier clicking
     const hitArea = document.createElementNS('http://www.w3.org/2000/svg', 'path');
@@ -60,11 +66,11 @@ export function renderConnection(connection) {
     hitArea.setAttribute('data-source-output', connection.sourceOutput || 0);
     hitArea.style.cursor = 'pointer';
     
-    // Create visible path
+    // Create visible path (no arrowhead)
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     path.setAttribute('class', 'connection');
     path.setAttribute('d', pathData);
-    path.setAttribute('marker-end', 'url(#arrowhead)');
+    // No marker-end (arrowhead)
     path.setAttribute('data-source', connection.source);
     path.setAttribute('data-target', connection.target);
     path.setAttribute('data-source-output', connection.sourceOutput || 0);
@@ -109,7 +115,28 @@ export function renderConnection(connection) {
 }
 
 export function updateConnections() {
-    document.getElementById('connections').innerHTML = '';
+    const connectionsSvg = document.getElementById('connections');
+    // Ensure marker is present only once
+    let defs = connectionsSvg.querySelector('defs');
+    if (!defs) {
+        defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+        const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+        marker.setAttribute('id', 'arrowhead');
+        marker.setAttribute('markerWidth', '10');
+        marker.setAttribute('markerHeight', '7');
+        marker.setAttribute('refX', '10');
+        marker.setAttribute('refY', '3.5');
+        marker.setAttribute('orient', 'auto');
+        marker.setAttribute('markerUnits', 'strokeWidth');
+        const arrowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        arrowPath.setAttribute('d', 'M0,0 L10,3.5 L0,7 Z');
+        arrowPath.setAttribute('fill', '#0e639c');
+        marker.appendChild(arrowPath);
+        defs.appendChild(marker);
+        connectionsSvg.insertBefore(defs, connectionsSvg.firstChild);
+    }
+    // Remove only connection paths, not defs/marker
+    Array.from(connectionsSvg.querySelectorAll('path.connection, path[stroke="transparent"]')).forEach(el => el.remove());
     state.connections.forEach(conn => renderConnection(conn));
 }
 
@@ -149,20 +176,20 @@ export function drawTempConnection(e) {
     if (!state.drawingConnection) return;
     
     const canvasRect = document.getElementById('canvas').getBoundingClientRect();
-    const endX = e.clientX - canvasRect.left - 20;
+    const endX = e.clientX - canvasRect.left;
     const endY = e.clientY - canvasRect.top;
     
     const dx = endX - state.drawingConnection.startX;
     const controlDistance = Math.abs(dx) * 0.5;
     
-    const tempLine = document.getElementById('temp-line');
-    tempLine.innerHTML = `
-        <path d="M ${state.drawingConnection.startX} ${state.drawingConnection.startY} 
-                 C ${state.drawingConnection.startX + controlDistance} ${state.drawingConnection.startY},
-                   ${endX - controlDistance} ${endY},
-                   ${endX} ${endY}"
-              stroke="#0e639c" stroke-width="2" fill="none" marker-end="url(#arrowhead)" />
-    `;
+        const tempLine = document.getElementById('temp-line');
+        tempLine.innerHTML = `
+                <path d="M ${state.drawingConnection.startX} ${state.drawingConnection.startY} 
+                                 C ${state.drawingConnection.startX + controlDistance} ${state.drawingConnection.startY},
+                                     ${endX - controlDistance} ${endY},
+                                     ${endX} ${endY}"
+                            stroke="#0e639c" stroke-width="2" fill="none" />
+        `;
 }
 
 export function endConnection(targetId) {
