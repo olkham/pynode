@@ -362,6 +362,146 @@ def save_workflow():
         return jsonify({'error': str(e)}), 400
 
 
+@app.route('/api/workflow/deploy-changes', methods=['POST'])
+def deploy_changes():
+    """Incrementally deploy only changed nodes without stopping the entire workflow."""
+    try:
+        data = request.json
+        modified_nodes = data.get('modifiedNodes', [])
+        added_nodes = data.get('addedNodes', [])
+        deleted_nodes = data.get('deletedNodes', [])
+        added_connections = data.get('addedConnections', [])
+        deleted_connections = data.get('deletedConnections', [])
+        
+        nodes_restarted = 0
+        
+        # 1. Delete removed connections first
+        for conn in deleted_connections:
+            try:
+                deployed_engine.disconnect_nodes(
+                    conn['source'], 
+                    conn['target'], 
+                    conn.get('sourceOutput', 0)
+                )
+                working_engine.disconnect_nodes(
+                    conn['source'], 
+                    conn['target'], 
+                    conn.get('sourceOutput', 0)
+                )
+            except Exception as e:
+                print(f"Error deleting connection: {e}")
+        
+        # 2. Delete removed nodes
+        for node_id in deleted_nodes:
+            try:
+                # Stop the node first
+                node = deployed_engine.get_node(node_id)
+                if node:
+                    node.on_stop()
+                deployed_engine.delete_node(node_id)
+                working_engine.delete_node(node_id)
+                nodes_restarted += 1
+            except Exception as e:
+                print(f"Error deleting node {node_id}: {e}")
+        
+        # 3. Add new nodes
+        for node_data in added_nodes:
+            try:
+                # Create in deployed engine
+                node = deployed_engine.create_node(
+                    node_type=node_data['type'],
+                    node_id=node_data['id'],
+                    name=node_data.get('name', ''),
+                    config=node_data.get('config', {})
+                )
+                node.enabled = node_data.get('enabled', True)
+                node.x = node_data.get('x', 0)
+                node.y = node_data.get('y', 0)
+                
+                # Start the new node if engine is running
+                if deployed_engine.running:
+                    node.on_start()
+                
+                # Create in working engine
+                w_node = working_engine.create_node(
+                    node_type=node_data['type'],
+                    node_id=node_data['id'],
+                    name=node_data.get('name', ''),
+                    config=node_data.get('config', {})
+                )
+                w_node.enabled = node_data.get('enabled', True)
+                w_node.x = node_data.get('x', 0)
+                w_node.y = node_data.get('y', 0)
+                
+                nodes_restarted += 1
+            except Exception as e:
+                print(f"Error adding node: {e}")
+        
+        # 4. Update modified nodes (stop, reconfigure, restart)
+        for node_data in modified_nodes:
+            node_id = node_data['id']
+            try:
+                deployed_node = deployed_engine.get_node(node_id)
+                working_node = working_engine.get_node(node_id)
+                
+                if deployed_node:
+                    # Stop the node
+                    deployed_node.on_stop()
+                    
+                    # Update configuration
+                    deployed_node.name = node_data.get('name', deployed_node.name)
+                    deployed_node.configure(node_data.get('config', {}))
+                    deployed_node.enabled = node_data.get('enabled', True)
+                    deployed_node.x = node_data.get('x', 0)
+                    deployed_node.y = node_data.get('y', 0)
+                    
+                    # Restart the node
+                    if deployed_engine.running:
+                        deployed_node.on_start()
+                    
+                    nodes_restarted += 1
+                
+                if working_node:
+                    working_node.name = node_data.get('name', working_node.name)
+                    working_node.configure(node_data.get('config', {}))
+                    working_node.enabled = node_data.get('enabled', True)
+                    working_node.x = node_data.get('x', 0)
+                    working_node.y = node_data.get('y', 0)
+                    
+            except Exception as e:
+                print(f"Error updating node {node_id}: {e}")
+        
+        # 5. Add new connections
+        for conn in added_connections:
+            try:
+                deployed_engine.connect_nodes(
+                    conn['source'],
+                    conn['target'],
+                    conn.get('sourceOutput', 0),
+                    conn.get('targetInput', 0)
+                )
+                working_engine.connect_nodes(
+                    conn['source'],
+                    conn['target'],
+                    conn.get('sourceOutput', 0),
+                    conn.get('targetInput', 0)
+                )
+            except Exception as e:
+                print(f"Error adding connection: {e}")
+        
+        # Save the updated workflow to disk
+        save_workflow_to_disk()
+        
+        return jsonify({
+            'success': True, 
+            'nodesRestarted': nodes_restarted
+        }), 200
+        
+    except Exception as e:
+        print(f"Error in incremental deploy: {e}")
+        return jsonify({'error': str(e)}), 400
+
+
 @app.route('/api/workflow/stats', methods=['GET'])
 def get_workflow_stats():
     """Get deployed workflow statistics."""

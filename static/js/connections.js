@@ -1,5 +1,5 @@
 // Connection management
-import { state, markNodeModified, setModified } from './state.js';
+import { state, markNodeModified, markConnectionAdded, markConnectionDeleted, setModified } from './state.js';
 
 export function createConnection(sourceId, targetId, sourceOutput = 0, targetInput = 0) {
     const connection = {
@@ -11,6 +11,7 @@ export function createConnection(sourceId, targetId, sourceOutput = 0, targetInp
     
     state.connections.push(connection);
     renderConnection(connection);
+    markConnectionAdded(connection);
     markNodeModified(sourceId);
     markNodeModified(targetId);
     setModified(true);
@@ -146,6 +147,14 @@ export function updateConnections() {
 }
 
 export function deleteConnection(sourceId, targetId, sourceOutput = null) {
+    // Track deleted connections for incremental deploy
+    state.connections.forEach(c => {
+        if (c.source === sourceId && c.target === targetId && 
+            (sourceOutput === null || c.sourceOutput === sourceOutput)) {
+            markConnectionDeleted(c);
+        }
+    });
+    
     state.connections = state.connections.filter(
         c => !(c.source === sourceId && c.target === targetId && 
                (sourceOutput === null || c.sourceOutput === sourceOutput))

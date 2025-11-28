@@ -1,6 +1,6 @@
 // Workflow import/export and deployment
 import { API_BASE } from './config.js';
-import { state, setModified, clearAllNodeModifiedIndicators } from './state.js';
+import { state, setModified, clearAllNodeModifiedIndicators, clearChangeTracking, hasChanges } from './state.js';
 import { renderNode } from './nodes.js';
 import { updateConnections } from './connections.js';
 import { showToast } from './ui-utils.js';
@@ -81,6 +81,8 @@ export async function loadWorkflow() {
             clearHistory();
         });
         
+        // Clear change tracking since we just loaded from server
+        clearChangeTracking();
         setModified(false);
     } catch (error) {
         console.error('Failed to load workflow:', error);
@@ -89,34 +91,73 @@ export async function loadWorkflow() {
 
 export async function deployWorkflow() {
     try {
-        const nodes = [];
-        state.nodes.forEach((nodeData) => {
-            nodes.push({
-                id: nodeData.id,
-                type: nodeData.type,
-                name: nodeData.name,
-                config: nodeData.config,
-                enabled: nodeData.enabled !== undefined ? nodeData.enabled : true,
-                x: nodeData.x,
-                y: nodeData.y
-            });
+        // Build list of changed nodes
+        const modifiedNodesList = [];
+        const addedNodesList = [];
+        const deletedNodeIds = Array.from(state.deletedNodes);
+        
+        // Collect modified nodes (config/property changes)
+        state.modifiedNodes.forEach(nodeId => {
+            const nodeData = state.nodes.get(nodeId);
+            if (nodeData) {
+                modifiedNodesList.push({
+                    id: nodeData.id,
+                    type: nodeData.type,
+                    name: nodeData.name,
+                    config: nodeData.config,
+                    enabled: nodeData.enabled !== undefined ? nodeData.enabled : true,
+                    x: nodeData.x,
+                    y: nodeData.y
+                });
+            }
         });
         
-        const workflow = {
-            nodes: nodes,
-            connections: state.connections
+        // Collect added nodes
+        state.addedNodes.forEach(nodeId => {
+            const nodeData = state.nodes.get(nodeId);
+            if (nodeData) {
+                addedNodesList.push({
+                    id: nodeData.id,
+                    type: nodeData.type,
+                    name: nodeData.name,
+                    config: nodeData.config,
+                    enabled: nodeData.enabled !== undefined ? nodeData.enabled : true,
+                    x: nodeData.x,
+                    y: nodeData.y
+                });
+            }
+        });
+        
+        const changes = {
+            modifiedNodes: modifiedNodesList,
+            addedNodes: addedNodesList,
+            deletedNodes: deletedNodeIds,
+            addedConnections: state.addedConnections,
+            deletedConnections: state.deletedConnections
         };
         
-        const response = await fetch(`${API_BASE}/workflow`, {
+        // Use incremental deploy endpoint
+        const response = await fetch(`${API_BASE}/workflow/deploy-changes`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(workflow)
+            body: JSON.stringify(changes)
         });
         
         if (response.ok) {
+            const result = await response.json();
             clearAllNodeModifiedIndicators();
+            clearChangeTracking();
             setModified(false);
-            showToast('Workflow deployed and saved!');
+            
+            // Show appropriate message based on what was deployed
+            const changedCount = result.nodesRestarted || 0;
+            if (changedCount === 0) {
+                showToast('No changes to deploy');
+            } else if (changedCount === 1) {
+                showToast('Deployed 1 changed node');
+            } else {
+                showToast(`Deployed ${changedCount} changed nodes`);
+            }
         } else {
             throw new Error('Failed to deploy workflow');
         }

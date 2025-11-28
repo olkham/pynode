@@ -1,6 +1,6 @@
 // Node rendering and management
 import { API_BASE } from './config.js';
-import { state, generateNodeId, markNodeModified, setModified } from './state.js';
+import { state, generateNodeId, markNodeModified, markNodeAdded, markNodeDeleted, setModified } from './state.js';
 import { updateConnections } from './connections.js';
 import { selectNode } from './selection.js';
 
@@ -52,6 +52,7 @@ export function createNode(type, x, y) {
     
     state.nodes.set(nodeData.id, nodeData);
     renderNode(nodeData);
+    markNodeAdded(nodeData.id);
     markNodeModified(nodeData.id);
     setModified(true);
     
@@ -302,6 +303,15 @@ function attachNodeEventHandlers(nodeEl, nodeData) {
 }
 
 export function deleteNode(nodeId) {
+    // Track deleted connections for incremental deploy
+    import('./state.js').then(({ markConnectionDeleted }) => {
+        state.connections.forEach(c => {
+            if (c.source === nodeId || c.target === nodeId) {
+                markConnectionDeleted(c);
+            }
+        });
+    });
+    
     state.nodes.delete(nodeId);
     state.connections = state.connections.filter(
         c => c.source !== nodeId && c.target !== nodeId
@@ -313,6 +323,9 @@ export function deleteNode(nodeId) {
     if (state.selectedNode === nodeId) {
         import('./selection.js').then(({ deselectNode }) => deselectNode());
     }
+    
+    // Track deleted node for incremental deploy
+    markNodeDeleted(nodeId);
     setModified(true);
 }
 
