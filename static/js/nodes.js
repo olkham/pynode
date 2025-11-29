@@ -1,7 +1,7 @@
 // Node rendering and management
 import { API_BASE } from './config.js';
 import { state, generateNodeId, markNodeModified, markNodeAdded, markNodeDeleted, setModified } from './state.js';
-import { updateConnections } from './connections.js';
+import { updateConnections, nodeHasConnections, getConnectionAtPoint, highlightConnectionForInsert, clearConnectionHighlight } from './connections.js';
 import { selectNode } from './selection.js';
 
 export function createNode(type, x, y) {
@@ -222,6 +222,7 @@ function attachNodeEventHandlers(nodeEl, nodeData) {
     let isDragging = false;
     let startX, startY;
     let hasMoved = false;
+    let isUnconnectedNode = false;
     
     nodeEl.addEventListener('mousedown', (e) => {
         if (e.target.classList.contains('port')) return;
@@ -233,6 +234,9 @@ function attachNodeEventHandlers(nodeEl, nodeData) {
         hasMoved = false;
         startX = e.clientX - nodeData.x;
         startY = e.clientY - nodeData.y;
+        
+        // Check if this node has no connections (for hover-insert highlighting)
+        isUnconnectedNode = !nodeHasConnections(nodeData.id);
         
         if (e.ctrlKey || e.metaKey) {
             selectNode(nodeData.id, true);
@@ -290,11 +294,33 @@ function attachNodeEventHandlers(nodeEl, nodeData) {
         nodeData.y = e.clientY - startY;
         
         updateConnections();
+        
+        // Check for connection hover if this is an unconnected node
+        // Must happen after updateConnections() to ensure highlight persists
+        if (isUnconnectedNode && state.selectedNodes.size === 1) {
+            // Get node center position in canvas coordinates
+            const nodeRect = nodeEl.getBoundingClientRect();
+            const canvasRect = document.getElementById('canvas').getBoundingClientRect();
+            const nodeCenterX = nodeRect.left + nodeRect.width / 2 - canvasRect.left;
+            const nodeCenterY = nodeRect.top + nodeRect.height / 2 - canvasRect.top;
+            
+            const hoveredConnection = getConnectionAtPoint(nodeCenterX, nodeCenterY);
+            if (hoveredConnection) {
+                highlightConnectionForInsert(hoveredConnection);
+            } else {
+                clearConnectionHighlight();
+            }
+        }
     });
     
     document.addEventListener('mouseup', () => {
+        if (isDragging) {
+            // Clear any connection highlight when drag ends
+            clearConnectionHighlight();
+        }
         isDragging = false;
         hasMoved = false;
+        isUnconnectedNode = false;
     });
     
     // Port connection handling - support multiple output ports

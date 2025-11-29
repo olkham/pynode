@@ -1,6 +1,59 @@
 // Connection management
 import { state, markNodeModified, markConnectionAdded, markConnectionDeleted, setModified } from './state.js';
 
+// Check if a node has any connections
+export function nodeHasConnections(nodeId) {
+    return state.connections.some(c => c.source === nodeId || c.target === nodeId);
+}
+
+// Check if a point is near a connection path and return the connection if so
+export function getConnectionAtPoint(x, y, threshold = 15) {
+    const paths = document.querySelectorAll('#connections path.connection');
+    
+    for (const path of paths) {
+        const pathLength = path.getTotalLength();
+        const step = 5; // Check every 5 pixels along the path
+        
+        for (let i = 0; i <= pathLength; i += step) {
+            const point = path.getPointAtLength(i);
+            const distance = Math.sqrt(Math.pow(point.x - x, 2) + Math.pow(point.y - y, 2));
+            
+            if (distance < threshold) {
+                return {
+                    source: path.getAttribute('data-source'),
+                    target: path.getAttribute('data-target'),
+                    sourceOutput: parseInt(path.getAttribute('data-source-output') || '0'),
+                    path: path
+                };
+            }
+        }
+    }
+    
+    return null;
+}
+
+// Highlight a connection with dashed style (for hover-insert indication)
+export function highlightConnectionForInsert(connection) {
+    clearConnectionHighlight();
+    
+    if (!connection) return;
+    
+    const paths = document.querySelectorAll('#connections path.connection');
+    paths.forEach(path => {
+        if (path.getAttribute('data-source') === connection.source &&
+            path.getAttribute('data-target') === connection.target &&
+            parseInt(path.getAttribute('data-source-output') || '0') === connection.sourceOutput) {
+            path.classList.add('hover-insert');
+        }
+    });
+}
+
+// Clear connection highlight
+export function clearConnectionHighlight() {
+    const paths = document.querySelectorAll('#connections path.connection.hover-insert');
+    paths.forEach(path => path.classList.remove('hover-insert'));
+}
+
 export function createConnection(sourceId, targetId, sourceOutput = 0, targetInput = 0) {
     const connection = {
         source: sourceId,

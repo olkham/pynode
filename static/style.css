@@ -765,6 +765,12 @@ body {
     opacity: 0.6;
 }
 
+.connection.hover-insert {
+    stroke-dasharray: 8, 8;
+    stroke: #0e639c;
+    stroke-width: 3;
+}
+
 /* Properties Panel */
 .properties {
     width: 300px;
