@@ -8,3 +8,10 @@ NODES
 
 GENERAL
 - workflow wide services like mqtt so we can reuse the same mqtt client for pub node and sub node
+
+MESSAGES
+- check the inputs / outputs / arrays etc. are a standard form so node can be easily connected with little to no config
+- allow variables to be set at msg level that override the values in a node i.e.
+    - msg.label = 'person' will override the label in the filter node
+    - msg.payload will contain the actual data
+    
