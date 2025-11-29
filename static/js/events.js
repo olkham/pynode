@@ -5,6 +5,7 @@ import { deselectNode, deselectAllNodes, selectNode } from './selection.js';
 import { deleteNode } from './nodes.js';
 import { deployWorkflow, deployWorkflowFull, clearWorkflow, exportWorkflow, importWorkflow } from './workflow.js';
 import { clearDebug } from './debug.js';
+import { getConnectionAtPoint, highlightConnectionForInsert, clearConnectionHighlight } from './connections.js';
 
 // Track deploy mode: 'modified' or 'full'
 let deployMode = 'modified';
@@ -14,7 +15,8 @@ export function setupEventListeners() {
     const canvasContainer = document.querySelector('.canvas-container');
     
     // Canvas drop event
-    nodesContainer.addEventListener('dragover', (e) => e.preventDefault());
+    nodesContainer.addEventListener('dragover', handleCanvasDragOver);
+    nodesContainer.addEventListener('dragleave', handleCanvasDragLeave);
     nodesContainer.addEventListener('drop', handleCanvasDrop);
     
     // Middle mouse button panning
@@ -248,8 +250,44 @@ function togglePropertiesPanel() {
     propertiesPanel.classList.toggle('hidden');
 }
 
+// Throttle helper for dragover
+let lastDragOverTime = 0;
+const DRAG_THROTTLE_MS = 50; // Only check every 50ms
+
+function handleCanvasDragOver(e) {
+    e.preventDefault();
+    
+    // Throttle the connection check for performance
+    const now = Date.now();
+    if (now - lastDragOverTime < DRAG_THROTTLE_MS) {
+        return;
+    }
+    lastDragOverTime = now;
+    
+    // Check if dragging over a connection and highlight it
+    const canvasRect = document.getElementById('canvas').getBoundingClientRect();
+    const x = e.clientX - canvasRect.left;
+    const y = e.clientY - canvasRect.top;
+    
+    const hoveredConnection = getConnectionAtPoint(x, y);
+    if (hoveredConnection) {
+        highlightConnectionForInsert(hoveredConnection);
+    } else {
+        clearConnectionHighlight();
+    }
+}
+
+function handleCanvasDragLeave(e) {
+    // Clear highlight when leaving the canvas
+    clearConnectionHighlight();
+}
+
 function handleCanvasDrop(e) {
     e.preventDefault();
+    
+    // Clear any connection highlight
+    clearConnectionHighlight();
+    
     const nodeType = e.dataTransfer.getData('nodeType');
     if (!nodeType) return;
     

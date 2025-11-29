@@ -9,16 +9,30 @@ export function nodeHasConnections(nodeId) {
 // Check if a point is near a connection path and return the connection if so
 export function getConnectionAtPoint(x, y, threshold = 15) {
     const paths = document.querySelectorAll('#connections path.connection');
+    const canvasRect = document.getElementById('canvas').getBoundingClientRect();
     
     for (const path of paths) {
+        // Quick bounding box check first (much faster than path calculations)
+        const bbox = path.getBBox();
+        const expandedThreshold = threshold + 5;
+        
+        // Skip if point is clearly outside the bounding box
+        if (x < bbox.x - expandedThreshold || x > bbox.x + bbox.width + expandedThreshold ||
+            y < bbox.y - expandedThreshold || y > bbox.y + bbox.height + expandedThreshold) {
+            continue;
+        }
+        
+        // Only do expensive path distance check if within bounding box
         const pathLength = path.getTotalLength();
-        const step = 5; // Check every 5 pixels along the path
+        const step = 20; // Larger step for better performance
         
         for (let i = 0; i <= pathLength; i += step) {
             const point = path.getPointAtLength(i);
-            const distance = Math.sqrt(Math.pow(point.x - x, 2) + Math.pow(point.y - y, 2));
+            const dx = point.x - x;
+            const dy = point.y - y;
+            const distanceSquared = dx * dx + dy * dy;
             
-            if (distance < threshold) {
+            if (distanceSquared < threshold * threshold) {
                 return {
                     source: path.getAttribute('data-source'),
                     target: path.getAttribute('data-target'),
