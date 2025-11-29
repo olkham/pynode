@@ -84,6 +84,7 @@ class DebugNode(BaseNode):
         debug_entry = {
             'timestamp': timestamp,
             'node': self.name,
+            'node_id': self.id,
             'display_key': display_key,
             'output': display_output
         }

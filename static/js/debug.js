@@ -2,6 +2,8 @@
 import { API_BASE } from './config.js';
 
 const MAX_DEBUG_MESSAGES = 100; // Maximum number of messages to keep in UI
+let messageIdCounter = 0; // Unique ID counter for message elements
+
 const debugState = {
     messageMap: new Map(), // For collapsing similar messages
     showInfo: true,
@@ -68,6 +70,7 @@ export function displayDebugMessages(messages) {
         } else {
             // Create new message
             const messageData = {
+                id: `msg-${++messageIdCounter}`,
                 key: messageKey,
                 node: msg.node,
                 nodeId: msg.node_id,
@@ -75,7 +78,8 @@ export function displayDebugMessages(messages) {
                 timestamp: msg.timestamp,
                 count: 1,
                 isError: false,
-                display_key: msg.display_key || ''
+                display_key: msg.display_key || '',
+                element: null // Will be set when element is created
             };
 
             if (debugState.collapseSimilar) {
@@ -107,13 +111,15 @@ export function displayErrorMessages(errors) {
         } else {
             // Create new error message
             const messageData = {
+                id: `msg-${++messageIdCounter}`,
                 key: messageKey,
                 node: error.source_node_name,
                 nodeId: error.source_node_id,
                 output: error.message,
                 timestamp: new Date(error.timestamp * 1000).toLocaleTimeString(),
                 count: 1,
-                isError: true
+                isError: true,
+                element: null // Will be set when element is created
             };
             
             if (debugState.collapseSimilar) {
@@ -133,9 +139,12 @@ export function displayErrorMessages(errors) {
 function createMessageElement(messageData, container) {
     const msgEl = document.createElement('div');
     msgEl.className = messageData.isError ? 'debug-message error-message' : 'debug-message';
-    msgEl.dataset.messageKey = messageData.key;
+    msgEl.id = messageData.id;
     msgEl.dataset.nodeId = messageData.nodeId;
     msgEl.dataset.isError = messageData.isError;
+    
+    // Store reference to the element
+    messageData.element = msgEl;
     
     updateMessageContent(msgEl, messageData);
     
@@ -151,9 +160,9 @@ function createMessageElement(messageData, container) {
 }
 
 function updateMessageElement(messageData) {
-    const msgEl = document.querySelector(`[data-message-key="${messageData.key}"]`);
-    if (msgEl) {
-        updateMessageContent(msgEl, messageData);
+    // Use stored element reference instead of querySelector
+    if (messageData.element) {
+        updateMessageContent(messageData.element, messageData);
     }
 }
 
@@ -258,11 +267,15 @@ function trimDebugMessages(container) {
     if (messages.length > MAX_DEBUG_MESSAGES) {
         const removeCount = messages.length - MAX_DEBUG_MESSAGES;
         for (let i = 0; i < removeCount; i++) {
-            const messageKey = messages[i].dataset.messageKey;
-            if (messageKey) {
-                debugState.messageMap.delete(messageKey);
+            const msgEl = messages[i];
+            // Find and remove from messageMap by element reference
+            for (const [key, data] of debugState.messageMap.entries()) {
+                if (data.element === msgEl) {
+                    debugState.messageMap.delete(key);
+                    break;
+                }
             }
-            messages[i].remove();
+            msgEl.remove();
         }
     }
 }
