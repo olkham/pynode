@@ -242,11 +242,10 @@ function attachNodeEventHandlers(nodeEl, nodeData) {
             selectNode(nodeData.id, false);
         }
         
-        // Show properties panel if it's hidden
-        const propertiesPanel = document.getElementById('properties-panel-container');
-        if (propertiesPanel.classList.contains('hidden')) {
-            propertiesPanel.classList.remove('hidden');
-        }
+        // Show properties panel and render properties
+        import('./properties.js').then(({ renderProperties }) => {
+            renderProperties(nodeData);
+        });
         
         e.preventDefault();
     });

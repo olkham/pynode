@@ -6,6 +6,10 @@ import { updateConnections } from './connections.js';
 
 export function renderProperties(nodeData) {
     const panel = document.getElementById('properties-panel');
+    const panelContainer = document.getElementById('properties-panel-container');
+    if (panelContainer) {
+        panelContainer.classList.remove('hidden');
+    }
     
     const isEnabled = nodeData.enabled !== undefined ? nodeData.enabled : true;
     
