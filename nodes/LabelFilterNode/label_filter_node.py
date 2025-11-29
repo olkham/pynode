@@ -57,8 +57,8 @@ class LabelFilterNode(BaseNode):
             'name': 'detections_path',
             'label': 'Detections Path',
             'type': 'text',
-            'default': 'payload.detections',
-            'help': 'Path to detections array in message (e.g., "payload.detections")'
+            'default': 'payload.detection',
+            'help': 'Path to detection(s) in message (e.g., "payload.detection" or "payload.detections")'
         }
     ]
     
@@ -69,7 +69,7 @@ class LabelFilterNode(BaseNode):
             'match_mode': 'any',
             'case_sensitive': False,
             'filter_detections': True,
-            'detections_path': 'payload.detections'
+            'detections_path': 'payload.detection'
         })
     
     def _get_nested_value(self, obj: Dict, path: str) -> Any:
@@ -117,11 +117,23 @@ class LabelFilterNode(BaseNode):
             self.send(msg, 0)
             return
         
-        detections_path = self.config.get('detections_path', 'payload.detections')
-        detections = self._get_nested_value(msg, detections_path)
+        detections_path = self.config.get('detections_path', 'payload.detection')
+        detection_data = self._get_nested_value(msg, detections_path)
         
-        if not detections or not isinstance(detections, list):
-            # No detections found, send to unmatched output
+        if detection_data is None:
+            # No detection found, send to unmatched output
+            self.send(msg, 1)
+            return
+        
+        # Handle both single detection (dict) and array of detections (list)
+        if isinstance(detection_data, dict):
+            detections = [detection_data]
+            is_single = True
+        elif isinstance(detection_data, list):
+            detections = detection_data
+            is_single = False
+        else:
+            # Invalid detection data, send to unmatched output
             self.send(msg, 1)
             return
         
@@ -160,10 +172,14 @@ class LabelFilterNode(BaseNode):
                 # Replace detections with only matching ones
                 if 'payload' in output_msg and isinstance(output_msg['payload'], dict):
                     output_msg['payload'] = output_msg['payload'].copy()
-                    self._set_nested_value(output_msg, detections_path, matching_detections)
-                    # Update detection count if present
-                    if 'detection_count' in output_msg['payload']:
-                        output_msg['payload']['detection_count'] = len(matching_detections)
+                    # For single detection, keep as single; for array, keep as array
+                    if is_single:
+                        self._set_nested_value(output_msg, detections_path, matching_detections[0])
+                    else:
+                        self._set_nested_value(output_msg, detections_path, matching_detections)
+                        # Update detection count if present
+                        if 'detection_count' in output_msg['payload']:
+                            output_msg['payload']['detection_count'] = len(matching_detections)
             
             self.send(output_msg, 0)
         else:
