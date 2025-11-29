@@ -539,10 +539,15 @@ def debug_stream():
         client_id = id(q)
         debug_message_queues[client_id] = q
         
+        # Track last rate update time
+        last_rate_update = 0
+        rate_update_interval = 0.5  # Update rate display every 500ms
+        
         try:
             yield 'data: {"type": "connected"}\n\n'
             
             while True:
+                current_time = time.time()
                 # Check all debug nodes in deployed workflow for new messages
                 all_messages = []
                 for node_id, node in deployed_engine.nodes.items():
@@ -579,17 +584,19 @@ def debug_stream():
                                 })
                                 yield f'data: {frame_data}\n\n'
                 
-                # Check all rate probe nodes for rate updates
-                for node_id, node in deployed_engine.nodes.items():
-                    if node.type == 'RateProbeNode':
-                        if hasattr(node, 'get_rate_display'):
-                            rate_data = json.dumps({
-                                'type': 'rate',
-                                'nodeId': node_id,
-                                'display': node.get_rate_display(),
-                                'rate': node.get_rate()
-                            })
-                            yield f'data: {rate_data}\n\n'
+                # Check all rate probe nodes for rate updates (throttled)
+                if current_time - last_rate_update >= rate_update_interval:
+                    last_rate_update = current_time
+                    for node_id, node in deployed_engine.nodes.items():
+                        if node.type == 'RateProbeNode':
+                            if hasattr(node, 'get_rate_display'):
+                                rate_data = json.dumps({
+                                    'type': 'rate',
+                                    'nodeId': node_id,
+                                    'display': node.get_rate_display(),
+                                    'rate': node.get_rate()
+                                })
+                                yield f'data: {rate_data}\n\n'
                 
                 time.sleep(0.01)  # 10ms sleep for up to 100 FPS
         except GeneratorExit:

@@ -1241,7 +1241,7 @@ body {
 
 /* Right Sidebar */
 .right-sidebar {
-    width: 300px;
+    width: 350px;
     background: #252526;
     border-left: 1px solid #3e3e42;
     display: flex;
