@@ -1,7 +1,7 @@
 // Node rendering and management
 import { API_BASE } from './config.js';
 import { state, generateNodeId, markNodeModified, markNodeAdded, markNodeDeleted, setModified } from './state.js';
-import { updateConnections, nodeHasConnections, getConnectionAtPoint, highlightConnectionForInsert, clearConnectionHighlight } from './connections.js';
+import { updateConnections, nodeHasConnections, getConnectionAtPoint, highlightConnectionForInsert, clearConnectionHighlight, getHoveredConnection, insertNodeIntoConnection } from './connections.js';
 import { selectNode } from './selection.js';
 
 export function createNode(type, x, y) {
@@ -315,8 +315,16 @@ function attachNodeEventHandlers(nodeEl, nodeData) {
     
     document.addEventListener('mouseup', () => {
         if (isDragging) {
+            // Check if we should insert this node into a connection
+            const connectionToInsertInto = getHoveredConnection();
+            
             // Clear any connection highlight when drag ends
             clearConnectionHighlight();
+            
+            // If this was an unconnected node dropped on a connection, insert it
+            if (isUnconnectedNode && connectionToInsertInto) {
+                insertNodeIntoConnection(nodeData.id, connectionToInsertInto);
+            }
         }
         isDragging = false;
         hasMoved = false;

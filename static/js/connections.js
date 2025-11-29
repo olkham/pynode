@@ -1,9 +1,17 @@
 // Connection management
 import { state, markNodeModified, markConnectionAdded, markConnectionDeleted, setModified } from './state.js';
 
+// Track the currently hovered connection for insertion
+let hoveredConnectionForInsert = null;
+
 // Check if a node has any connections
 export function nodeHasConnections(nodeId) {
     return state.connections.some(c => c.source === nodeId || c.target === nodeId);
+}
+
+// Get the currently hovered connection (for insertion)
+export function getHoveredConnection() {
+    return hoveredConnectionForInsert;
 }
 
 // Check if a point is near a connection path and return the connection if so
@@ -52,6 +60,9 @@ export function highlightConnectionForInsert(connection) {
     
     if (!connection) return;
     
+    // Track the hovered connection
+    hoveredConnectionForInsert = connection;
+    
     const paths = document.querySelectorAll('#connections path.connection');
     paths.forEach(path => {
         if (path.getAttribute('data-source') === connection.source &&
@@ -64,8 +75,42 @@ export function highlightConnectionForInsert(connection) {
 
 // Clear connection highlight
 export function clearConnectionHighlight() {
+    hoveredConnectionForInsert = null;
     const paths = document.querySelectorAll('#connections path.connection.hover-insert');
     paths.forEach(path => path.classList.remove('hover-insert'));
+}
+
+// Insert a node into an existing connection (split the connection)
+export function insertNodeIntoConnection(nodeId, connection) {
+    if (!connection) return false;
+    
+    const nodeData = state.nodes.get(nodeId);
+    if (!nodeData) return false;
+    
+    // Check if node has both input and output ports
+    const inputCount = nodeData.inputCount !== undefined ? nodeData.inputCount : 1;
+    const outputCount = nodeData.outputCount !== undefined ? nodeData.outputCount : 1;
+    
+    if (inputCount === 0 || outputCount === 0) {
+        // Can't insert a node without both input and output
+        return false;
+    }
+    
+    // Save state for undo
+    import('./history.js').then(({ saveState }) => {
+        saveState('insert node into connection');
+    });
+    
+    // Delete the original connection
+    deleteConnection(connection.source, connection.target, connection.sourceOutput);
+    
+    // Create connection from original source to the new node
+    createConnection(connection.source, nodeId, connection.sourceOutput, 0);
+    
+    // Create connection from the new node to the original target
+    createConnection(nodeId, connection.target, 0, 0);
+    
+    return true;
 }
 
 export function createConnection(sourceId, targetId, sourceOutput = 0, targetInput = 0) {

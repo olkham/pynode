@@ -5,7 +5,7 @@ import { deselectNode, deselectAllNodes, selectNode } from './selection.js';
 import { deleteNode } from './nodes.js';
 import { deployWorkflow, deployWorkflowFull, clearWorkflow, exportWorkflow, importWorkflow } from './workflow.js';
 import { clearDebug } from './debug.js';
-import { getConnectionAtPoint, highlightConnectionForInsert, clearConnectionHighlight } from './connections.js';
+import { getConnectionAtPoint, highlightConnectionForInsert, clearConnectionHighlight, getHoveredConnection, insertNodeIntoConnection } from './connections.js';
 
 // Track deploy mode: 'modified' or 'full'
 let deployMode = 'modified';
@@ -285,6 +285,9 @@ function handleCanvasDragLeave(e) {
 function handleCanvasDrop(e) {
     e.preventDefault();
     
+    // Get the hovered connection before clearing
+    const connectionToInsertInto = getHoveredConnection();
+    
     // Clear any connection highlight
     clearConnectionHighlight();
     
@@ -299,7 +302,15 @@ function handleCanvasDrop(e) {
     const x = e.clientX - rect.left - offsetX;
     const y = e.clientY - rect.top - offsetY;
     
-    createNode(nodeType, x, y);
+    const newNodeId = createNode(nodeType, x, y);
+    
+    // If dropped on a connection, insert the node into it
+    if (connectionToInsertInto && newNodeId) {
+        // Small delay to ensure node is fully rendered
+        setTimeout(() => {
+            insertNodeIntoConnection(newNodeId, connectionToInsertInto);
+        }, 50);
+    }
 }
 
 function setupSelectionBox() {
