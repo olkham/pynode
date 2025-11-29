@@ -541,9 +541,11 @@ function handleMiniPaletteKeydown(e) {
 function createNodeAndConnect(nodeType, x, y, sourceId, outputIndex) {
     import('./nodes.js').then(({ createNode }) => {
         // Convert screen coordinates to canvas coordinates
-        const canvasRect = document.getElementById('canvas').getBoundingClientRect();
-        const canvasX = x - canvasRect.left + document.getElementById('canvas').parentElement.scrollLeft;
-        const canvasY = y - canvasRect.top + document.getElementById('canvas').parentElement.scrollTop;
+        // Use nodes-container rect (same as handleCanvasDrop in events.js)
+        const nodesContainer = document.getElementById('nodes-container');
+        const containerRect = nodesContainer.getBoundingClientRect();
+        const canvasX = x - containerRect.left;
+        const canvasY = y - containerRect.top;
         
         // Create the new node
         const newNodeId = createNode(nodeType, canvasX, canvasY);
