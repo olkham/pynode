@@ -75,7 +75,7 @@
             </main>
 
             <!-- Properties Panel -->
-            <aside class="properties" id="properties-panel-container">
+            <aside class="properties hidden" id="properties-panel-container">
                 <div class="resize-handle" id="properties-resize-handle"></div>
                 <div class="properties-header">
                     <h3>Properties</h3>
@@ -86,26 +86,44 @@
                 </div>
             </aside>
 
-            <!-- Debug Panel -->
-            <aside class="debug-panel" id="debug-panel">
-                <div class="debug-header">
-                    <h3>Debug Messages</h3>
-                    <div class="debug-controls">
-                        <button id="clear-debug-btn" class="btn btn-secondary btn-small" title="Clear">🗑️</button>
+            <!-- Right Sidebar (permanent) -->
+            <aside class="right-sidebar" id="right-sidebar">
+                <div class="sidebar-tabs">
+                    <button class="sidebar-tab active" data-panel="debug" title="Debug">🐛</button>
+                    <button class="sidebar-tab" data-panel="info" title="Info">ℹ️</button>
+                </div>
+                <div class="sidebar-content">
+                    <!-- Debug Panel -->
+                    <div class="sidebar-panel active" id="debug-panel">
+                        <div class="debug-header">
+                            <h3>Debug Messages</h3>
+                            <div class="debug-controls">
+                                <button id="clear-debug-btn" class="btn btn-secondary btn-small" title="Clear">🗑️</button>
+                            </div>
+                        </div>
+                        <div class="debug-filters">
+                            <button class="filter-toggle-btn active" id="filter-info" data-filter="info">
+                                Info
+                            </button>
+                            <button class="filter-toggle-btn active" id="filter-errors" data-filter="errors">
+                                Errors
+                            </button>
+                            <button class="filter-toggle-btn active" id="collapse-similar" data-filter="collapse">
+                                Collapse
+                            </button>
+                        </div>
+                        <div id="debug-messages"></div>
+                    </div>
+                    <!-- Info Panel -->
+                    <div class="sidebar-panel" id="info-panel">
+                        <div class="info-header">
+                            <h3>Information</h3>
+                        </div>
+                        <div class="info-content">
+                            <p class="placeholder">Select a node to see information</p>
+                        </div>
                     </div>
                 </div>
-                <div class="debug-filters">
-                    <button class="filter-toggle-btn active" id="filter-info" data-filter="info">
-                        Info
-                    </button>
-                    <button class="filter-toggle-btn active" id="filter-errors" data-filter="errors">
-                        Errors
-                    </button>
-                    <button class="filter-toggle-btn active" id="collapse-similar" data-filter="collapse">
-                        Collapse
-                    </button>
-                </div>
-                <div id="debug-messages"></div>
             </aside>
         </div>
     </div>

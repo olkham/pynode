@@ -404,6 +404,28 @@ body {
     -ms-user-select: none;
 }
 
+.canvas-container::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+}
+
+.canvas-container::-webkit-scrollbar-track {
+    background: #1e1e1e;
+}
+
+.canvas-container::-webkit-scrollbar-thumb {
+    background: #424242;
+    border-radius: 6px;
+}
+
+.canvas-container::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+.canvas-container::-webkit-scrollbar-corner {
+    background: #1e1e1e;
+}
+
 #canvas {
     position: absolute;
     top: 0;
@@ -714,7 +736,7 @@ body {
 
 /* Properties Panel */
 .properties {
-    width: auto;
+    width: 300px;
     min-width: 300px;
     max-width: 800px;
     background: #252526;
@@ -724,17 +746,23 @@ body {
     padding: 15px;
     position: relative;
     z-index: 100;
-    transition: margin-right 0.3s ease, opacity 0.3s ease;
+    flex-shrink: 0;
+    transition: width 0.2s ease, min-width 0.2s ease, padding 0.2s ease, opacity 0.2s ease;
 }
 
 .properties.hidden {
-    margin-right: -300px;
     opacity: 0;
     pointer-events: none;
     min-width: 0;
     max-width: 0;
+    width: 0;
     padding: 0;
     border: none;
+    overflow: hidden;
+}
+
+.properties.hidden .resize-handle {
+    display: none;
 }
 
 .properties.resizing {
@@ -862,13 +890,9 @@ body {
 
 /* Debug Panel */
 .debug-panel {
-    width: 300px;
-    background: #252526;
-    border-left: 1px solid #3e3e42;
-    overflow-y: auto;
     display: flex;
     flex-direction: column;
-    z-index: 100;
+    height: 100%;
 }
 
 .debug-header {
@@ -1213,5 +1237,88 @@ body {
         box-shadow: 0 0 0 4px rgba(0, 152, 255, 0.8), 0 0 20px rgba(0, 152, 255, 0.9);
         border-color: #0098ff;
     }
+}
+
+/* Right Sidebar */
+.right-sidebar {
+    width: 300px;
+    background: #252526;
+    border-left: 1px solid #3e3e42;
+    display: flex;
+    flex-direction: row;
+    flex-shrink: 0;
+}
+
+.sidebar-tabs {
+    display: flex;
+    flex-direction: column;
+    background: #1e1e1e;
+    border-right: 1px solid #3e3e42;
+    padding: 5px 0;
+}
+
+.sidebar-tab {
+    width: 40px;
+    height: 40px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #888;
+    transition: all 0.15s;
+    border-left: 3px solid transparent;
+}
+
+.sidebar-tab:hover {
+    color: #fff;
+    background: #2d2d30;
+}
+
+.sidebar-tab.active {
+    color: #fff;
+    background: #252526;
+    border-left-color: #0e639c;
+}
+
+.sidebar-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.sidebar-panel {
+    display: none;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+}
+
+.sidebar-panel.active {
+    display: flex;
+}
+
+.info-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 15px;
+    border-bottom: 1px solid #3e3e42;
+    flex-shrink: 0;
+}
+
+.info-header h3 {
+    font-size: 14px;
+    color: #cccccc;
+    margin: 0;
+}
+
+.info-content {
+    flex: 1;
+    padding: 15px;
+    overflow-y: auto;
 }
 

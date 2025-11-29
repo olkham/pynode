@@ -107,6 +107,21 @@ export function setupEventListeners() {
         propertiesPanel.classList.add('hidden');
     });
     
+    // Sidebar tab switching
+    document.querySelectorAll('.sidebar-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            const panelId = tab.dataset.panel;
+            
+            // Update active tab
+            document.querySelectorAll('.sidebar-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            
+            // Show corresponding panel
+            document.querySelectorAll('.sidebar-panel').forEach(p => p.classList.remove('active'));
+            document.getElementById(`${panelId}-panel`).classList.add('active');
+        });
+    });
+    
     // Debug filter controls
     document.getElementById('filter-info').addEventListener('click', (e) => {
         e.currentTarget.classList.toggle('active');
