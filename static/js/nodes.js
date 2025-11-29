@@ -381,6 +381,45 @@ export function deleteNode(nodeId) {
     setModified(true);
 }
 
+// Delete a node but reconnect the nodes on either side
+export function deleteNodeAndReconnect(nodeId) {
+    const nodeData = state.nodes.get(nodeId);
+    if (!nodeData) return;
+    
+    // Find all incoming connections (where this node is the target)
+    const incomingConnections = state.connections.filter(c => c.target === nodeId);
+    
+    // Find all outgoing connections (where this node is the source)
+    const outgoingConnections = state.connections.filter(c => c.source === nodeId);
+    
+    // Import createConnection to make the new connections
+    import('./connections.js').then(({ createConnection }) => {
+        // Connect each incoming source to each outgoing target
+        incomingConnections.forEach(incoming => {
+            outgoingConnections.forEach(outgoing => {
+                // Check if connection already exists
+                const exists = state.connections.some(c => 
+                    c.source === incoming.source && 
+                    c.target === outgoing.target &&
+                    c.sourceOutput === incoming.sourceOutput
+                );
+                
+                if (!exists) {
+                    createConnection(
+                        incoming.source,
+                        outgoing.target,
+                        incoming.sourceOutput,
+                        outgoing.targetInput || 0
+                    );
+                }
+            });
+        });
+        
+        // Now delete the node (which removes its connections)
+        deleteNode(nodeId);
+    });
+}
+
 export function updateNodeOutputCount(nodeId, outputCount) {
     const nodeData = state.nodes.get(nodeId);
     if (!nodeData) return;

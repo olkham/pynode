@@ -1,8 +1,7 @@
 // Event handlers
 import { state } from './state.js';
-import { createNode } from './nodes.js';
+import { createNode, deleteNode, deleteNodeAndReconnect } from './nodes.js';
 import { deselectNode, deselectAllNodes, selectNode } from './selection.js';
-import { deleteNode } from './nodes.js';
 import { deployWorkflow, deployWorkflowFull, clearWorkflow, exportWorkflow, importWorkflow } from './workflow.js';
 import { clearDebug } from './debug.js';
 import { getConnectionAtPoint, highlightConnectionForInsert, clearConnectionHighlight, getHoveredConnection, insertNodeIntoConnection } from './connections.js';
@@ -182,7 +181,14 @@ export function setupEventListeners() {
                 });
                 
                 const nodesToDelete = Array.from(state.selectedNodes);
-                nodesToDelete.forEach(nodeId => deleteNode(nodeId));
+                
+                if (e.ctrlKey || e.metaKey) {
+                    // Ctrl+Delete: Delete and reconnect nodes on either side
+                    nodesToDelete.forEach(nodeId => deleteNodeAndReconnect(nodeId));
+                } else {
+                    // Normal Delete: Just delete the nodes
+                    nodesToDelete.forEach(nodeId => deleteNode(nodeId));
+                }
                 deselectAllNodes();
             } else if (state.selectedConnection) {
                 console.log('Deleting selected connection');
