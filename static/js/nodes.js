@@ -147,12 +147,22 @@ export function renderNode(nodeData) {
 
 function buildNodeContent(nodeData, icon, inputCount, outputCount) {
     if (inputCount === 0 && outputCount > 0) {
-        return `
-            <div class="node-content">
-                <div class="node-icon-container"><div class="node-icon">${icon}</div></div>
-                <div class="node-title">${nodeData.name}</div>
-            </div>
-        `;
+        if (nodeData.type === 'InjectNode') {
+            return `
+                <div class="node-content">
+                    <button class="inject-btn" onclick="window.triggerInject('${nodeData.id}')" title="Inject">▶</button>
+                    <div class="node-icon-container"><div class="node-icon">${icon}</div></div>
+                    <div class="node-title">${nodeData.name}</div>
+                </div>
+            `;
+        } else {
+            return `
+                <div class="node-content">
+                    <div class="node-icon-container"><div class="node-icon">${icon}</div></div>
+                    <div class="node-title">${nodeData.name}</div>
+                </div>
+            `;
+        }
     } else if (inputCount > 0 && outputCount === 0) {
         if (nodeData.type === 'DebugNode') {
             const isEnabled = nodeData.enabled !== undefined ? nodeData.enabled : true;
@@ -236,6 +246,7 @@ function attachNodeEventHandlers(nodeEl, nodeData) {
     // Double-click to open properties
     nodeEl.addEventListener('dblclick', (e) => {
         if (e.target.classList.contains('port')) return;
+        if (e.target.classList.contains('inject-btn')) return;
         
         // Select the node if not already selected
         if (!state.selectedNodes.has(nodeData.id)) {
@@ -386,5 +397,14 @@ window.toggleDebug = async function(nodeId, enabled) {
         }
     } catch (error) {
         console.error('Failed to toggle debug state:', error);
+    }
+};
+
+// Trigger inject node
+window.triggerInject = async function(nodeId) {
+    try {
+        await fetch(`${API_BASE}/nodes/${nodeId}/inject`, { method: 'POST' });
+    } catch (error) {
+        console.error('Failed to trigger inject:', error);
     }
 };
