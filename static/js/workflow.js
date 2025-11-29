@@ -1,10 +1,29 @@
 // Workflow import/export and deployment
 import { API_BASE } from './config.js';
-import { state, setModified, clearAllNodeModifiedIndicators, clearChangeTracking, hasChanges } from './state.js';
+import { state, setModified, clearAllNodeModifiedIndicators, clearChangeTracking, hasChanges, getNodeType } from './state.js';
 import { renderNode } from './nodes.js';
 import { updateConnections } from './connections.js';
 import { showToast } from './ui-utils.js';
 import { deselectAllNodes } from './selection.js';
+
+// Helper function to enrich node data with type information
+function enrichNodeWithTypeInfo(nodeData) {
+    const nodeType = getNodeType(nodeData.type);
+    if (nodeType) {
+        nodeData.color = nodeType.color;
+        nodeData.borderColor = nodeType.borderColor;
+        nodeData.textColor = nodeType.textColor;
+        nodeData.icon = nodeType.icon;
+        nodeData.inputCount = nodeType.inputCount;
+        nodeData.outputCount = nodeType.outputCount;
+        
+        // Handle dynamic output counts (e.g., SwitchNode)
+        if (nodeData.type === 'SwitchNode' && nodeData.config && nodeData.config.rules) {
+            nodeData.outputCount = Math.max(1, nodeData.config.rules.length);
+        }
+    }
+    return nodeData;
+}
 
 export async function loadWorkflow() {
     try {
@@ -21,20 +40,7 @@ export async function loadWorkflow() {
             nodeData.x = nodeData.x !== undefined ? nodeData.x : 100;
             nodeData.y = nodeData.y !== undefined ? nodeData.y : 100;
             
-            const nodeType = state.nodeTypes.find(nt => nt.type === nodeData.type);
-            if (nodeType) {
-                nodeData.color = nodeType.color;
-                nodeData.borderColor = nodeType.borderColor;
-                nodeData.textColor = nodeType.textColor;
-                nodeData.icon = nodeType.icon;
-                nodeData.inputCount = nodeType.inputCount;
-                nodeData.outputCount = nodeType.outputCount;
-                
-                // Handle dynamic output counts (e.g., SwitchNode)
-                if (nodeData.type === 'SwitchNode' && nodeData.config && nodeData.config.rules) {
-                    nodeData.outputCount = Math.max(1, nodeData.config.rules.length);
-                }
-            }
+            enrichNodeWithTypeInfo(nodeData);
             
             if (nodeData.type === 'GateNode') {
                 try {
@@ -275,20 +281,7 @@ export function importWorkflow() {
             document.getElementById('connections').innerHTML = '';
             
             workflow.nodes.forEach(nodeData => {
-                const nodeType = state.nodeTypes.find(nt => nt.type === nodeData.type);
-                if (nodeType) {
-                    nodeData.color = nodeType.color;
-                    nodeData.borderColor = nodeType.borderColor;
-                    nodeData.textColor = nodeType.textColor;
-                    nodeData.icon = nodeType.icon;
-                    nodeData.inputCount = nodeType.inputCount;
-                    nodeData.outputCount = nodeType.outputCount;
-                    
-                    // Handle dynamic output counts (e.g., SwitchNode)
-                    if (nodeData.type === 'SwitchNode' && nodeData.config && nodeData.config.rules) {
-                        nodeData.outputCount = Math.max(1, nodeData.config.rules.length);
-                    }
-                }
+                enrichNodeWithTypeInfo(nodeData);
                 
                 state.nodes.set(nodeData.id, nodeData);
                 renderNode(nodeData);
@@ -296,8 +289,10 @@ export function importWorkflow() {
             
             workflow.connections.forEach(conn => {
                 state.connections.push(conn);
-                renderConnection(conn);
             });
+            
+            // Render all connections after nodes are in DOM
+            updateConnections();
             
             // Clear history after importing workflow
             import('./history.js').then(({ clearHistory }) => {

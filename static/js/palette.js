@@ -1,11 +1,12 @@
 // Node palette rendering
 import { API_BASE, NODE_CATEGORIES } from './config.js';
-import { state } from './state.js';
+import { state, setNodeTypes } from './state.js';
 
 export async function loadNodeTypes() {
     try {
         const response = await fetch(`${API_BASE}/node-types`);
-        state.nodeTypes = await response.json();
+        const types = await response.json();
+        setNodeTypes(types);  // Use the setter to build both array and map
         renderNodePalette();
         setupPaletteSearch();
     } catch (error) {

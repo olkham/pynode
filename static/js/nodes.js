@@ -1,11 +1,11 @@
 // Node rendering and management
 import { API_BASE } from './config.js';
-import { state, generateNodeId, markNodeModified, markNodeAdded, markNodeDeleted, setModified } from './state.js';
+import { state, generateNodeId, markNodeModified, markNodeAdded, markNodeDeleted, setModified, getNodeType } from './state.js';
 import { updateConnections, nodeHasConnections, getConnectionAtPoint, highlightConnectionForInsert, clearConnectionHighlight, getHoveredConnection, insertNodeIntoConnection } from './connections.js';
 import { selectNode } from './selection.js';
 
 export function createNode(type, x, y) {
-    const nodeType = state.nodeTypes.find(nt => nt.type === type);
+    const nodeType = getNodeType(type);
     const displayName = nodeType ? nodeType.name : type;
     
     // Generate unique name by checking existing nodes

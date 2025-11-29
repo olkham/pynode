@@ -8,6 +8,7 @@ export const state = {
     draggingNode: null,
     drawingConnection: null,
     nodeTypes: [],
+    nodeTypesMap: new Map(), // Fast lookup by type name
     selectionBox: null,
     selectionStart: null,
     isModified: false,
@@ -19,6 +20,18 @@ export const state = {
     addedConnections: [],
     deletedConnections: []
 };
+
+// Set node types and build lookup map
+export function setNodeTypes(types) {
+    state.nodeTypes = types;
+    state.nodeTypesMap.clear();
+    types.forEach(nt => state.nodeTypesMap.set(nt.type, nt));
+}
+
+// Get node type by name (O(1) lookup)
+export function getNodeType(typeName) {
+    return state.nodeTypesMap.get(typeName);
+}
 
 // Generate a client-side node ID
 export function generateNodeId() {

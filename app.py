@@ -518,9 +518,6 @@ def inject_node(node_id):
         return jsonify({'error': str(e)}), 400
 
 
-# Global message queue for SSE
-debug_message_queues = {}
-
 @app.route('/api/nodes/<node_id>/debug', methods=['GET'])
 def get_debug_messages(node_id):
     """Get debug messages from a debug node in deployed workflow."""
@@ -598,7 +595,11 @@ def debug_stream():
                                 })
                                 yield f'data: {rate_data}\n\n'
                 
-                time.sleep(0.01)  # 10ms sleep for up to 100 FPS
+                # Adaptive sleep: longer when idle, shorter when active
+                if all_messages or all_errors:
+                    time.sleep(0.01)  # 10ms when active (up to 100 FPS)
+                else:
+                    time.sleep(0.05)  # 50ms when idle (saves CPU)
         except GeneratorExit:
             # Client disconnected
             debug_message_queues.pop(client_id, None)

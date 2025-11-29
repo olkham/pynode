@@ -88,6 +88,9 @@ result = user_function(msg, node, time)
                     self.send(result)
                     
         except Exception as e:
+            # Report error to the error system
+            self.report_error(f"Function error: {str(e)}")
+            # Also send error downstream for debugging
             error_msg = self.create_message(
                 payload={'error': str(e), 'original_payload': msg.get('payload')},
                 topic='error'

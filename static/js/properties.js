@@ -1,5 +1,5 @@
 // Properties panel
-import { state, markNodeModified, setModified } from './state.js';
+import { state, markNodeModified, setModified, getNodeType } from './state.js';
 import { API_BASE } from './config.js';
 import { updateNodeOutputCount } from './nodes.js';
 import { updateConnections } from './connections.js';
@@ -29,7 +29,7 @@ export function renderProperties(nodeData) {
         </div>
     `;
     
-    const nodeType = state.nodeTypes.find(nt => nt.type === nodeData.type);
+    const nodeType = getNodeType(nodeData.type);
     if (nodeType && nodeType.properties) {
         nodeType.properties.forEach(prop => {
             html += '<div class="property-group">';

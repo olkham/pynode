@@ -199,11 +199,15 @@ class BaseNode:
     def _process_messages(self):
         """
         Worker thread that processes messages from the queue.
+        Uses adaptive timeout to balance responsiveness with CPU usage.
         """
+        idle_count = 0
         while not self._stop_worker_flag:
             try:
-                # Wait for a message with timeout to allow checking stop flag
-                msg, input_index = self._message_queue.get(timeout=0.01)
+                # Adaptive timeout: faster when active, slower when idle
+                timeout = 0.01 if idle_count < 10 else 0.1
+                msg, input_index = self._message_queue.get(timeout=timeout)
+                idle_count = 0  # Reset on successful message
                 
                 # Process the message
                 try:
@@ -214,7 +218,8 @@ class BaseNode:
                     self._message_queue.task_done()
                     
             except queue.Empty:
-                # No message available, continue loop
+                # No message available, increase idle count
+                idle_count += 1
                 continue
             except Exception as e:
                 print(f"Worker thread error in node {self.id}: {e}")
