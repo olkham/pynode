@@ -7,9 +7,43 @@ export async function loadNodeTypes() {
         const response = await fetch(`${API_BASE}/node-types`);
         state.nodeTypes = await response.json();
         renderNodePalette();
+        setupPaletteSearch();
     } catch (error) {
         console.error('Failed to load node types:', error);
     }
+}
+
+function setupPaletteSearch() {
+    const searchInput = document.getElementById('palette-search');
+    if (!searchInput) return;
+    
+    searchInput.addEventListener('input', (e) => {
+        const filter = e.target.value.toLowerCase().trim();
+        filterPaletteNodes(filter);
+    });
+}
+
+function filterPaletteNodes(filter) {
+    const palette = document.getElementById('node-palette');
+    const categories = palette.querySelectorAll('.palette-category');
+    
+    categories.forEach(category => {
+        const nodes = category.querySelectorAll('.palette-node');
+        let visibleCount = 0;
+        
+        nodes.forEach(node => {
+            const nodeName = node.querySelector('.palette-node-name').textContent.toLowerCase();
+            if (!filter || nodeName.includes(filter)) {
+                node.style.display = '';
+                visibleCount++;
+            } else {
+                node.style.display = 'none';
+            }
+        });
+        
+        // Hide category if no nodes match
+        category.style.display = visibleCount > 0 ? '' : 'none';
+    });
 }
 
 export function renderNodePalette() {

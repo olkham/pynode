@@ -1188,6 +1188,33 @@ body {
     border-color: #0e639c;
 }
 
+/* Palette Search */
+.palette-search-container {
+    padding: 8px 10px;
+    border-bottom: 1px solid #3e3e42;
+}
+
+.palette-search {
+    width: 100%;
+    padding: 6px 10px;
+    background: #3c3c3c;
+    border: 1px solid #3e3e42;
+    border-radius: 4px;
+    color: #cccccc;
+    font-size: 12px;
+    outline: none;
+    box-sizing: border-box;
+}
+
+.palette-search:focus {
+    border-color: #0e639c;
+    background: #1e1e1e;
+}
+
+.palette-search::placeholder {
+    color: #888;
+}
+
 /* Mini Palette */
 .mini-palette {
     position: fixed;
@@ -1197,10 +1224,40 @@ body {
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
     z-index: 10000;
     max-height: 400px;
-    overflow-y: auto;
+    overflow: hidden;
     min-width: 200px;
     max-width: 250px;
     transform: translate(-50%, 10px);
+}
+
+.mini-palette-search-container {
+    padding: 8px;
+    border-bottom: 1px solid #3e3e42;
+    position: sticky;
+    top: 0;
+    background: #252526;
+    z-index: 2;
+}
+
+.mini-palette-search {
+    width: 100%;
+    padding: 6px 10px;
+    background: #3c3c3c;
+    border: 1px solid #3e3e42;
+    border-radius: 4px;
+    color: #cccccc;
+    font-size: 12px;
+    outline: none;
+    box-sizing: border-box;
+}
+
+.mini-palette-search:focus {
+    border-color: #0e639c;
+    background: #1e1e1e;
+}
+
+.mini-palette-search::placeholder {
+    color: #888;
 }
 
 .mini-palette-category {
@@ -1220,9 +1277,11 @@ body {
     letter-spacing: 0.5px;
     background: #2d2d30;
     border-bottom: 1px solid #3e3e42;
-    position: sticky;
-    top: 0;
-    z-index: 1;
+}
+
+.mini-palette-content {
+    overflow-y: auto;
+    max-height: 340px;
 }
 
 .mini-palette-item {
@@ -1248,20 +1307,20 @@ body {
 }
 
 /* Mini palette scrollbar */
-.mini-palette::-webkit-scrollbar {
+.mini-palette-content::-webkit-scrollbar {
     width: 8px;
 }
 
-.mini-palette::-webkit-scrollbar-track {
+.mini-palette-content::-webkit-scrollbar-track {
     background: #1e1e1e;
 }
 
-.mini-palette::-webkit-scrollbar-thumb {
+.mini-palette-content::-webkit-scrollbar-thumb {
     background: #3e3e42;
     border-radius: 4px;
 }
 
-.mini-palette::-webkit-scrollbar-thumb:hover {
+.mini-palette-content::-webkit-scrollbar-thumb:hover {
     background: #555;
 }
 

@@ -54,6 +54,9 @@
             <!-- Node Palette -->
             <aside class="palette">
                 <h3>Node Palette</h3>
+                <div class="palette-search-container">
+                    <input type="text" id="palette-search" class="palette-search" placeholder="Filter nodes..." />
+                </div>
                 <div id="node-palette" class="node-list">
                     <!-- Nodes will be loaded here -->
                 </div>
@@ -62,12 +65,12 @@
             <!-- Canvas -->
             <main class="canvas-container">
                 <svg id="canvas" width="100%" height="100%">
-                    <defs>
+                    <!-- <defs>
                         <marker id="arrowhead" markerWidth="10" markerHeight="7" 
                                 refX="0" refY="3.5" orient="auto" markerUnits="strokeWidth">
                             <polygon points="0 0, 10 3.5, 0 7" fill="#999" />
                         </marker>
-                    </defs>
+                    </defs> -->
                     <g id="connections"></g>
                     <g id="temp-line"></g>
                 </svg>

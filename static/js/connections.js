@@ -17,7 +17,7 @@ export function getHoveredConnection() {
 // Check if a point is near a connection path and return the connection if so
 export function getConnectionAtPoint(x, y, threshold = 15) {
     const paths = document.querySelectorAll('#connections path.connection');
-    const canvasRect = document.getElementById('canvas').getBoundingClientRect();
+    // const canvasRect = document.getElementById('canvas').getBoundingClientRect();
     
     for (const path of paths) {
         // Quick bounding box check first (much faster than path calculations)
@@ -239,17 +239,17 @@ export function updateConnections() {
     if (!defs) {
         defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
         const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
-        marker.setAttribute('id', 'arrowhead');
+        // marker.setAttribute('id', 'arrowhead');
         marker.setAttribute('markerWidth', '10');
         marker.setAttribute('markerHeight', '7');
         marker.setAttribute('refX', '10');
         marker.setAttribute('refY', '3.5');
         marker.setAttribute('orient', 'auto');
         marker.setAttribute('markerUnits', 'strokeWidth');
-        const arrowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        arrowPath.setAttribute('d', 'M0,0 L10,3.5 L0,7 Z');
-        arrowPath.setAttribute('fill', '#0e639c');
-        marker.appendChild(arrowPath);
+        // const arrowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        // arrowPath.setAttribute('d', 'M0,0 L10,3.5 L0,7 Z');
+        // arrowPath.setAttribute('fill', '#0e639c');
+        // marker.appendChild(arrowPath);
         defs.appendChild(marker);
         connectionsSvg.insertBefore(defs, connectionsSvg.firstChild);
     }
@@ -340,12 +340,30 @@ export function cancelConnection(e) {
     const mousePos = e ? { x: e.clientX, y: e.clientY } : null;
     
     if (hadConnection && mousePos) {
-        // Show mini palette at mouse position
+        // Draw the temp line to the final position before showing mini palette
+        const canvasRect = document.getElementById('canvas').getBoundingClientRect();
+        const endX = mousePos.x - canvasRect.left;
+        const endY = mousePos.y - canvasRect.top;
+        const dx = endX - state.drawingConnection.startX;
+        const controlDistance = Math.abs(dx) * 0.5;
+        
+        const tempLine = document.getElementById('temp-line');
+        tempLine.innerHTML = `
+            <path d="M ${state.drawingConnection.startX} ${state.drawingConnection.startY} 
+                     C ${state.drawingConnection.startX + controlDistance} ${state.drawingConnection.startY},
+                         ${endX - controlDistance} ${endY},
+                         ${endX} ${endY}"
+                  stroke="#0e639c" stroke-width="2" fill="none" />
+        `;
+        
+        // Show mini palette at mouse position (temp line will be cleared when palette closes)
         showMiniPalette(mousePos.x, mousePos.y, state.drawingConnection.sourceId, state.drawingConnection.outputIndex);
+    } else {
+        // No mini palette, clear the temp line immediately
+        document.getElementById('temp-line').innerHTML = '';
     }
     
     state.drawingConnection = null;
-    document.getElementById('temp-line').innerHTML = '';
     document.removeEventListener('mousemove', drawTempConnection);
     document.removeEventListener('mouseup', cancelConnection);
 }
@@ -401,6 +419,25 @@ function showMiniPalette(x, y, sourceId, outputIndex) {
     miniPalette.style.left = `${x}px`;
     miniPalette.style.top = `${y}px`;
     
+    // Add search field
+    const searchContainer = document.createElement('div');
+    searchContainer.className = 'mini-palette-search-container';
+    const searchInput = document.createElement('input');
+    searchInput.type = 'text';
+    searchInput.className = 'mini-palette-search';
+    searchInput.placeholder = 'Filter nodes...';
+    searchInput.addEventListener('click', (e) => e.stopPropagation());
+    searchInput.addEventListener('input', (e) => {
+        const filter = e.target.value.toLowerCase().trim();
+        filterMiniPaletteNodes(miniPalette, filter);
+    });
+    searchContainer.appendChild(searchInput);
+    miniPalette.appendChild(searchContainer);
+    
+    // Create content container for categories
+    const contentContainer = document.createElement('div');
+    contentContainer.className = 'mini-palette-content';
+    
     // Filter out input nodes (they have inputCount = 0) and group by category
     import('./config.js').then(({ NODE_CATEGORIES }) => {
         const categories = {};
@@ -432,7 +469,7 @@ function showMiniPalette(x, y, sourceId, outputIndex) {
             categories[category].forEach(nodeType => {
                 const item = document.createElement('div');
                 item.className = 'mini-palette-item';
-                item.innerHTML = `<span class="mini-palette-icon">${nodeType.icon}</span> ${nodeType.name}`;
+                item.innerHTML = `<span class="mini-palette-icon">${nodeType.icon}</span><span class="mini-palette-item-name">${nodeType.name}</span>`;
                 item.style.borderColor = nodeType.borderColor;
                 
                 item.addEventListener('click', (e) => {
@@ -444,10 +481,16 @@ function showMiniPalette(x, y, sourceId, outputIndex) {
                 categoryDiv.appendChild(item);
             });
             
-            miniPalette.appendChild(categoryDiv);
+            contentContainer.appendChild(categoryDiv);
         });
         
+        miniPalette.appendChild(contentContainer);
         document.body.appendChild(miniPalette);
+        
+        // Focus the search input
+        setTimeout(() => {
+            searchInput.focus();
+        }, 0);
         
         // Close on click outside
         setTimeout(() => {
@@ -457,11 +500,35 @@ function showMiniPalette(x, y, sourceId, outputIndex) {
     });
 }
 
+function filterMiniPaletteNodes(palette, filter) {
+    const categories = palette.querySelectorAll('.mini-palette-category');
+    
+    categories.forEach(category => {
+        const items = category.querySelectorAll('.mini-palette-item');
+        let visibleCount = 0;
+        
+        items.forEach(item => {
+            const itemName = item.querySelector('.mini-palette-item-name').textContent.toLowerCase();
+            if (!filter || itemName.includes(filter)) {
+                item.style.display = '';
+                visibleCount++;
+            } else {
+                item.style.display = 'none';
+            }
+        });
+        
+        // Hide category if no items match
+        category.style.display = visibleCount > 0 ? '' : 'none';
+    });
+}
+
 function closeMiniPalette() {
     const miniPalette = document.getElementById('mini-palette');
     if (miniPalette) {
         miniPalette.remove();
     }
+    // Clear the temp connection line
+    document.getElementById('temp-line').innerHTML = '';
     document.removeEventListener('keydown', handleMiniPaletteKeydown);
 }
 
