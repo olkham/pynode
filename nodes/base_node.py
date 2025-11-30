@@ -6,7 +6,7 @@ All custom nodes should inherit from this class.
 import uuid
 import queue
 import threading
-from typing import Dict, List, Any, Callable, Optional
+from typing import Dict, List, Any, Optional
 
 
 class BaseNode:
@@ -145,10 +145,6 @@ class BaseNode:
         """
         if not self.enabled:
             return
-        
-        # Ensure message has a _msgid
-        if '_msgid' not in msg:
-            msg['_msgid'] = str(uuid.uuid4())
             
         if output_index in self.outputs:
             connections = self.outputs[output_index]

@@ -16,7 +16,7 @@ from typing import Dict, Any
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from workflow_engine import WorkflowEngine
-from base_node import BaseNode
+from nodes.base_node import BaseNode
 import nodes
 
 

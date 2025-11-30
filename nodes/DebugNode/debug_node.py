@@ -5,7 +5,7 @@ Similar to Node-RED's debug node.
 
 import time
 from typing import Any, Dict
-from base_node import BaseNode
+from nodes.base_node import BaseNode
 
 
 class DebugNode(BaseNode):

@@ -3,7 +3,7 @@ Image Viewer node - displays images/frames in the web UI.
 """
 
 from typing import Any, Dict
-from base_node import BaseNode
+from nodes.base_node import BaseNode
 
 
 class ImageViewerNode(BaseNode):

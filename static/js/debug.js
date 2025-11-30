@@ -166,14 +166,160 @@ function updateMessageElement(messageData) {
     }
 }
 
+// Get type label for a value
+function getTypeLabel(value) {
+    if (value === null) return 'null';
+    if (value === undefined) return 'undefined';
+    if (Array.isArray(value)) return `array[${value.length}]`;
+    if (typeof value === 'object') return 'object';
+    return typeof value;
+}
+
+// Render a value as a collapsible tree (compact single-line style)
+function renderTreeValue(value, key = null, depth = 0) {
+    if (value === null) {
+        return `<span class="tv-null">null</span>`;
+    }
+    if (value === undefined) {
+        return `<span class="tv-undefined">undefined</span>`;
+    }
+    if (typeof value === 'boolean') {
+        return `<span class="tv-bool">${value}</span>`;
+    }
+    if (typeof value === 'number') {
+        return `<span class="tv-num">${value}</span>`;
+    }
+    if (typeof value === 'string') {
+        const maxLen = 200;
+        const displayStr = value.length > maxLen ? value.substring(0, maxLen) + '...' : value;
+        const escaped = displayStr.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        return `<span class="tv-str">"${escaped}"</span>`;
+    }
+    
+    if (Array.isArray(value)) {
+        if (value.length === 0) {
+            return `<span class="tv-empty">[]</span>`;
+        }
+        let childrenHtml = '';
+        value.forEach((item, index) => {
+            const typeLabel = getTypeLabel(item);
+            const isExpandable = item !== null && typeof item === 'object';
+            if (isExpandable) {
+                childrenHtml += `<div class="ti c" style="margin-left:${(depth+1)*8}px"><span class="tt" onclick="event.stopPropagation();this.parentElement.classList.toggle('c')">▶</span><span class="tk">${index}</span>: <span class="tl">${typeLabel}</span><div class="tc">${renderTreeChildren(item, depth+1)}</div></div>`;
+            } else {
+                childrenHtml += `<div class="ti" style="margin-left:${(depth+1)*8}px"><span class="tk">${index}</span>: ${renderTreeValue(item, index, depth+1)}</div>`;
+            }
+        });
+        return childrenHtml;
+    }
+    
+    if (typeof value === 'object') {
+        const keys = Object.keys(value);
+        if (keys.length === 0) {
+            return `<span class="tv-empty">{}</span>`;
+        }
+        let childrenHtml = '';
+        keys.forEach(k => {
+            const v = value[k];
+            const typeLabel = getTypeLabel(v);
+            const isExpandable = v !== null && typeof v === 'object';
+            const escaped = k.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            if (isExpandable) {
+                childrenHtml += `<div class="ti c" style="margin-left:${(depth+1)*8}px"><span class="tt" onclick="event.stopPropagation();this.parentElement.classList.toggle('c')">▶</span><span class="tk">${escaped}</span>: <span class="tl">${typeLabel}</span><div class="tc">${renderTreeChildren(v, depth+1)}</div></div>`;
+            } else {
+                childrenHtml += `<div class="ti" style="margin-left:${(depth+1)*8}px"><span class="tk">${escaped}</span>: ${renderTreeValue(v, k, depth+1)}</div>`;
+            }
+        });
+        return childrenHtml;
+    }
+    
+    return `<span class="tv">${String(value)}</span>`;
+}
+
+// Render children of an object/array
+function renderTreeChildren(value, depth) {
+    if (Array.isArray(value)) {
+        let html = '';
+        value.forEach((item, index) => {
+            const typeLabel = getTypeLabel(item);
+            const isExpandable = item !== null && typeof item === 'object';
+            if (isExpandable) {
+                html += `<div class="ti c" style="margin-left:${(depth+1)*8}px"><span class="tt" onclick="event.stopPropagation();this.parentElement.classList.toggle('c')">▶</span><span class="tk">${index}</span>: <span class="tl">${typeLabel}</span><div class="tc">${renderTreeChildren(item, depth+1)}</div></div>`;
+            } else {
+                html += `<div class="ti" style="margin-left:${(depth+1)*8}px"><span class="tk">${index}</span>: ${renderTreeValue(item, index, depth+1)}</div>`;
+            }
+        });
+        return html;
+    }
+    if (typeof value === 'object' && value !== null) {
+        let html = '';
+        Object.keys(value).forEach(k => {
+            const v = value[k];
+            const typeLabel = getTypeLabel(v);
+            const isExpandable = v !== null && typeof v === 'object';
+            const escaped = k.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            if (isExpandable) {
+                html += `<div class="ti c" style="margin-left:${(depth+1)*8}px"><span class="tt" onclick="event.stopPropagation();this.parentElement.classList.toggle('c')">▶</span><span class="tk">${escaped}</span>: <span class="tl">${typeLabel}</span><div class="tc">${renderTreeChildren(v, depth+1)}</div></div>`;
+            } else {
+                html += `<div class="ti" style="margin-left:${(depth+1)*8}px"><span class="tk">${escaped}</span>: ${renderTreeValue(v, k, depth+1)}</div>`;
+            }
+        });
+        return html;
+    }
+    return renderTreeValue(value, null, depth);
+}
+
+// Render the complete message output as a tree
+function renderOutputTree(output, isError) {
+    if (output === null || output === undefined) {
+        return `<span class="tv-null">${output}</span>`;
+    }
+    if (typeof output !== 'object') {
+        return renderTreeValue(output);
+    }
+    
+    const icon = isError ? '⚠️ ' : '';
+    let html = icon + '<div class="tree-root">';
+    
+    if (Array.isArray(output)) {
+        output.forEach((item, index) => {
+            const typeLabel = getTypeLabel(item);
+            const isExpandable = item !== null && typeof item === 'object';
+            if (isExpandable) {
+                html += `<div class="ti c"><span class="tt" onclick="event.stopPropagation();this.parentElement.classList.toggle('c')">▶</span><span class="tk">${index}</span>: <span class="tl">${typeLabel}</span><div class="tc">${renderTreeChildren(item, 0)}</div></div>`;
+            } else {
+                html += `<div class="ti"><span class="tk">${index}</span>: ${renderTreeValue(item, index, 0)}</div>`;
+            }
+        });
+    } else {
+        Object.keys(output).forEach(key => {
+            const v = output[key];
+            const typeLabel = getTypeLabel(v);
+            const isExpandable = v !== null && typeof v === 'object';
+            const escaped = key.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            if (isExpandable) {
+                html += `<div class="ti c"><span class="tt" onclick="event.stopPropagation();this.parentElement.classList.toggle('c')">▶</span><span class="tk">${escaped}</span>: <span class="tl">${typeLabel}</span><div class="tc">${renderTreeChildren(v, 0)}</div></div>`;
+            } else {
+                html += `<div class="ti"><span class="tk">${escaped}</span>: ${renderTreeValue(v, key, 0)}</div>`;
+            }
+        });
+    }
+    
+    html += '</div>';
+    return html;
+}
+
 function updateMessageContent(msgEl, messageData) {
     const countBadge = messageData.count > 1 ? `<span class="debug-count">${messageData.count}</span>` : '';
-    const icon = messageData.isError ? '⚠️' : '';
     const nodeClass = messageData.isError ? 'debug-node error-node' : 'debug-node';
     const outputClass = messageData.isError ? 'debug-output error-output' : 'debug-output';
     
     // Show display_key (e.g. "msg.payload") before node name in header, if present
     const keyLabel = messageData.display_key ? `<span class="debug-key">${messageData.display_key}</span> ` : '';
+    
+    // Render output as collapsible tree
+    const outputHtml = renderOutputTree(messageData.output, messageData.isError);
+    
     msgEl.innerHTML = `
         <div class="debug-message-header">
             <span class="debug-timestamp">${messageData.timestamp}</span>
@@ -181,7 +327,7 @@ function updateMessageContent(msgEl, messageData) {
             ${countBadge}
         </div>
         ${keyLabel ? `<div class="debug-key-label">${keyLabel}:</div>` : ''}
-        <div class="${outputClass}">${icon} ${typeof messageData.output === 'string' ? messageData.output : JSON.stringify(messageData.output, null, 2)}</div>
+        <div class="${outputClass}">${outputHtml}</div>
     `;
 }
 

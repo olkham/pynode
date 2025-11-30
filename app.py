@@ -116,7 +116,7 @@ def get_node_types():
         output_count = getattr(node_class, 'output_count', 1)
         
         # Merge base properties with node-specific properties
-        from base_node import BaseNode
+        from nodes.base_node import BaseNode
         base_properties = getattr(BaseNode, 'properties', [])
         node_properties = getattr(node_class, 'properties', [])
         

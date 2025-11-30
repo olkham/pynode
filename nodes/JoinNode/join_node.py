@@ -4,7 +4,7 @@ Join Node - combines multiple messages into one.
 
 import time
 from typing import Any, Dict, List
-from base_node import BaseNode
+from nodes.base_node import BaseNode
 
 
 class JoinNode(BaseNode):

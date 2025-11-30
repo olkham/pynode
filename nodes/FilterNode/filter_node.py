@@ -3,7 +3,7 @@ Filter Node - filters messages based on conditions.
 """
 
 from typing import Any, Dict
-from base_node import BaseNode
+from nodes.base_node import BaseNode
 
 
 class FilterNode(BaseNode):

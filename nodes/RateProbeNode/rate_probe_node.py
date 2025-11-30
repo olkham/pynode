@@ -6,7 +6,7 @@ Passes messages through while tracking and displaying the rate.
 import time
 from typing import Any, Dict
 from collections import deque
-from base_node import BaseNode
+from nodes.base_node import BaseNode
 
 
 class RateProbeNode(BaseNode):

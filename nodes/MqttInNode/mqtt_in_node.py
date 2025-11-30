@@ -4,7 +4,7 @@ MQTT In node - subscribes to MQTT topics and receives messages.
 
 import threading
 from typing import Any, Dict
-from base_node import BaseNode
+from nodes.base_node import BaseNode
 
 try:
     import paho.mqtt.client as mqtt

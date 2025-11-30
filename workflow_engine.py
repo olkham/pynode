@@ -4,7 +4,7 @@ Workflow Engine for managing nodes and executing workflows.
 
 import threading
 from typing import Dict, List, Any, Type, Optional
-from base_node import BaseNode
+from nodes.base_node import BaseNode
 
 
 class WorkflowEngine:

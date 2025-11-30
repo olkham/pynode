@@ -3,7 +3,7 @@ Range Node - scales/maps values from one range to another.
 """
 
 from typing import Any, Dict
-from base_node import BaseNode
+from nodes.base_node import BaseNode
 
 
 class RangeNode(BaseNode):

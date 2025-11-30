@@ -5,7 +5,7 @@ Similar to Node-RED's inject node.
 
 import time
 import threading
-from base_node import BaseNode
+from nodes.base_node import BaseNode
 
 
 class InjectNode(BaseNode):

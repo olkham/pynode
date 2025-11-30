@@ -4,7 +4,7 @@ Similar to Node-RED's change node.
 """
 
 from typing import Any, Dict
-from base_node import BaseNode
+from nodes.base_node import BaseNode
 
 
 class ChangeNode(BaseNode):

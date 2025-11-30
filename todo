@@ -1,5 +1,5 @@
 UI/UX
-- make the error/debug messages clickable to take you to the node throwing them
+- ✓ make the error/debug messages clickable to take you to the node throwing them (already implemented)
 
 NODES
 - use FrameSource for general image capture (reuse from inference_node)
@@ -11,7 +11,8 @@ GENERAL
 
 MESSAGES
 - check the inputs / outputs / arrays etc. are a standard form so node can be easily connected with little to no config
-- allow variables to be set at msg level that override the values in a node i.e.
-    - msg.label = 'person' will override the label in the filter node
+- allow variables to be set at msg level that can be used for the values in a node i.e.
+    - msg.label = 'person' will use the label in the filter node
+    - likewise the output message from nodes will contain the properties
     - msg.payload will contain the actual data
     

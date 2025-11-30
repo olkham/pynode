@@ -4,7 +4,7 @@ Automatically receives error events and displays them in the debug panel.
 """
 
 from typing import Any, Dict
-from base_node import BaseNode
+from nodes.base_node import BaseNode
 
 
 class ErrorNode(BaseNode):

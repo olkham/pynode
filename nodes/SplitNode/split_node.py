@@ -3,7 +3,7 @@ Split Node - splits arrays or strings into separate messages.
 """
 
 from typing import Any, Dict
-from base_node import BaseNode
+from nodes.base_node import BaseNode
 
 
 class SplitNode(BaseNode):

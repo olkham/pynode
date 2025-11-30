@@ -4,7 +4,7 @@ This demonstrates how third-party developers can create their own nodes.
 """
 
 from typing import Any, Dict
-from base_node import BaseNode
+from nodes.base_node import BaseNode
 
 
 class TemplateNode(BaseNode):

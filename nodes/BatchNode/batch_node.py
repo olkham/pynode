@@ -3,7 +3,7 @@ Batch Node - groups messages into batches.
 """
 
 from typing import Any, Dict, List
-from base_node import BaseNode
+from nodes.base_node import BaseNode
 
 
 class BatchNode(BaseNode):

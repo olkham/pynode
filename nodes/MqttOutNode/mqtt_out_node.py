@@ -3,7 +3,7 @@ MQTT Out node - publishes messages to MQTT topics.
 """
 
 from typing import Any, Dict
-from base_node import BaseNode
+from nodes.base_node import BaseNode
 
 try:
     import paho.mqtt.client as mqtt

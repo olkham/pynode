@@ -1074,13 +1074,51 @@ body {
 .debug-output {
     color: #d4d4d4;
     margin-top: 4px;
-    white-space: pre-wrap;
     word-break: break-word;
 }
 
 .debug-output.error-output {
     color: #FFB3B3;
 }
+
+/* Compact Collapsible Tree Styles (Node-RED style) */
+.tree-root {
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.ti { /* tree-item */
+    white-space: nowrap;
+}
+
+.tt { /* tree-toggle */
+    display: inline-block;
+    width: 12px;
+    cursor: pointer;
+    color: #888;
+    font-size: 8px;
+    transition: transform 0.1s;
+    user-select: none;
+}
+
+.tt:hover { color: #ccc; }
+
+.ti.c > .tt { transform: rotate(0deg); }
+.ti:not(.c) > .tt { transform: rotate(90deg); }
+
+.ti.c > .tc { display: none; }
+
+.tc { /* tree-children */ }
+
+.tk { color: #9cdcfe; } /* tree-key */
+.tl { color: #888; font-style: italic; } /* tree-label (type) */
+.tv { color: #d4d4d4; } /* tree-value */
+.tv-str { color: #ce9178; } /* string */
+.tv-num { color: #b5cea8; } /* number */
+.tv-bool { color: #569cd6; } /* boolean */
+.tv-null, .tv-undefined { color: #808080; font-style: italic; }
+.tv-empty { color: #888; }
 
 /* Scrollbar styling */
 ::-webkit-scrollbar {

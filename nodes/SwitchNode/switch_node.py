@@ -6,7 +6,7 @@ Supports dynamic rules with multiple outputs.
 
 import re
 from typing import Any, Dict, List
-from base_node import BaseNode
+from nodes.base_node import BaseNode
 
 
 class SwitchNode(BaseNode):

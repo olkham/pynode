@@ -7,7 +7,7 @@ import base64
 import threading
 import time
 from typing import Any, Dict
-from base_node import BaseNode
+from nodes.base_node import BaseNode
 
 
 class CameraNode(BaseNode):

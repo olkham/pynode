@@ -6,7 +6,7 @@ Similar to Node-RED's delay node.
 import time
 import threading
 from typing import Any, Dict
-from base_node import BaseNode
+from nodes.base_node import BaseNode
 
 
 class DelayNode(BaseNode):

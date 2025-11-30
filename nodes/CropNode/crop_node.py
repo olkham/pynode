@@ -6,7 +6,7 @@ import base64
 import cv2
 import numpy as np
 from typing import Any, Dict
-from base_node import BaseNode
+from nodes.base_node import BaseNode
 
 
 class CropNode(BaseNode):
