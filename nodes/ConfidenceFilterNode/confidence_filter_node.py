@@ -104,6 +104,7 @@ class ConfidenceFilterNode(BaseNode):
         
         if detection is None:
             # No detection found, send to low confidence output
+            msg['threshold'] = threshold
             self.send(msg, 1)
             return
         
@@ -114,6 +115,7 @@ class ConfidenceFilterNode(BaseNode):
         
         if confidence is None:
             # No confidence field found, send to low confidence output
+            msg['threshold'] = threshold
             self.send(msg, 1)
             return
         
@@ -121,8 +123,12 @@ class ConfidenceFilterNode(BaseNode):
             confidence = float(confidence)
         except (TypeError, ValueError):
             # Invalid confidence value, send to low confidence output
+            msg['threshold'] = threshold
             self.send(msg, 1)
             return
+        
+        # Add threshold to message
+        msg['threshold'] = threshold
         
         # Route based on threshold
         if confidence >= threshold:
