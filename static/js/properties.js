@@ -35,10 +35,13 @@ export function renderProperties(nodeData) {
             html += '<div class="property-group">';
             
             if (prop.type === 'text') {
+                const value = nodeData.config[prop.name] !== undefined ? nodeData.config[prop.name] : (prop.default || '');
+                const placeholder = prop.placeholder || prop.default || '';
                 html += `
                     <label class="property-label">${prop.label}</label>
                     <input type="text" class="property-input" 
-                           value="${nodeData.config[prop.name] || ''}"
+                           value="${value}"
+                           placeholder="${placeholder}"
                            onchange="window.updateNodeConfig('${nodeData.id}', '${prop.name}', this.value)">
                 `;
             } else if (prop.type === 'number') {
@@ -60,10 +63,13 @@ export function renderProperties(nodeData) {
                     </label>
                 `;
             } else if (prop.type === 'textarea') {
+                const value = nodeData.config[prop.name] !== undefined ? nodeData.config[prop.name] : (prop.default || '');
+                const placeholder = prop.placeholder || prop.default || '';
                 html += `
                     <label class="property-label">${prop.label}</label>
                     <textarea class="property-input property-textarea" 
-                              onchange="window.updateNodeConfig('${nodeData.id}', '${prop.name}', this.value)">${nodeData.config[prop.name] || ''}</textarea>
+                              placeholder="${placeholder}"
+                              onchange="window.updateNodeConfig('${nodeData.id}', '${prop.name}', this.value)">${value}</textarea>
                 `;
             } else if (prop.type === 'select') {
                 html += `
