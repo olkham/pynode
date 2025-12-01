@@ -6,8 +6,9 @@ Receives image data from camera nodes and outputs inference results.
 import base64
 import cv2
 import numpy as np
-from typing import Any, Dict
+from typing import Any, Dict, List
 from nodes.base_node import BaseNode
+import torch
 
 
 class UltralyticsNode(BaseNode):
@@ -25,65 +26,96 @@ class UltralyticsNode(BaseNode):
     input_count = 1
     output_count = 1
     
+    @staticmethod
+    def _get_device_options() -> List[Dict[str, str]]:
+        """Get available CUDA devices for the dropdown."""
+        devices = [{'value': 'cpu', 'label': 'CPU'}]
+        
+        try:
+            if torch.cuda.is_available():
+                for i in range(torch.cuda.device_count()):
+                    props = torch.cuda.get_device_properties(i)
+                    memory_gb = props.total_memory / (1024**3)
+                    label = f"CUDA:{i} - {props.name} ({memory_gb:.1f}GB)"
+                    devices.append({'value': f'cuda:{i}', 'label': label})
+        except Exception as e:
+            print(f"Error detecting CUDA devices: {e}")
+        
+        return devices
+    
     # Property schema for the properties panel
-    properties = [
-        {
-            'name': 'model',
-            'label': 'Model',
-            'type': 'select',
-            'options': [
-                {'value': 'yolov8n.pt', 'label': 'YOLOv8 Nano (fastest)'},
-                {'value': 'yolov8s.pt', 'label': 'YOLOv8 Small'},
-                {'value': 'yolov8m.pt', 'label': 'YOLOv8 Medium'},
-                {'value': 'yolov8l.pt', 'label': 'YOLOv8 Large'},
-                {'value': 'yolov8x.pt', 'label': 'YOLOv8 Extra Large (most accurate)'}
-            ]
-        },
-        {
-            'name': 'confidence',
-            'label': 'Confidence Threshold',
-            'type': 'text',
-            'placeholder': '0.25'
-        },
-        {
-            'name': 'iou',
-            'label': 'IoU Threshold',
-            'type': 'text',
-            'placeholder': '0.45'
-        },
-        {
-            'name': 'draw_results',
-            'label': 'Draw Results on Image',
-            'type': 'select',
-            'options': [
-                {'value': 'true', 'label': 'Yes'},
-                {'value': 'false', 'label': 'No'}
-            ]
-        },
-        {
-            'name': 'max_det',
-            'label': 'Max Detections',
-            'type': 'text',
-            'placeholder': '300'
-        },
-        {
-            'name': 'include_image',
-            'label': 'Include Image in Output',
-            'type': 'checkbox',
-            'default': True
-        },
-        {
-            'name': 'include_predictions',
-            'label': 'Include Predictions in Output',
-            'type': 'checkbox',
-            'default': True
-        }
-    ]
+    @classmethod
+    def get_properties(cls):
+        """Dynamic properties with device detection."""
+        return [
+            {
+                'name': 'model',
+                'label': 'Model',
+                'type': 'select',
+                'options': [
+                    {'value': 'yolov8n.pt', 'label': 'YOLOv8 Nano (fastest)'},
+                    {'value': 'yolov8s.pt', 'label': 'YOLOv8 Small'},
+                    {'value': 'yolov8m.pt', 'label': 'YOLOv8 Medium'},
+                    {'value': 'yolov8l.pt', 'label': 'YOLOv8 Large'},
+                    {'value': 'yolov8x.pt', 'label': 'YOLOv8 Extra Large (most accurate)'}
+                ]
+            },
+            {
+                'name': 'device',
+                'label': 'Device',
+                'type': 'select',
+                'options': cls._get_device_options()
+            },
+            {
+                'name': 'confidence',
+                'label': 'Confidence Threshold',
+                'type': 'text',
+                'placeholder': '0.25'
+            },
+            {
+                'name': 'iou',
+                'label': 'IoU Threshold',
+                'type': 'text',
+                'placeholder': '0.45'
+            },
+            {
+                'name': 'draw_results',
+                'label': 'Draw Results on Image',
+                'type': 'select',
+                'options': [
+                    {'value': 'true', 'label': 'Yes'},
+                    {'value': 'false', 'label': 'No'}
+                ]
+            },
+            {
+                'name': 'max_det',
+                'label': 'Max Detections',
+                'type': 'text',
+                'placeholder': '300'
+            },
+            {
+                'name': 'include_image',
+                'label': 'Include Image in Output',
+                'type': 'checkbox',
+                'default': True
+            },
+            {
+                'name': 'include_predictions',
+                'label': 'Include Predictions in Output',
+                'type': 'checkbox',
+                'default': True
+            }
+        ]
+    
+    properties = property(lambda self: self.get_properties())
     
     def __init__(self, node_id=None, name="yolo"):
         super().__init__(node_id, name)
+        # Detect default device
+        default_device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
         self.configure({
             'model': 'yolov8n.pt',
+            'device': default_device,
             'confidence': '0.25',
             'iou': '0.45',
             'draw_results': 'true',
@@ -103,7 +135,10 @@ class UltralyticsNode(BaseNode):
         try:
             from ultralytics import YOLO
             model_name = self.config.get('model', 'yolov8n.pt')
+            device = self.config.get('device', 'cpu')
             self.model = YOLO(model_name)
+            # Move model to specified device
+            self.model.to(device)
             self._model_loaded = True
         except ImportError:
             error_msg = "ultralytics package not installed. Run: pip install ultralytics"
@@ -213,12 +248,14 @@ class UltralyticsNode(BaseNode):
             max_det = int(self.config.get('max_det', '300'))
             draw_results = self.config.get('draw_results', 'true') == 'true'
             
-            # Perform inference
+            # Perform inference on specified device
+            device = self.config.get('device', 'cpu')
             results = self.model.predict(
                 image,
                 conf=confidence,
                 iou=iou,
                 max_det=max_det,
+                device=device,
                 verbose=False
             )
             

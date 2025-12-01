@@ -118,7 +118,12 @@ def get_node_types():
         # Merge base properties with node-specific properties
         from nodes.base_node import BaseNode
         base_properties = getattr(BaseNode, 'properties', [])
-        node_properties = getattr(node_class, 'properties', [])
+        
+        # Handle callable properties (get_properties classmethod)
+        if hasattr(node_class, 'get_properties') and callable(node_class.get_properties):
+            node_properties = node_class.get_properties()
+        else:
+            node_properties = getattr(node_class, 'properties', [])
         
         # Get property names from node-specific properties to avoid duplicates
         node_prop_names = {prop.get('name') for prop in node_properties if isinstance(prop, dict)}
