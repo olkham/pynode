@@ -99,11 +99,25 @@ class RateProbeNode(BaseNode):
         """Get formatted rate string for display."""
         rate = self.get_rate()
         if rate >= 1000:
-            return f"{rate/1000:.1f}k/s"
+            # Format as k/s, hide .0 precision
+            formatted = f"{rate/1000:.1f}".rstrip('0').rstrip('.')
+            return f"{formatted}k/s"
         elif rate >= 1:
-            return f"{rate:.1f}/s"
+            # Format as /s, hide .0 precision
+            formatted = f"{rate:.1f}".rstrip('0').rstrip('.')
+            return f"{formatted}/s"
         elif rate > 0:
-            return f"{rate:.2f}/s"
+            # Below 1/s, show seconds per message
+            interval = 1 / rate
+            if interval >= 60:
+                # Show in minutes
+                minutes = interval / 60
+                formatted = f"{minutes:.1f}".rstrip('0').rstrip('.')
+                return f"{formatted}m/msg"
+            else:
+                # Show in seconds
+                formatted = f"{interval:.1f}".rstrip('0').rstrip('.')
+                return f"{formatted}s/msg"
         else:
             return "0/s"
     
