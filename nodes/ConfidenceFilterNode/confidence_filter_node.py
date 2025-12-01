@@ -34,6 +34,17 @@ class ConfidenceFilterNode(BaseNode):
             'help': 'Minimum confidence score (0-1) to pass to output 0'
         },
         {
+            'name': 'threshold_source',
+            'label': 'Threshold Source',
+            'type': 'select',
+            'options': [
+                {'value': 'config', 'label': 'Use configured value'},
+                {'value': 'msg', 'label': 'Use msg.threshold'}
+            ],
+            'default': 'config',
+            'help': 'Where to read the threshold value from'
+        },
+        {
             'name': 'detection_path',
             'label': 'Detection Path',
             'type': 'text',
@@ -53,6 +64,7 @@ class ConfidenceFilterNode(BaseNode):
         super().__init__(node_id, name)
         self.configure({
             'threshold': 0.5,
+            'threshold_source': 'config',
             'detection_path': 'payload.detection',
             'confidence_field': 'confidence'
         })
@@ -74,7 +86,16 @@ class ConfidenceFilterNode(BaseNode):
         Output 0: Detections with confidence >= threshold
         Output 1: Detections with confidence < threshold
         """
-        threshold = float(self.config.get('threshold', 0.5))
+        # Get threshold from msg or config based on setting
+        threshold_source = self.config.get('threshold_source', 'config')
+        if threshold_source == 'msg' and 'threshold' in msg:
+            try:
+                threshold = float(msg['threshold'])
+            except (TypeError, ValueError):
+                threshold = float(self.config.get('threshold', 0.5))
+        else:
+            threshold = float(self.config.get('threshold', 0.5))
+        
         detection_path = self.config.get('detection_path', 'payload.detection')
         confidence_field = self.config.get('confidence_field', 'confidence')
         
