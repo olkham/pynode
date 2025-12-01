@@ -2,6 +2,9 @@
 Image Viewer node - displays images/frames in the web UI.
 """
 
+import base64
+import cv2
+import numpy as np
 from typing import Any, Dict
 from nodes.base_node import BaseNode
 
@@ -71,15 +74,31 @@ class ImageViewerNode(BaseNode):
         image_data = get_by_path(msg, image_path)
 
         if image_data is not None:
+            # Convert numpy array to base64 JPEG if needed
+            if isinstance(image_data, np.ndarray):
+                try:
+                    ret, buffer = cv2.imencode('.jpg', image_data)
+                    if ret:
+                        jpeg_base64 = base64.b64encode(buffer.tobytes()).decode('utf-8')
+                        image_data = {
+                            'format': 'jpeg',
+                            'encoding': 'base64',
+                            'data': jpeg_base64,
+                            'width': image_data.shape[1],
+                            'height': image_data.shape[0]
+                        }
+                    else:
+                        self.report_error(f"ImageViewerNode: Failed to encode numpy array to JPEG")
+                        return
+                except Exception as e:
+                    self.report_error(f"ImageViewerNode: Error encoding numpy array: {e}")
+                    return
+            
             # Store the frame data for the UI to retrieve
             self.current_frame = image_data
             self.frame_timestamp = time.time()
         else:
-            # Optionally, raise/log an error if data not found
-            if hasattr(self, 'send_error'):
-                self.send_error(f"ImageViewerNode: No data found at path '{image_path}' in message.")
-            else:
-                print(f"ImageViewerNode: No data found at path '{image_path}' in message.")
+            self.report_error(f"ImageViewerNode: No data found at path '{image_path}' in message.")
     
     def on_input_direct(self, msg: Dict[str, Any], input_index: int = 0):
         """

@@ -206,6 +206,14 @@ class UltralyticsNode(BaseNode):
                     error_msg = f"Error converting raw BGR: {e}"
                     self.report_error(error_msg)
                     return
+            elif img_format == 'bgr' and encoding == 'numpy':
+                # Direct numpy array from camera
+                if isinstance(data, np.ndarray):
+                    image = data
+                else:
+                    error_msg = f"Expected numpy array but got {type(data)}"
+                    self.report_error(error_msg)
+                    return
             else:
                 error_msg = f"Unsupported format: {img_format}/{encoding}"
                 self.report_error(error_msg)

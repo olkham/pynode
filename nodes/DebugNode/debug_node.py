@@ -4,6 +4,7 @@ Similar to Node-RED's debug node.
 """
 
 import time
+import numpy as np
 from typing import Any, Dict
 from nodes.base_node import BaseNode
 
@@ -68,6 +69,8 @@ class DebugNode(BaseNode):
         def truncate_values(val, maxlen=300):
             if isinstance(val, (bytes, bytearray)):
                 return f"<binary data, {len(val)} bytes>"
+            elif isinstance(val, np.ndarray):
+                return f"<numpy array, shape={val.shape}, dtype={val.dtype}>"
             elif isinstance(val, dict):
                 return {k: truncate_values(v, maxlen) for k, v in val.items()}
             elif isinstance(val, list):

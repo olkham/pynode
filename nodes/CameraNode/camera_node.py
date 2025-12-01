@@ -161,11 +161,11 @@ class CameraNode(BaseNode):
                         self.report_error("Failed to encode JPEG")
                         continue
                 else:
-                    # Send raw frame data
+                    # Send raw frame as numpy array
                     payload = {
                         'format': 'bgr',
-                        'encoding': 'raw',
-                        'data': frame.tolist(),
+                        'encoding': 'numpy',
+                        'data': frame,
                         'width': frame.shape[1],
                         'height': frame.shape[0]
                     }
