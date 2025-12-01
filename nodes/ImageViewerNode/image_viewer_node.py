@@ -39,8 +39,8 @@ class ImageViewerNode(BaseNode):
             'name': 'image_path',
             'label': 'Image Data Path',
             'type': 'text',
-            'default': 'payload',
-            'description': 'Dot-separated path to image data (e.g. payload or payload.image)'
+            'default': 'payload.image',
+            'description': 'Dot-separated path to image data (e.g. payload.image)'
         }
     ]
     
@@ -52,7 +52,7 @@ class ImageViewerNode(BaseNode):
         self.configure({
             'width': 320,
             'height': 240,
-            'image_path': 'payload'
+            'image_path': 'payload.image'
         })
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):

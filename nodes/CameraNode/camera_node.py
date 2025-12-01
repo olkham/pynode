@@ -170,8 +170,8 @@ class CameraNode(BaseNode):
                         'height': frame.shape[0]
                     }
                 
-                # Create and send message
-                msg = self.create_message(payload=payload, topic='camera/frame')
+                # Create and send message with image wrapped in payload.image
+                msg = self.create_message(payload={'image': payload}, topic='camera/frame')
                 self.send(msg)
                 
             except Exception as e:

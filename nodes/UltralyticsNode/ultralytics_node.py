@@ -182,8 +182,13 @@ class UltralyticsNode(BaseNode):
         # Handle different image formats
         image = None
         
+        # Standard format: look for image in payload.image first
+        if isinstance(payload, dict) and 'image' in payload:
+            payload = payload['image']
+        
         # Camera node format: dict with 'format', 'encoding', 'data'
         if isinstance(payload, dict):
+            
             img_format = payload.get('format')
             encoding = payload.get('encoding')
             data = payload.get('data')
@@ -304,7 +309,7 @@ class UltralyticsNode(BaseNode):
                 self.report_error("Failed to encode output image")
                 return
             
-            # Create output message
+            # Create output message with standard image structure
             include_image = self.config.get('include_image', True)
             include_predictions = self.config.get('include_predictions', True)
             predictions = []
