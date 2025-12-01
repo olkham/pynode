@@ -1,8 +1,10 @@
 """
-Inject node - generates messages with a payload.
+Inject node - generates messages with configurable properties.
 Similar to Node-RED's inject node.
 """
 
+import os
+import json
 import time
 import threading
 from nodes.base_node import BaseNode
@@ -10,7 +12,7 @@ from nodes.base_node import BaseNode
 
 class InjectNode(BaseNode):
     """
-    Inject node - generates messages with a payload.
+    Inject node - generates messages with configurable properties.
     Similar to Node-RED's inject node.
     """
     display_name = 'Inject'
@@ -24,21 +26,9 @@ class InjectNode(BaseNode):
     
     properties = [
         {
-            'name': 'payloadType',
-            'label': 'Payload Type',
-            'type': 'select',
-            'options': [
-                {'value': 'date', 'label': 'Timestamp'},
-                {'value': 'string', 'label': 'String'},
-                {'value': 'num', 'label': 'Number'},
-                {'value': 'bool', 'label': 'Boolean'},
-                {'value': 'json', 'label': 'JSON'}
-            ]
-        },
-        {
-            'name': 'payload',
-            'label': 'Payload',
-            'type': 'text'
+            'name': 'props',
+            'label': 'Message Properties',
+            'type': 'injectProps'
         },
         {
             'name': 'topic',
@@ -68,8 +58,9 @@ class InjectNode(BaseNode):
     def __init__(self, node_id=None, name="inject"):
         super().__init__(node_id, name)
         self.configure({
-            'payload': 'timestamp',
-            'payloadType': 'date',
+            'props': [
+                {'property': 'payload', 'valueType': 'date', 'value': ''}
+            ],
             'topic': '',
             'repeat': '',
             'once': ''
@@ -78,29 +69,71 @@ class InjectNode(BaseNode):
         self._stop_timer = False
         self._once_timer = None
     
+    def _get_property_value(self, prop):
+        """Convert a property definition to its actual value."""
+        value_type = prop.get('valueType', 'str')
+        raw_value = prop.get('value', '')
+        
+        if value_type == 'date':
+            return time.time()
+        elif value_type == 'str':
+            return str(raw_value)
+        elif value_type == 'num':
+            try:
+                return float(raw_value)
+            except (ValueError, TypeError):
+                return 0
+        elif value_type == 'bool':
+            return raw_value in ('true', True, 'True', '1', 1)
+        elif value_type == 'json':
+            try:
+                return json.loads(raw_value) if raw_value else {}
+            except (json.JSONDecodeError, TypeError):
+                return {}
+        elif value_type == 'env':
+            return os.environ.get(str(raw_value), '')
+        else:
+            return raw_value
+    
+    def _set_nested_property(self, obj, path, value):
+        """Set a nested property in an object using dot notation.
+        
+        e.g., _set_nested_property(msg, 'payload.data.value', 123)
+        sets msg['payload']['data']['value'] = 123
+        
+        If a path segment already exists but is not a dict, it will be
+        replaced with a dict to allow nested properties.
+        """
+        parts = path.split('.')
+        current = obj
+        
+        for part in parts[:-1]:
+            if part not in current or not isinstance(current[part], dict):
+                current[part] = {}
+            current = current[part]
+        
+        current[parts[-1]] = value
+    
     def inject(self):
         """
         Manually trigger an injection.
         """
-        payload_type = self.config.get('payloadType', 'date')
+        msg = {}
         
-        if payload_type == 'date':
-            payload = time.time()
-        elif payload_type == 'string':
-            payload = str(self.config.get('payload', ''))
-        elif payload_type == 'num':
-            payload = float(self.config.get('payload', 0))
-        elif payload_type == 'bool':
-            payload = bool(self.config.get('payload', False))
-        elif payload_type == 'json':
-            payload = self.config.get('payload', {})
-        else:
-            payload = self.config.get('payload')
+        # Set topic if configured
+        topic = self.config.get('topic', '')
+        if topic:
+            msg['topic'] = topic
         
-        msg = self.create_message(
-            payload=payload,
-            topic=self.config.get('topic', '')
-        )
+        # Process all configured properties
+        props = self.config.get('props', [])
+        for prop in props:
+            property_path = prop.get('property', 'payload')
+            value = self._get_property_value(prop)
+            self._set_nested_property(msg, property_path, value)
+        
+        # Send using create_message to add _msgid
+        msg = self.create_message(**msg)
         self.send(msg)
     
     def on_start(self):

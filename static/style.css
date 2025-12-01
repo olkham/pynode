@@ -1226,6 +1226,97 @@ body {
     border-color: #0e639c;
 }
 
+/* Inject Properties Editor */
+.inject-props-editor {
+    margin-top: 6px;
+}
+
+.inject-prop-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 6px;
+    font-size: 12px;
+}
+
+.inject-prop-prefix {
+    color: #888;
+    flex-shrink: 0;
+}
+
+.inject-prop-eq {
+    color: #888;
+    flex-shrink: 0;
+}
+
+.inject-prop-key {
+    width: 90px;
+    padding: 4px 6px;
+    background: #3e3e42;
+    border: 1px solid #555;
+    border-radius: 3px;
+    color: #d4d4d4;
+    font-size: 12px;
+}
+
+.inject-prop-type {
+    width: 42px;
+    padding: 4px;
+    background: #3e3e42;
+    border: 1px solid #555;
+    border-radius: 3px;
+    color: #d4d4d4;
+    font-size: 11px;
+    text-align: center;
+}
+
+.inject-prop-value {
+    flex: 1;
+    min-width: 50px;
+    padding: 4px 6px;
+    background: #3e3e42;
+    border: 1px solid #555;
+    border-radius: 3px;
+    color: #d4d4d4;
+    font-size: 12px;
+}
+
+.inject-prop-value:disabled {
+    background: #2d2d30;
+    color: #666;
+    cursor: not-allowed;
+}
+
+.inject-prop-json {
+    font-family: 'Consolas', 'Monaco', monospace;
+}
+
+.btn-icon-sm {
+    background: transparent;
+    border: none;
+    color: #888;
+    cursor: pointer;
+    font-size: 12px;
+    padding: 2px 4px;
+    flex-shrink: 0;
+}
+
+.btn-icon-sm:hover {
+    color: #d73a49;
+}
+
+.btn-sm {
+    padding: 4px 8px;
+    font-size: 11px;
+}
+
+.inject-prop-key:focus,
+.inject-prop-type:focus,
+.inject-prop-value:focus {
+    outline: none;
+    border-color: #0e639c;
+}
+
 /* Palette Search */
 .palette-search-container {
     padding: 8px 10px;

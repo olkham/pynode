@@ -88,6 +88,8 @@ export function renderProperties(nodeData) {
                 `;
             } else if (prop.type === 'rules') {
                 html += renderRulesEditor(nodeData.id, prop.name, nodeData.config[prop.name] || []);
+            } else if (prop.type === 'injectProps') {
+                html += renderInjectPropsEditor(nodeData.id, prop.name, nodeData.config[prop.name] || []);
             }
             
             if (prop.help) {
@@ -313,6 +315,115 @@ export function updateRule(nodeId, propName, ruleIndex, field, value) {
     if (rules[ruleIndex]) {
         rules[ruleIndex][field] = value;
         nodeData.config[propName] = rules;
+        
+        markNodeModified(nodeId);
+        setModified(true);
+    }
+}
+
+// Inject properties editor for inject node
+function renderInjectPropsEditor(nodeId, propName, props) {
+    let html = '<div class="inject-props-editor">';
+    
+    props.forEach((prop, index) => {
+        html += `
+            <div class="inject-prop-row" data-prop-index="${index}">
+                <span class="inject-prop-prefix">msg.</span>
+                <input type="text" class="inject-prop-key" placeholder="payload" 
+                       value="${prop.property || ''}"
+                       onchange="window.updateInjectProp('${nodeId}', '${propName}', ${index}, 'property', this.value)">
+                <span class="inject-prop-eq">=</span>
+                <select class="inject-prop-type" onchange="window.updateInjectProp('${nodeId}', '${propName}', ${index}, 'valueType', this.value)">
+                    ${getInjectValueTypeOptions(prop.valueType || 'str')}
+                </select>
+                ${renderInjectValueInput(nodeId, propName, index, prop)}
+                <button class="btn-icon-sm" onclick="window.removeInjectProp('${nodeId}', '${propName}', ${index})" title="Delete">✕</button>
+            </div>
+        `;
+    });
+    
+    html += `
+        <button class="btn btn-secondary btn-sm" onclick="window.addInjectProp('${nodeId}', '${propName}')">+ Add</button>
+    </div>`;
+    
+    return html;
+}
+
+function getInjectValueTypeOptions(selected) {
+    const types = [
+        { value: 'str', icon: 'az', label: 'string' },
+        { value: 'num', icon: '123', label: 'number' },
+        { value: 'bool', icon: 't/f', label: 'boolean' },
+        { value: 'json', icon: '{ }', label: 'JSON' },
+        { value: 'date', icon: '⏱', label: 'timestamp' },
+        { value: 'env', icon: 'env', label: 'env variable' }
+    ];
+    
+    return types.map(type => 
+        `<option value="${type.value}" ${type.value === selected ? 'selected' : ''} data-icon="${type.icon}">${type.value === selected ? type.icon : type.label}</option>`
+    ).join('');
+}
+
+function renderInjectValueInput(nodeId, propName, index, prop) {
+    const valueType = prop.valueType || 'str';
+    const value = prop.value !== undefined ? prop.value : '';
+    
+    if (valueType === 'date') {
+        return '<input type="text" class="inject-prop-value" disabled placeholder="timestamp">';
+    } else if (valueType === 'bool') {
+        return `<select class="inject-prop-value" onchange="window.updateInjectProp('${nodeId}', '${propName}', ${index}, 'value', this.value)"><option value="true" ${value === 'true' || value === true ? 'selected' : ''}>true</option><option value="false" ${value === 'false' || value === false ? 'selected' : ''}>false</option></select>`;
+    } else if (valueType === 'json') {
+        const escaped = String(value).replace(/"/g, '&quot;');
+        return `<input type="text" class="inject-prop-value inject-prop-json" placeholder='{"key":"value"}' value="${escaped}" onchange="window.updateInjectProp('${nodeId}', '${propName}', ${index}, 'value', this.value)">`;
+    } else {
+        const placeholder = valueType === 'num' ? '0' : valueType === 'env' ? 'ENV_VAR' : '';
+        return `<input type="text" class="inject-prop-value" placeholder="${placeholder}" value="${value}" onchange="window.updateInjectProp('${nodeId}', '${propName}', ${index}, 'value', this.value)">`;
+    }
+}
+
+export function addInjectProp(nodeId, propName) {
+    const nodeData = state.nodes.get(nodeId);
+    const props = nodeData.config[propName] || [];
+    
+    props.push({
+        property: 'payload',
+        valueType: 'date',
+        value: ''
+    });
+    
+    nodeData.config[propName] = props;
+    
+    markNodeModified(nodeId);
+    setModified(true);
+    renderProperties(nodeData);
+}
+
+export function removeInjectProp(nodeId, propName, propIndex) {
+    const nodeData = state.nodes.get(nodeId);
+    const props = nodeData.config[propName] || [];
+    
+    if (props.length > 0) {
+        props.splice(propIndex, 1);
+        nodeData.config[propName] = props;
+        
+        markNodeModified(nodeId);
+        setModified(true);
+        renderProperties(nodeData);
+    }
+}
+
+export function updateInjectProp(nodeId, propName, propIndex, field, value) {
+    const nodeData = state.nodes.get(nodeId);
+    const props = nodeData.config[propName] || [];
+    
+    if (props[propIndex]) {
+        props[propIndex][field] = value;
+        nodeData.config[propName] = props;
+        
+        // Re-render if type changed to update value input
+        if (field === 'valueType') {
+            renderProperties(nodeData);
+        }
         
         markNodeModified(nodeId);
         setModified(true);
