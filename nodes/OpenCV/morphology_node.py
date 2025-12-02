@@ -1,0 +1,129 @@
+"""
+OpenCV Morphology Node - applies morphological operations to images.
+"""
+
+import cv2
+import numpy as np
+from typing import Any, Dict
+from nodes.base_node import BaseNode
+
+
+class MorphologyNode(BaseNode):
+    """
+    Morphology node - applies morphological operations to binary/grayscale images.
+    Supports erosion, dilation, opening, closing, gradient, tophat, and blackhat.
+    """
+    display_name = 'Morphology'
+    icon = '⬡'
+    category = 'opencv'
+    color = '#4A90D9'
+    border_color = '#2E6BB0'
+    text_color = '#FFFFFF'
+    input_count = 1
+    output_count = 1
+    
+    properties = [
+        {
+            'name': 'operation',
+            'label': 'Operation',
+            'type': 'select',
+            'options': [
+                {'value': 'erode', 'label': 'Erode'},
+                {'value': 'dilate', 'label': 'Dilate'},
+                {'value': 'open', 'label': 'Open (erode then dilate)'},
+                {'value': 'close', 'label': 'Close (dilate then erode)'},
+                {'value': 'gradient', 'label': 'Gradient'},
+                {'value': 'tophat', 'label': 'Top Hat'},
+                {'value': 'blackhat', 'label': 'Black Hat'}
+            ],
+            'default': 'dilate',
+            'help': 'Morphological operation to apply'
+        },
+        {
+            'name': 'kernel_shape',
+            'label': 'Kernel Shape',
+            'type': 'select',
+            'options': [
+                {'value': 'rect', 'label': 'Rectangle'},
+                {'value': 'ellipse', 'label': 'Ellipse'},
+                {'value': 'cross', 'label': 'Cross'}
+            ],
+            'default': 'rect',
+            'help': 'Shape of the structuring element'
+        },
+        {
+            'name': 'kernel_size',
+            'label': 'Kernel Size',
+            'type': 'number',
+            'default': 5,
+            'min': 1,
+            'max': 99,
+            'help': 'Size of the structuring element'
+        },
+        {
+            'name': 'iterations',
+            'label': 'Iterations',
+            'type': 'number',
+            'default': 1,
+            'min': 1,
+            'max': 20,
+            'help': 'Number of times to apply the operation'
+        }
+    ]
+    
+    def __init__(self, node_id=None, name="morphology"):
+        super().__init__(node_id, name)
+        self.configure({
+            'operation': 'dilate',
+            'kernel_shape': 'rect',
+            'kernel_size': 5,
+            'iterations': 1
+        })
+    
+    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+        """Apply morphological operation to the input image."""
+        if 'payload' not in msg:
+            self.send(msg)
+            return
+        
+        img, format_type = self.decode_image(msg['payload'])
+        if img is None:
+            self.send(msg)
+            return
+        
+        operation = self.config.get('operation', 'dilate')
+        kernel_shape = self.config.get('kernel_shape', 'rect')
+        kernel_size = int(self.config.get('kernel_size', 5))
+        iterations = int(self.config.get('iterations', 1))
+        
+        # Create structuring element
+        shape_map = {
+            'rect': cv2.MORPH_RECT,
+            'ellipse': cv2.MORPH_ELLIPSE,
+            'cross': cv2.MORPH_CROSS
+        }
+        shape = shape_map.get(kernel_shape, cv2.MORPH_RECT)
+        kernel = cv2.getStructuringElement(shape, (kernel_size, kernel_size))
+        
+        # Apply operation
+        if operation == 'erode':
+            result = cv2.erode(img, kernel, iterations=iterations)
+        elif operation == 'dilate':
+            result = cv2.dilate(img, kernel, iterations=iterations)
+        elif operation == 'open':
+            result = cv2.morphologyEx(img, cv2.MORPH_OPEN, kernel, iterations=iterations)
+        elif operation == 'close':
+            result = cv2.morphologyEx(img, cv2.MORPH_CLOSE, kernel, iterations=iterations)
+        elif operation == 'gradient':
+            result = cv2.morphologyEx(img, cv2.MORPH_GRADIENT, kernel, iterations=iterations)
+        elif operation == 'tophat':
+            result = cv2.morphologyEx(img, cv2.MORPH_TOPHAT, kernel, iterations=iterations)
+        elif operation == 'blackhat':
+            result = cv2.morphologyEx(img, cv2.MORPH_BLACKHAT, kernel, iterations=iterations)
+        else:
+            result = img
+        
+        if 'payload' not in msg or not isinstance(msg['payload'], dict):
+            msg['payload'] = {}
+        msg['payload']['image'] = self.encode_image(result, format_type)
+        self.send(msg)

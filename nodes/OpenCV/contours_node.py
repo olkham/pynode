@@ -1,0 +1,218 @@
+"""
+OpenCV Contours Node - finds contours in binary images.
+Detects and analyzes contours for shape detection.
+"""
+
+import cv2
+import numpy as np
+from typing import Any, Dict, List
+from nodes.base_node import BaseNode
+
+
+class ContoursNode(BaseNode):
+    """
+    Contours node - finds and analyzes contours in binary images.
+    Outputs contour data including area, perimeter, bounding boxes, and centroids.
+    """
+    display_name = 'Find Contours'
+    icon = '▢'
+    category = 'opencv'
+    color = '#4A90D9'
+    border_color = '#2E6BB0'
+    text_color = '#FFFFFF'
+    input_count = 1
+    output_count = 1
+    
+    properties = [
+        {
+            'name': 'mode',
+            'label': 'Retrieval Mode',
+            'type': 'select',
+            'options': [
+                {'value': 'external', 'label': 'External only'},
+                {'value': 'list', 'label': 'All (list)'},
+                {'value': 'tree', 'label': 'All (hierarchy)'},
+                {'value': 'ccomp', 'label': 'Two-level hierarchy'}
+            ],
+            'default': 'external',
+            'help': 'How to retrieve contours'
+        },
+        {
+            'name': 'approximation',
+            'label': 'Approximation',
+            'type': 'select',
+            'options': [
+                {'value': 'none', 'label': 'None (all points)'},
+                {'value': 'simple', 'label': 'Simple'},
+                {'value': 'tc89_l1', 'label': 'Teh-Chin L1'},
+                {'value': 'tc89_kcos', 'label': 'Teh-Chin KCOS'}
+            ],
+            'default': 'simple',
+            'help': 'Contour approximation method'
+        },
+        {
+            'name': 'min_area',
+            'label': 'Min Area',
+            'type': 'number',
+            'default': 100,
+            'min': 0,
+            'help': 'Minimum contour area to include'
+        },
+        {
+            'name': 'max_area',
+            'label': 'Max Area',
+            'type': 'number',
+            'default': 0,
+            'min': 0,
+            'help': 'Maximum contour area (0 = no limit)'
+        },
+        {
+            'name': 'draw_contours',
+            'label': 'Draw Contours',
+            'type': 'select',
+            'options': [
+                {'value': 'yes', 'label': 'Yes'},
+                {'value': 'no', 'label': 'No'}
+            ],
+            'default': 'yes',
+            'help': 'Draw detected contours on output image'
+        },
+        {
+            'name': 'draw_bboxes',
+            'label': 'Draw Bounding Boxes',
+            'type': 'select',
+            'options': [
+                {'value': 'yes', 'label': 'Yes'},
+                {'value': 'no', 'label': 'No'}
+            ],
+            'default': 'no',
+            'help': 'Draw bounding boxes around contours'
+        }
+    ]
+    
+    def __init__(self, node_id=None, name="find contours"):
+        super().__init__(node_id, name)
+        self.configure({
+            'mode': 'external',
+            'approximation': 'simple',
+            'min_area': 100,
+            'max_area': 0,
+            'draw_contours': 'yes',
+            'draw_bboxes': 'no'
+        })
+    
+    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+        """Find contours in the input image."""
+        if 'payload' not in msg:
+            self.send(msg)
+            return
+        
+        # Decode image from any supported format
+        img, format_type = self.decode_image(msg['payload'])
+        if img is None:
+            self.send(msg)
+            return
+        
+        # Get parameters
+        mode_str = self.config.get('mode', 'external')
+        approx_str = self.config.get('approximation', 'simple')
+        min_area = float(self.config.get('min_area', 100))
+        max_area = float(self.config.get('max_area', 0))
+        
+        # Map mode string to OpenCV constant
+        mode_map = {
+            'external': cv2.RETR_EXTERNAL,
+            'list': cv2.RETR_LIST,
+            'tree': cv2.RETR_TREE,
+            'ccomp': cv2.RETR_CCOMP
+        }
+        mode = mode_map.get(mode_str, cv2.RETR_EXTERNAL)
+        
+        # Map approximation string to OpenCV constant
+        approx_map = {
+            'none': cv2.CHAIN_APPROX_NONE,
+            'simple': cv2.CHAIN_APPROX_SIMPLE,
+            'tc89_l1': cv2.CHAIN_APPROX_TC89_L1,
+            'tc89_kcos': cv2.CHAIN_APPROX_TC89_KCOS
+        }
+        approx = approx_map.get(approx_str, cv2.CHAIN_APPROX_SIMPLE)
+        
+        # Convert to grayscale if needed for contour finding
+        if len(img.shape) == 3:
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        else:
+            gray = img.copy()
+        
+        # Find contours
+        contours, hierarchy = cv2.findContours(gray, mode, approx)
+        
+        # Filter and analyze contours
+        contour_data = []
+        filtered_contours = []
+        
+        for i, cnt in enumerate(contours):
+            area = cv2.contourArea(cnt)
+            
+            # Filter by area
+            if area < min_area:
+                continue
+            if max_area > 0 and area > max_area:
+                continue
+            
+            filtered_contours.append(cnt)
+            
+            # Calculate properties
+            perimeter = cv2.arcLength(cnt, True)
+            x, y, w, h = cv2.boundingRect(cnt)
+            
+            # Centroid
+            M = cv2.moments(cnt)
+            if M['m00'] != 0:
+                cx = int(M['m10'] / M['m00'])
+                cy = int(M['m01'] / M['m00'])
+            else:
+                cx, cy = x + w // 2, y + h // 2
+            
+            # Circularity
+            circularity = 0
+            if perimeter > 0:
+                circularity = 4 * np.pi * area / (perimeter * perimeter)
+            
+            contour_data.append({
+                'index': len(contour_data),
+                'area': float(area),
+                'perimeter': float(perimeter),
+                'bbox': {'x': int(x), 'y': int(y), 'width': int(w), 'height': int(h)},
+                'centroid': {'x': cx, 'y': cy},
+                'circularity': float(circularity),
+                'aspect_ratio': float(w) / float(h) if h > 0 else 0
+            })
+        
+        # Draw contours if requested
+        draw_contours = self.config.get('draw_contours', 'yes') == 'yes'
+        draw_bboxes = self.config.get('draw_bboxes', 'no') == 'yes'
+        
+        # Ensure we have a color image to draw on
+        if len(img.shape) == 2:
+            output = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+        else:
+            output = img.copy()
+        
+        if draw_contours:
+            cv2.drawContours(output, filtered_contours, -1, (0, 255, 0), 2)
+        
+        if draw_bboxes:
+            for data in contour_data:
+                bbox = data['bbox']
+                cv2.rectangle(output, 
+                              (bbox['x'], bbox['y']),
+                              (bbox['x'] + bbox['width'], bbox['y'] + bbox['height']),
+                              (255, 0, 0), 2)
+        
+        # Encode back to original format
+        if 'payload' not in msg or not isinstance(msg['payload'], dict):
+            msg['payload'] = {}
+        msg['payload']['image'] = self.encode_image(output, format_type)
+        msg['contours'] = contour_data
+        msg['contour_count'] = len(contour_data)
+        self.send(msg)
