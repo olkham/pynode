@@ -1100,6 +1100,7 @@ body {
     font-size: 8px;
     transition: transform 0.1s;
     user-select: none;
+    text-align: center;
 }
 
 .tt:hover { color: #ccc; }
