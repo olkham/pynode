@@ -4,7 +4,13 @@ This guide explains how to create your own custom nodes for PyNode.
 
 ## Overview
 
-PyNode is designed to be fully extensible. All node information (visual properties, property schemas, behavior) is contained within the node class itself. The main application has no hardcoded knowledge of specific node types.
+PyNode is designed to be fully extensible. All node information (visual properties, property schemas, behavior, and UI components) is contained within the node class itself. The main application has no hardcoded knowledge of specific node types.
+
+## Quick Links
+
+- **[UI Components Guide](UI_COMPONENTS.md)** - Learn how to add interactive controls (buttons, toggles, displays) to your nodes
+- **Property Schema** (this document) - Define configuration fields in the properties panel
+- **Visual Properties** (this document) - Customize node appearance
 
 ## Node Structure
 
@@ -74,10 +80,14 @@ class MyCustomNode(BaseNode):
 Define how your node appears:
 
 ```python
-category = 'custom'      # Where it appears in the palette
-color = '#FFA07A'        # Background color
-border_color = '#FF7F50' # Border color
-text_color = '#000000'   # Text color
+display_name = 'My Node'  # Display name (without 'Node' suffix)
+icon = '⚡'                # Icon character or emoji
+category = 'custom'       # Where it appears in the palette
+color = '#FFA07A'         # Background color
+border_color = '#FF7F50'  # Border color
+text_color = '#000000'    # Text color
+input_count = 1           # Number of input ports (0 for input-only nodes)
+output_count = 1          # Number of output ports (0 for output-only nodes)
 ```
 
 **Available Categories:**
@@ -86,13 +96,33 @@ text_color = '#000000'   # Text color
 - `function` - Nodes that transform messages
 - `logic` - Nodes that route messages
 - `custom` - Your custom nodes
+- `vision` - Computer vision nodes
+- `network` - Network communication nodes
 
 **Color Guidelines:**
 - Input nodes: Light blue (`#C0DEED`)
 - Output nodes: Light green (`#87A980`)
-- Function nodes: Light purple (`#E6E0F8`)
-- Logic nodes: Salmon (`#E9967A`)
+- Function nodes: Light yellow (`#E2D96E`)
+- Logic nodes: Light orange (`#FFE5B4`)
+- Vision nodes: Pink (`#FF6B9D`)
 - Custom: Your choice!
+
+### 2a. UI Components (Optional)
+
+Want interactive controls in your node? See **[UI_COMPONENTS.md](UI_COMPONENTS.md)** for adding:
+- **Buttons** - Trigger actions (e.g., play, stop, reset)
+- **Toggles** - Enable/disable functionality in real-time
+- **Displays** - Show live metrics (rate, count, status)
+
+Quick example:
+```python
+ui_component = 'button'
+ui_component_config = {
+    'icon': '▶',
+    'action': 'trigger',
+    'tooltip': 'Run Now'
+}
+```
 
 ### 3. Property Schema
 

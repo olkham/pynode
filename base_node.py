@@ -25,6 +25,14 @@ class BaseNode:
     input_count = 1  # Number of input ports (0 for input-only nodes)
     output_count = 1  # Number of output ports (0 for output-only nodes)
     
+    # UI Component for custom node controls
+    # Options: None, 'button', 'toggle', 'rate-display'
+    # - 'button': Clickable button (e.g., InjectNode's play button)
+    # - 'toggle': On/Off switch (e.g., GateNode, DebugNode)
+    # - 'rate-display': Shows numeric rate/value (e.g., RateProbeNode)
+    ui_component = None
+    ui_component_config = {}  # Optional config for the UI component
+    
     # Property schema for the properties panel
     # Format: [{'name': 'propName', 'label': 'Display Label', 'type': 'text|textarea|select|button', 'options': [...], 'action': 'methodName'}]
     properties = [

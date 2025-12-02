@@ -23,6 +23,11 @@ class DrawPredictionsNode(BaseNode):
     text_color = '#FFFFFF'
     input_count = 1
     output_count = 1
+    ui_component = 'toggle'
+    ui_component_config = {
+        'action': 'toggle_drawing',
+        'label': 'Draw'
+    }
     
     properties = [
         {

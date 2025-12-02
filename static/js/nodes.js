@@ -146,89 +146,57 @@ export function renderNode(nodeData) {
 }
 
 function buildNodeContent(nodeData, icon, inputCount, outputCount) {
+    const nodeType = getNodeType(nodeData.type);
+    const uiComponent = nodeType?.uiComponent;
+    const uiConfig = nodeType?.uiComponentConfig || {};
+    
+    // Build the base content structure
+    let contentParts = {
+        left: '',
+        center: '',
+        right: ''
+    };
+    
+    // Icon always in center-left
+    contentParts.center = `<div class="node-icon-container"><div class="node-icon">${icon}</div></div>`;
+    
+    // Title always in center
+    contentParts.center += `<div class="node-title">${nodeData.name}</div>`;
+    
+    // Add UI component based on type
+    if (uiComponent === 'button') {
+        // Button on the left (like InjectNode)
+        const buttonIcon = uiConfig.icon || '▶';
+        const action = uiConfig.action || 'inject';
+        const tooltip = uiConfig.tooltip || 'Trigger';
+        contentParts.left = `<button class="inject-btn" onclick="window.nodeAction('${nodeData.id}', '${action}')" title="${tooltip}">${buttonIcon}</button>`;
+    } else if (uiComponent === 'toggle') {
+        // Toggle switch on the right (like GateNode, DebugNode, DrawPredictionsNode)
+        const action = uiConfig.action || 'toggle';
+        const isChecked = nodeData.enabled !== false && nodeData.drawingEnabled !== false;
+        contentParts.right = `
+            <label class="gate-switch">
+                <input type="checkbox" id="toggle-${nodeData.id}" ${isChecked ? 'checked' : ''} 
+                       onchange="window.nodeAction('${nodeData.id}', '${action}', this.checked)">
+                <span class="gate-slider"></span>
+            </label>
+        `;
+    } else if (uiComponent === 'rate-display') {
+        // Rate display on the right (like RateProbeNode)
+        const format = uiConfig.format || '{value}';
+        contentParts.right = `<div class="rate-display" id="rate-${nodeData.id}">0/s</div>`;
+    }
+    
+    // Combine parts based on input/output configuration
     if (inputCount === 0 && outputCount > 0) {
-        if (nodeData.type === 'InjectNode') {
-            return `
-                <div class="node-content">
-                    <button class="inject-btn" onclick="window.triggerInject('${nodeData.id}')" title="Inject">▶</button>
-                    <div class="node-icon-container"><div class="node-icon">${icon}</div></div>
-                    <div class="node-title">${nodeData.name}</div>
-                </div>
-            `;
-        } else {
-            return `
-                <div class="node-content">
-                    <div class="node-icon-container"><div class="node-icon">${icon}</div></div>
-                    <div class="node-title">${nodeData.name}</div>
-                </div>
-            `;
-        }
+        // Input node - button/icon on left
+        return `<div class="node-content">${contentParts.left}${contentParts.center}${contentParts.right}</div>`;
     } else if (inputCount > 0 && outputCount === 0) {
-        if (nodeData.type === 'DebugNode') {
-            const isEnabled = nodeData.enabled !== undefined ? nodeData.enabled : true;
-            return `
-                <div class="node-content">
-                    <div class="node-title">${nodeData.name}</div>
-                    <div class="node-icon-container"><div class="node-icon">${icon}</div></div>
-                    <label class="gate-switch">
-                        <input type="checkbox" id="debug-${nodeData.id}" ${isEnabled ? 'checked' : ''} 
-                               onchange="window.toggleDebug('${nodeData.id}', this.checked)">
-                        <span class="gate-slider"></span>
-                    </label>
-                </div>
-            `;
-        } else {
-            return `
-                <div class="node-content">
-                    <div class="node-title">${nodeData.name}</div>
-                    <div class="node-icon-container"><div class="node-icon">${icon}</div></div>
-                </div>
-            `;
-        }
+        // Output node - title first, then icon, then controls
+        return `<div class="node-content">${contentParts.center}${contentParts.right}</div>`;
     } else {
-        if (nodeData.type === 'GateNode') {
-            const isOpen = nodeData.enabled !== undefined ? nodeData.enabled : true;
-            return `
-                <div class="node-content">
-                    <div class="node-icon-container"><div class="node-icon">${icon}</div></div>
-                    <div class="node-title">${nodeData.name}</div>
-                    <label class="gate-switch">
-                        <input type="checkbox" id="gate-${nodeData.id}" ${isOpen ? 'checked' : ''} 
-                               onchange="window.toggleGate('${nodeData.id}', this.checked)">
-                        <span class="gate-slider"></span>
-                    </label>
-                </div>
-            `;
-        } else if (nodeData.type === 'RateProbeNode') {
-            return `
-                <div class="node-content">
-                    <div class="node-icon-container"><div class="node-icon">${icon}</div></div>
-                    <div class="node-title">${nodeData.name}</div>
-                    <div class="rate-display" id="rate-${nodeData.id}">0/s</div>
-                </div>
-            `;
-        } else if (nodeData.type === 'DrawPredictionsNode') {
-            // Check if drawing is enabled (stored in a custom property, default true)
-            const isEnabled = nodeData.drawingEnabled !== false;
-            return `
-                <div class="node-content">
-                    <div class="node-icon-container"><div class="node-icon">${icon}</div></div>
-                    <div class="node-title">${nodeData.name}</div>
-                    <label class="gate-switch">
-                        <input type="checkbox" id="draw-${nodeData.id}" ${isEnabled ? 'checked' : ''} 
-                               onchange="window.toggleDrawPredictions('${nodeData.id}', this.checked)">
-                        <span class="gate-slider"></span>
-                    </label>
-                </div>
-            `;
-        } else {
-            return `
-                <div class="node-content">
-                    <div class="node-icon-container"><div class="node-icon">${icon}</div></div>
-                    <div class="node-title">${nodeData.name}</div>
-                </div>
-            `;
-        }
+        // Processing node - standard layout
+        return `<div class="node-content">${contentParts.left}${contentParts.center}${contentParts.right}</div>`;
     }
 }
 
@@ -449,6 +417,27 @@ export function updateNodeOutputCount(nodeId, outputCount) {
         updateConnections();
     }
 }
+
+// Unified node action handler
+window.nodeAction = async function(nodeId, action, value) {
+    try {
+        // Handle different action types
+        if (action === 'inject') {
+            await fetch(`${API_BASE}/nodes/${nodeId}/inject`, { method: 'POST' });
+        } else if (action === 'toggle_gate') {
+            await window.toggleGate(nodeId, value);
+        } else if (action === 'toggle_debug') {
+            await window.toggleDebug(nodeId, value);
+        } else if (action === 'toggle_drawing') {
+            await window.toggleDrawPredictions(nodeId, value);
+        } else {
+            // Generic action - call the action endpoint
+            await fetch(`${API_BASE}/nodes/${nodeId}/${action}`, { method: 'POST' });
+        }
+    } catch (error) {
+        console.error(`Failed to execute action ${action} on node ${nodeId}:`, error);
+    }
+};
 
 // Toggle draw predictions enabled state
 window.toggleDrawPredictions = async function(nodeId, enabled) {

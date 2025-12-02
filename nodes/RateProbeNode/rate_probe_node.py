@@ -22,6 +22,11 @@ class RateProbeNode(BaseNode):
     text_color = '#000000'
     input_count = 1
     output_count = 1
+    ui_component = 'rate-display'
+    ui_component_config = {
+        'format': '{value}/s',
+        'precision': 1
+    }
     
     properties = [
         {

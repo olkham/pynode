@@ -23,6 +23,12 @@ class InjectNode(BaseNode):
     text_color = '#000000'
     input_count = 0
     output_count = 1
+    ui_component = 'button'
+    ui_component_config = {
+        'icon': '▶',
+        'action': 'inject',
+        'tooltip': 'Inject'
+    }
     
     properties = [
         {

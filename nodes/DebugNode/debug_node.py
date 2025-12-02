@@ -22,6 +22,11 @@ class DebugNode(BaseNode):
     text_color = '#000000'
     input_count = 1
     output_count = 0
+    ui_component = 'toggle'
+    ui_component_config = {
+        'action': 'toggle_debug',
+        'label': 'Enable'
+    }
     
     properties = [
         {

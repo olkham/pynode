@@ -7,6 +7,7 @@ A Node-RED-like visual workflow editor with a Python backend. Create workflows b
 - **Visual Node Editor**: Drag-and-drop interface for creating workflows
 - **Python Backend**: All nodes are Python classes that can be easily extended
 - **Fully Extensible**: Third-party nodes can be added without modifying core code
+- **UI Components**: Nodes can define interactive controls (buttons, toggles, displays) in their cards
 - **Node-RED Compatible Messages**: Message structure with `payload` and `topic` fields
 - **Built-in Nodes**:
   - **InjectNode**: Generate messages with configurable payloads
@@ -15,11 +16,14 @@ A Node-RED-like visual workflow editor with a Python backend. Create workflows b
   - **ChangeNode**: Modify message properties
   - **SwitchNode**: Route messages based on conditions
   - **DelayNode**: Delay message delivery
+  - **GateNode**: Control message flow with real-time toggle
+  - **RateProbeNode**: Monitor message throughput
+  - **Vision Nodes**: Camera input, YOLO detection, image processing
 - **REST API**: Complete API for programmatic workflow management
 - **Export/Import**: Save and load workflows as JSON
-- **Dynamic Properties**: Node properties defined in node classes, automatically rendered in UI
+- **Dynamic Properties**: Node properties and UI components defined in node classes
 
-## Installation
+## Quick Start
 
 1. **Install Python dependencies**:
 ```bash
@@ -33,6 +37,14 @@ python main.py
 
 3. **Open your browser**:
 Navigate to `http://localhost:5000`
+
+## Extending PyNode
+
+PyNode is designed to be easily extended with custom nodes:
+
+- **[Creating Custom Nodes](CUSTOM_NODES.md)** - Complete guide to creating your own nodes
+- **[UI Components Guide](UI_COMPONENTS.md)** - Add interactive controls to your nodes
+- **[Extensibility Overview](EXTENSIBILITY.md)** - Architecture and design principles
 
 ## Project Structure
 

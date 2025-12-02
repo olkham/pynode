@@ -239,6 +239,9 @@ def get_node_types():
         # Add all node-specific properties
         merged_properties.extend(node_properties)
         
+        ui_component = getattr(node_class, 'ui_component', None)
+        ui_component_config = getattr(node_class, 'ui_component_config', {})
+        
         node_types.append({
             'type': name,
             'name': display_name,
@@ -249,7 +252,9 @@ def get_node_types():
             'textColor': text_color,
             'inputCount': input_count,
             'outputCount': output_count,
-            'properties': merged_properties
+            'properties': merged_properties,
+            'uiComponent': ui_component,
+            'uiComponentConfig': ui_component_config
         })
     return jsonify(node_types)
 
