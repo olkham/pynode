@@ -6,7 +6,18 @@ All custom nodes should inherit from this class.
 import uuid
 import queue
 import threading
+import base64
 from typing import Dict, List, Any, Optional, Tuple
+
+# Optional image processing dependencies
+try:
+    import numpy as np
+    import cv2
+    _HAS_CV2 = True
+except ImportError:
+    np = None
+    cv2 = None
+    _HAS_CV2 = False
 
 
 class BaseNode:
@@ -279,11 +290,7 @@ class BaseNode:
         Returns:
             Tuple of (image as numpy array or None, format_identifier string or None)
         """
-        try:
-            import numpy as np
-            import cv2
-            import base64
-        except ImportError as e:
+        if not _HAS_CV2:
             return None, None
         
         try:
@@ -349,11 +356,7 @@ class BaseNode:
         Returns:
             Encoded image in the specified format, or None on error
         """
-        try:
-            import numpy as np
-            import cv2
-            import base64
-        except ImportError:
+        if not _HAS_CV2:
             return None
         
         try:

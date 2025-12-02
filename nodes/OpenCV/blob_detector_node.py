@@ -128,16 +128,31 @@ class BlobDetectorNode(BaseNode):
         params.maxArea = float(self.config.get('max_area', 50000))
         
         # Circularity filter
-        params.filterByCircularity = True
-        params.minCircularity = float(self.config.get('min_circularity', 0.1))
+        min_circularity = float(self.config.get('min_circularity', 0.1))
+        if min_circularity > 0:
+            params.filterByCircularity = True
+            params.minCircularity = min_circularity
+            params.maxCircularity = 1.0
+        else:
+            params.filterByCircularity = False
         
         # Convexity filter
-        params.filterByConvexity = True
-        params.minConvexity = float(self.config.get('min_convexity', 0.5))
+        min_convexity = float(self.config.get('min_convexity', 0.5))
+        if min_convexity > 0:
+            params.filterByConvexity = True
+            params.minConvexity = min_convexity
+            params.maxConvexity = 1.0
+        else:
+            params.filterByConvexity = False
         
         # Inertia filter
-        params.filterByInertia = True
-        params.minInertiaRatio = float(self.config.get('min_inertia', 0.1))
+        min_inertia = float(self.config.get('min_inertia', 0.1))
+        if min_inertia > 0:
+            params.filterByInertia = True
+            params.minInertiaRatio = min_inertia
+            params.maxInertiaRatio = 1.0
+        else:
+            params.filterByInertia = False
         
         # Color filter
         filter_color = self.config.get('filter_by_color', 'dark')
