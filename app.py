@@ -35,6 +35,112 @@ for engine in [working_engine, deployed_engine]:
 
 # Queue for debug messages (for SSE)
 debug_message_queues = {}
+debug_broadcast_thread = None
+debug_broadcast_running = False
+debug_broadcast_lock = threading.Lock()
+
+def start_debug_broadcast():
+    """Start a single background thread that polls nodes and broadcasts to all clients."""
+    global debug_broadcast_thread, debug_broadcast_running
+    
+    with debug_broadcast_lock:
+        if debug_broadcast_running:
+            return
+        
+        debug_broadcast_running = True
+        debug_broadcast_thread = threading.Thread(target=_debug_broadcast_worker, daemon=True)
+        debug_broadcast_thread.start()
+
+def _debug_broadcast_worker():
+    """Background worker that polls nodes and broadcasts to all connected clients."""
+    last_rate_update = 0
+    rate_update_interval = 0.5
+    
+    while debug_broadcast_running:
+        try:
+            # Only poll if there are connected clients
+            if not debug_message_queues:
+                time.sleep(0.1)
+                continue
+            
+            current_time = time.time()
+            messages_sent = False
+            
+            # Check all debug nodes in deployed workflow for new messages
+            all_messages = []
+            for node_id, node in deployed_engine.nodes.items():
+                if node.type == 'DebugNode':
+                    if hasattr(node, 'messages') and node.messages:
+                        all_messages.extend(node.messages.copy())
+                        node.messages.clear()
+            
+            # Get errors from system error node
+            all_errors = deployed_engine.get_system_errors()
+            
+            if all_messages:
+                data = {'type': 'messages', 'data': all_messages}
+                _broadcast_to_all_clients(data)
+                messages_sent = True
+            
+            if all_errors:
+                data = {'type': 'errors', 'data': all_errors}
+                _broadcast_to_all_clients(data)
+                deployed_engine.clear_system_errors()
+                messages_sent = True
+            
+            # Check image viewer nodes
+            for node_id, node in deployed_engine.nodes.items():
+                if node.type == 'ImageViewerNode':
+                    if hasattr(node, 'get_current_frame'):
+                        frame = node.get_current_frame()
+                        if frame:
+                            data = {
+                                'type': 'frame',
+                                'nodeId': node_id,
+                                'data': frame
+                            }
+                            _broadcast_to_all_clients(data)
+                            messages_sent = True
+            
+            # Check rate probe nodes (throttled)
+            if current_time - last_rate_update >= rate_update_interval:
+                last_rate_update = current_time
+                for node_id, node in deployed_engine.nodes.items():
+                    if node.type == 'RateProbeNode':
+                        if hasattr(node, 'get_rate_display'):
+                            data = {
+                                'type': 'rate',
+                                'nodeId': node_id,
+                                'display': node.get_rate_display(),
+                                'rate': node.get_rate()
+                            }
+                            _broadcast_to_all_clients(data)
+            
+            # Adaptive sleep
+            if messages_sent:
+                time.sleep(0.01)
+            else:
+                time.sleep(0.05)
+                
+        except Exception as e:
+            print(f"Debug broadcast error: {e}")
+            time.sleep(0.1)
+
+def _broadcast_to_all_clients(data):
+    """Send data to all connected SSE clients."""
+    dead_clients = []
+    for client_id, q in list(debug_message_queues.items()):
+        try:
+            q.put_nowait(data)
+        except queue.Full:
+            # Client queue is full, skip
+            pass
+        except Exception:
+            dead_clients.append(client_id)
+    
+    # Clean up dead clients
+    for client_id in dead_clients:
+        debug_message_queues.pop(client_id, None)
 
 # Track if workflow has been loaded
 workflow_loaded = False
@@ -560,74 +666,25 @@ def debug_stream():
     """Server-Sent Events stream for debug messages."""
     def generate():
         # Create a queue for this client
-        q = queue.Queue()
+        q = queue.Queue(maxsize=100)
         client_id = id(q)
         debug_message_queues[client_id] = q
         
-        # Track last rate update time
-        last_rate_update = 0
-        rate_update_interval = 0.5  # Update rate display every 500ms
+        # Start broadcast thread if not running
+        start_debug_broadcast()
         
         try:
             yield 'data: {"type": "connected"}\n\n'
             
             while True:
-                current_time = time.time()
-                # Check all debug nodes in deployed workflow for new messages
-                all_messages = []
-                for node_id, node in deployed_engine.nodes.items():
-                    if node.type == 'DebugNode':
-                        # Get messages directly from the node
-                        if hasattr(node, 'messages') and node.messages:
-                            all_messages.extend(node.messages.copy())
-                            # Clear after copying
-                            node.messages.clear()
-                
-                # Get errors from system error node
-                all_errors = deployed_engine.get_system_errors()
-                
-                if all_messages:
-                    data = json.dumps({'type': 'messages', 'data': all_messages})
-                    yield f'data: {data}\n\n'
-                
-                if all_errors:
-                    data = json.dumps({'type': 'errors', 'data': all_errors})
-                    yield f'data: {data}\n\n'
-                    # Clear after sending
-                    deployed_engine.clear_system_errors()
-                
-                # Check all image viewer nodes for frames
-                for node_id, node in deployed_engine.nodes.items():
-                    if node.type == 'ImageViewerNode':
-                        if hasattr(node, 'get_current_frame'):
-                            frame = node.get_current_frame()
-                            if frame:
-                                frame_data = json.dumps({
-                                    'type': 'frame',
-                                    'nodeId': node_id,
-                                    'data': frame
-                                })
-                                yield f'data: {frame_data}\n\n'
-                
-                # Check all rate probe nodes for rate updates (throttled)
-                if current_time - last_rate_update >= rate_update_interval:
-                    last_rate_update = current_time
-                    for node_id, node in deployed_engine.nodes.items():
-                        if node.type == 'RateProbeNode':
-                            if hasattr(node, 'get_rate_display'):
-                                rate_data = json.dumps({
-                                    'type': 'rate',
-                                    'nodeId': node_id,
-                                    'display': node.get_rate_display(),
-                                    'rate': node.get_rate()
-                                })
-                                yield f'data: {rate_data}\n\n'
-                
-                # Adaptive sleep: longer when idle, shorter when active
-                if all_messages or all_errors:
-                    time.sleep(0.01)  # 10ms when active (up to 100 FPS)
-                else:
-                    time.sleep(0.05)  # 50ms when idle (saves CPU)
+                try:
+                    # Wait for data from broadcast thread
+                    data = q.get(timeout=1.0)
+                    yield f'data: {json.dumps(data)}\n\n'
+                except queue.Empty:
+                    # Send keepalive
+                    yield 'data: {"type": "keepalive"}\n\n'
+                    
         except GeneratorExit:
             # Client disconnected
             debug_message_queues.pop(client_id, None)
