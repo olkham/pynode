@@ -1,5 +1,6 @@
 // Configuration and constants
-export const API_BASE = 'http://localhost:5000/api';
+// Use relative path for API to work across different hosts and ports
+export const API_BASE = '/api';
 
 export const NODE_CATEGORIES = {
     'common': { title: 'Common', nodes: [] },
