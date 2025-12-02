@@ -155,56 +155,8 @@ class CropNode(BaseNode):
         self.send(out_msg)
     
     def _decode_image(self, payload: Dict[str, Any]):
-        """Decode image from payload. Returns (image, format_info) tuple."""
-        try:
-            image_data = payload.get('image', None)
-            if image_data is None:
-                self.report_error("No image in payload")
-                return None, None
-            
-            # Handle direct numpy array
-            if isinstance(image_data, np.ndarray):
-                return image_data, {'type': 'numpy_direct'}
-            
-            # Handle dict format
-            if isinstance(image_data, dict):
-                img_format = image_data.get('format')
-                encoding = image_data.get('encoding')
-                data = image_data.get('data')
-                
-                if img_format == 'bgr' and encoding == 'numpy':
-                    # NumPy array format
-                    if isinstance(data, np.ndarray):
-                        return data, {'type': 'dict', 'format': 'bgr', 'encoding': 'numpy'}
-                    else:
-                        self.report_error("Expected numpy array in data field")
-                        return None, None
-                elif img_format == 'jpeg' and encoding == 'base64':
-                    # Base64 JPEG format
-                    img_bytes = base64.b64decode(data)
-                    nparr = np.frombuffer(img_bytes, np.uint8)
-                    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-                    return img, {'type': 'dict', 'format': 'jpeg', 'encoding': 'base64'}
-                elif img_format == 'bgr' and encoding == 'raw':
-                    # Raw list format
-                    img = np.array(data, dtype=np.uint8)
-                    return img, {'type': 'dict', 'format': 'bgr', 'encoding': 'raw'}
-                else:
-                    self.report_error(f"Unsupported format: {img_format}/{encoding}")
-                    return None, None
-            
-            # Handle direct base64 string
-            if isinstance(image_data, str):
-                img_bytes = base64.b64decode(image_data)
-                nparr = np.frombuffer(img_bytes, np.uint8)
-                img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-                return img, {'type': 'base64_string'}
-            
-            self.report_error(f"Unsupported image_data type: {type(image_data)}")
-            return None, None
-        except Exception as e:
-            self.report_error(f"Error decoding image: {e}")
-            return None, None
+        """Decode image from payload using BaseNode helper. Returns (image, format_type) tuple."""
+        return self.decode_image(payload)
     
     def _crop_image(self, image: np.ndarray, x1: int, y1: int, x2: int, y2: int) -> np.ndarray:
         """Crop image to bounding box."""
@@ -225,59 +177,6 @@ class CropNode(BaseNode):
             self.report_error(f"Error cropping image: {e}")
             return None
     
-    def _encode_image(self, image: np.ndarray, format_info: Dict[str, str]):
-        """Encode image matching input format."""
-        try:
-            if format_info['type'] == 'numpy_direct':
-                # Output as direct numpy array
-                return image
-            elif format_info['type'] == 'dict':
-                if format_info['format'] == 'bgr' and format_info['encoding'] == 'numpy':
-                    # Output as numpy dict format
-                    return {
-                        'format': 'bgr',
-                        'encoding': 'numpy',
-                        'data': image,
-                        'width': image.shape[1],
-                        'height': image.shape[0]
-                    }
-                elif format_info['format'] == 'bgr' and format_info['encoding'] == 'raw':
-                    # Output as raw list format
-                    return {
-                        'format': 'bgr',
-                        'encoding': 'raw',
-                        'data': image.tolist(),
-                        'width': image.shape[1],
-                        'height': image.shape[0]
-                    }
-                else:
-                    # Default to JPEG base64 for other dict formats
-                    ret, buffer = cv2.imencode('.jpg', image)
-                    if ret:
-                        jpeg_bytes = buffer.tobytes()
-                        jpeg_base64 = base64.b64encode(jpeg_bytes).decode('utf-8')
-                        return {
-                            'format': 'jpeg',
-                            'encoding': 'base64',
-                            'data': jpeg_base64,
-                            'width': image.shape[1],
-                            'height': image.shape[0]
-                        }
-                    else:
-                        self.report_error("Failed to encode image")
-                        return None
-            elif format_info['type'] == 'base64_string':
-                # Output as direct base64 string
-                ret, buffer = cv2.imencode('.jpg', image)
-                if ret:
-                    jpeg_bytes = buffer.tobytes()
-                    return base64.b64encode(jpeg_bytes).decode('utf-8')
-                else:
-                    self.report_error("Failed to encode image")
-                    return None
-            else:
-                self.report_error(f"Unknown format type: {format_info['type']}")
-                return None
-        except Exception as e:
-            self.report_error(f"Error encoding image: {e}")
-            return None
+    def _encode_image(self, image: np.ndarray, format_type: str):
+        """Encode image using BaseNode helper matching input format."""
+        return self.encode_image(image, format_type)

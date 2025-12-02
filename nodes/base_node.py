@@ -6,7 +6,7 @@ All custom nodes should inherit from this class.
 import uuid
 import queue
 import threading
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Tuple
 
 
 class BaseNode:
@@ -260,6 +260,155 @@ class BaseNode:
         self.config.update(config)
         # Update drop_while_busy flag from config
         self.drop_while_busy = self.config.get('drop_messages', 'false') == 'true'
+    
+    # Image processing helper methods
+    @staticmethod
+    def decode_image(payload: Any) -> Tuple[Any, Optional[str]]:
+        """
+        Decode image from various formats into a numpy array.
+        Returns (image, format_type) tuple where format_type indicates the input format.
+        
+        Supported formats:
+        - Direct numpy array
+        - Dict with 'format', 'encoding', 'data' (camera node format)
+        - Direct base64 string
+        
+        Args:
+            payload: Image payload in any supported format
+            
+        Returns:
+            Tuple of (image as numpy array or None, format_identifier string or None)
+        """
+        try:
+            import numpy as np
+            import cv2
+            import base64
+        except ImportError as e:
+            return None, None
+        
+        try:
+            # Handle nested payload.image structure
+            if isinstance(payload, dict) and 'image' in payload:
+                payload = payload['image']
+            
+            # Direct numpy array
+            if isinstance(payload, np.ndarray):
+                return payload, 'numpy_array'
+            
+            # Camera node format: dict with 'format', 'encoding', 'data'
+            if isinstance(payload, dict):
+                img_format = payload.get('format')
+                encoding = payload.get('encoding')
+                data = payload.get('data')
+                
+                if img_format == 'bgr' and encoding == 'numpy':
+                    # Direct numpy array in dict
+                    if isinstance(data, np.ndarray):
+                        return data, 'bgr_numpy_dict'
+                    return None, None
+                    
+                elif img_format == 'jpeg' and encoding == 'base64':
+                    # Base64 JPEG
+                    img_bytes = base64.b64decode(data)
+                    nparr = np.frombuffer(img_bytes, np.uint8)
+                    image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+                    return image, 'jpeg_base64_dict'
+                    
+                elif img_format == 'bgr' and encoding == 'raw':
+                    # Raw list format
+                    image = np.array(data, dtype=np.uint8)
+                    return image, 'bgr_raw_dict'
+                
+                return None, None
+            
+            # Direct base64 string
+            if isinstance(payload, str):
+                # Remove data URL prefix if present
+                if payload.startswith('data:image'):
+                    payload = payload.split(',')[1]
+                
+                img_bytes = base64.b64decode(payload)
+                nparr = np.frombuffer(img_bytes, np.uint8)
+                image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+                return image, 'base64_string'
+            
+            return None, None
+            
+        except Exception as e:
+            return None, None
+    
+    @staticmethod
+    def encode_image(image: Any, format_type: str) -> Any:
+        """
+        Encode numpy array image back to the original format.
+        
+        Args:
+            image: Numpy array image
+            format_type: Format identifier from decode_image()
+            
+        Returns:
+            Encoded image in the specified format, or None on error
+        """
+        try:
+            import numpy as np
+            import cv2
+            import base64
+        except ImportError:
+            return None
+        
+        try:
+            if not isinstance(image, np.ndarray):
+                return None
+            
+            if format_type == 'numpy_array':
+                # Direct numpy array
+                return image
+                
+            elif format_type == 'bgr_numpy_dict':
+                # Dict with numpy array
+                return {
+                    'format': 'bgr',
+                    'encoding': 'numpy',
+                    'data': image,
+                    'width': image.shape[1],
+                    'height': image.shape[0]
+                }
+                
+            elif format_type == 'jpeg_base64_dict':
+                # JPEG base64 dict
+                ret, buffer = cv2.imencode('.jpg', image)
+                if ret:
+                    jpeg_base64 = base64.b64encode(buffer).decode('utf-8')
+                    return {
+                        'format': 'jpeg',
+                        'encoding': 'base64',
+                        'data': jpeg_base64,
+                        'width': image.shape[1],
+                        'height': image.shape[0]
+                    }
+                return None
+                
+            elif format_type == 'bgr_raw_dict':
+                # Raw list dict
+                return {
+                    'format': 'bgr',
+                    'encoding': 'raw',
+                    'data': image.tolist(),
+                    'width': image.shape[1],
+                    'height': image.shape[0]
+                }
+                
+            elif format_type == 'base64_string':
+                # Direct base64 string
+                ret, buffer = cv2.imencode('.jpg', image)
+                if ret:
+                    return base64.b64encode(buffer).decode('utf-8')
+                return None
+            
+            return None
+            
+        except Exception as e:
+            return None
     
     def to_dict(self) -> Dict[str, Any]:
         """

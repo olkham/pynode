@@ -179,86 +179,11 @@ class UltralyticsNode(BaseNode):
             self.report_error(error_msg)
             return
         
-        # Handle different image formats and track input format
-        image = None
-        input_format = None
-        input_payload = payload
+        # Decode image using base node helper
+        image, input_format = self.decode_image(payload)
         
-        # Standard format: look for image in payload.image first
-        if isinstance(payload, dict) and 'image' in payload:
-            input_payload = payload['image']
-            payload = payload['image']
-        
-        # Camera node format: dict with 'format', 'encoding', 'data'
-        if isinstance(payload, dict):
-            
-            img_format = payload.get('format')
-            encoding = payload.get('encoding')
-            data = payload.get('data')
-            
-            if img_format == 'jpeg' and encoding == 'base64':
-                input_format = 'jpeg_base64_dict'
-                try:
-                    # Decode base64 JPEG
-                    img_bytes = base64.b64decode(data)
-                    nparr = np.frombuffer(img_bytes, np.uint8)
-                    image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-                except Exception as e:
-                    error_msg = f"Error decoding JPEG: {e}"
-                    self.report_error(error_msg)
-                    return
-            elif img_format == 'bgr' and encoding == 'raw':
-                input_format = 'bgr_raw_dict'
-                try:
-                    # Convert list back to numpy array
-                    image = np.array(data, dtype=np.uint8)
-                except Exception as e:
-                    error_msg = f"Error converting raw BGR: {e}"
-                    self.report_error(error_msg)
-                    return
-            elif img_format == 'bgr' and encoding == 'numpy':
-                input_format = 'bgr_numpy_dict'
-                # Direct numpy array from camera
-                if isinstance(data, np.ndarray):
-                    image = data
-                else:
-                    error_msg = f"Expected numpy array but got {type(data)}"
-                    self.report_error(error_msg)
-                    return
-            else:
-                error_msg = f"Unsupported format: {img_format}/{encoding}"
-                self.report_error(error_msg)
-                return
-        
-        # Direct base64 string
-        elif isinstance(payload, str):
-            input_format = 'base64_string'
-            try:
-                # Remove data URL prefix if present
-                if payload.startswith('data:image'):
-                    payload = payload.split(',')[1]
-                
-                # Decode base64
-                img_bytes = base64.b64decode(payload)
-                nparr = np.frombuffer(img_bytes, np.uint8)
-                image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-            except Exception as e:
-                error_msg = f"Error decoding base64 string: {e}"
-                self.report_error(error_msg)
-                return
-        
-        # Direct numpy array
-        elif isinstance(payload, np.ndarray):
-            input_format = 'numpy_array'
-            image = payload
-        
-        else:
-            error_msg = f"Unsupported payload type: {type(payload)}"
-            self.report_error(error_msg)
-            return
-        
-        if image is None:
-            error_msg = "Failed to decode image"
+        if image is None or input_format is None:
+            error_msg = "Failed to decode image from payload"
             self.report_error(error_msg)
             return
         
@@ -309,55 +234,13 @@ class UltralyticsNode(BaseNode):
             payload_out = {}
             
             if include_image:
-                # Match output format to input format
-                if input_format == 'jpeg_base64_dict':
-                    # Encode as JPEG base64 dict (camera node format)
-                    ret, buffer = cv2.imencode('.jpg', output_image)
-                    if ret:
-                        jpeg_base64 = base64.b64encode(buffer).decode('utf-8')
-                        payload_out['image'] = {
-                            'format': 'jpeg',
-                            'encoding': 'base64',
-                            'data': jpeg_base64,
-                            'width': output_image.shape[1],
-                            'height': output_image.shape[0]
-                        }
-                    else:
-                        self.report_error("Failed to encode output image")
-                        return
-                        
-                elif input_format == 'base64_string':
-                    # Encode as direct base64 string
-                    ret, buffer = cv2.imencode('.jpg', output_image)
-                    if ret:
-                        payload_out['image'] = base64.b64encode(buffer).decode('utf-8')
-                    else:
-                        self.report_error("Failed to encode output image")
-                        return
-                        
-                elif input_format == 'numpy_array':
-                    # Output as direct numpy array
-                    payload_out['image'] = output_image
-                    
-                elif input_format == 'bgr_numpy_dict':
-                    # Output as dict with numpy array
-                    payload_out['image'] = {
-                        'format': 'bgr',
-                        'encoding': 'numpy',
-                        'data': output_image,
-                        'width': output_image.shape[1],
-                        'height': output_image.shape[0]
-                    }
-                    
-                elif input_format == 'bgr_raw_dict':
-                    # Output as dict with raw list
-                    payload_out['image'] = {
-                        'format': 'bgr',
-                        'encoding': 'raw',
-                        'data': output_image.tolist(),
-                        'width': output_image.shape[1],
-                        'height': output_image.shape[0]
-                    }
+                # Encode image back to same format as input using base node helper
+                encoded_image = self.encode_image(output_image, input_format)
+                if encoded_image is not None:
+                    payload_out['image'] = encoded_image
+                else:
+                    self.report_error("Failed to encode output image")
+                    return
             
             # Always include detections and detection_count if include_predictions is True (for backward compatibility)
             if include_predictions or True:

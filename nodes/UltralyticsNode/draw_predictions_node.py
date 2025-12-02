@@ -187,33 +187,15 @@ class DrawPredictionsNode(BaseNode):
             self.report_error("No image data in message. Expected msg.payload.image")
             return
         
-        # Handle image data format (can be object with 'data' field, direct base64 string, or numpy array)
-        if isinstance(image_data, np.ndarray):
-            # Direct numpy array - make a copy to avoid modifying upstream data
-            img = image_data.copy()
-        elif isinstance(image_data, dict):
-            data_field = image_data.get('data')
-            # Check if data is a numpy array
-            if isinstance(data_field, np.ndarray):
-                # Make a copy to avoid modifying upstream data
-                img = data_field.copy()
-            elif data_field:
-                # It's a base64 string
-                img = self._decode_image(data_field)
-                if img is None:
-                    return
-            else:
-                self.report_error("Image data is empty")
-                return
-        else:
-            # Direct base64 string
-            if not image_data:
-                self.report_error("Image data is empty")
-                return
-            # Decode image
-            img = self._decode_image(image_data)
-            if img is None:
-                return
+        # Decode image using base node helper and make a copy to avoid modifying upstream data
+        img, input_format = self.decode_image({'image': image_data})
+        
+        if img is None or input_format is None:
+            self.report_error("Failed to decode image from payload")
+            return
+        
+        # Make a copy to avoid modifying upstream data
+        img = img.copy()
         
         # Check if there are any detections (handle both list and numpy array)
         if isinstance(detections, np.ndarray):
@@ -302,41 +284,12 @@ class DrawPredictionsNode(BaseNode):
         # Update message with annotated image (keep same format as input)
         output_msg = msg.copy()
         
-        if isinstance(image_data, np.ndarray):
-            # Direct numpy array - output as numpy array
-            output_msg['payload']['image'] = img
-        elif isinstance(image_data, dict):
-            # Check if input was numpy format
-            input_format = image_data.get('format')
-            input_encoding = image_data.get('encoding')
-            
-            if input_format == 'bgr' and input_encoding == 'numpy':
-                # Keep as numpy format
-                output_msg['payload']['image'] = {
-                    'format': 'bgr',
-                    'encoding': 'numpy',
-                    'data': img,
-                    'width': img.shape[1],
-                    'height': img.shape[0]
-                }
-            else:
-                # Encode to base64 for other formats
-                annotated_image = self._encode_image(img)
-                if annotated_image is None:
-                    return
-                # Update the data field in the image object
-                output_msg['payload']['image'] = {
-                    'format': 'jpeg',
-                    'encoding': 'base64',
-                    'data': annotated_image,
-                    'width': img.shape[1],
-                    'height': img.shape[0]
-                }
+        # Encode image back to same format as input using base node helper
+        encoded_image = self.encode_image(img, input_format)
+        if encoded_image is not None:
+            output_msg['payload']['image'] = encoded_image
         else:
-            # Direct base64 string
-            annotated_image = self._encode_image(img)
-            if annotated_image is None:
-                return
-            output_msg['payload']['image'] = annotated_image
+            self.report_error("Failed to encode output image")
+            return
         
         self.send(output_msg)
