@@ -207,6 +207,20 @@ function buildNodeContent(nodeData, icon, inputCount, outputCount) {
                     <div class="rate-display" id="rate-${nodeData.id}">0/s</div>
                 </div>
             `;
+        } else if (nodeData.type === 'DrawPredictionsNode') {
+            // Check if drawing is enabled (stored in a custom property, default true)
+            const isEnabled = nodeData.drawingEnabled !== false;
+            return `
+                <div class="node-content">
+                    <div class="node-icon-container"><div class="node-icon">${icon}</div></div>
+                    <div class="node-title">${nodeData.name}</div>
+                    <label class="gate-switch">
+                        <input type="checkbox" id="draw-${nodeData.id}" ${isEnabled ? 'checked' : ''} 
+                               onchange="window.toggleDrawPredictions('${nodeData.id}', this.checked)">
+                        <span class="gate-slider"></span>
+                    </label>
+                </div>
+            `;
         } else {
             return `
                 <div class="node-content">
@@ -435,6 +449,28 @@ export function updateNodeOutputCount(nodeId, outputCount) {
         updateConnections();
     }
 }
+
+// Toggle draw predictions enabled state
+window.toggleDrawPredictions = async function(nodeId, enabled) {
+    try {
+        // Call the toggle_drawing action on the backend
+        const response = await fetch(`${API_BASE}/nodes/${nodeId}/toggle_drawing`, {
+            method: 'POST'
+        });
+        
+        if (response.ok) {
+            const nodeData = state.nodes.get(nodeId);
+            if (nodeData) {
+                // Store the state in nodeData for persistence
+                nodeData.drawingEnabled = enabled;
+            }
+            
+            console.log(`Draw predictions ${enabled ? 'enabled' : 'disabled'} for node ${nodeId}`);
+        }
+    } catch (error) {
+        console.error('Failed to toggle draw predictions:', error);
+    }
+};
 
 // Toggle debug node enabled state
 window.toggleDebug = async function(nodeId, enabled) {

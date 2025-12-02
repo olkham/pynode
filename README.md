@@ -136,7 +136,7 @@ Messages follow the Node-RED format:
 - `GET /api/nodes/<id>` - Get node details
 - `PUT /api/nodes/<id>` - Update node
 - `DELETE /api/nodes/<id>` - Delete node
-- `POST /api/nodes/<id>/inject` - Trigger inject node
+- `POST /api/nodes/<id>/<action>` - Trigger node action (e.g., inject, start_broadcast, etc.)
 
 ### Connections
 - `POST /api/connections` - Create connection

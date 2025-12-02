@@ -74,8 +74,9 @@ class ImageViewerNode(BaseNode):
         image_data = get_by_path(msg, image_path)
 
         if image_data is not None:
-            # Convert numpy array to base64 JPEG if needed
+            # Handle different image formats
             if isinstance(image_data, np.ndarray):
+                # Direct numpy array - convert to base64 JPEG
                 try:
                     ret, buffer = cv2.imencode('.jpg', image_data)
                     if ret:
@@ -93,6 +94,28 @@ class ImageViewerNode(BaseNode):
                 except Exception as e:
                     self.report_error(f"ImageViewerNode: Error encoding numpy array: {e}")
                     return
+            elif isinstance(image_data, dict):
+                # Check if the data field contains a numpy array
+                data_field = image_data.get('data')
+                if isinstance(data_field, np.ndarray):
+                    # Convert numpy array in data field to base64
+                    try:
+                        ret, buffer = cv2.imencode('.jpg', data_field)
+                        if ret:
+                            jpeg_base64 = base64.b64encode(buffer.tobytes()).decode('utf-8')
+                            image_data = {
+                                'format': 'jpeg',
+                                'encoding': 'base64',
+                                'data': jpeg_base64,
+                                'width': data_field.shape[1],
+                                'height': data_field.shape[0]
+                            }
+                        else:
+                            self.report_error(f"ImageViewerNode: Failed to encode numpy array to JPEG")
+                            return
+                    except Exception as e:
+                        self.report_error(f"ImageViewerNode: Error encoding numpy array: {e}")
+                        return
             
             # Store the frame data for the UI to retrieve
             self.current_frame = image_data

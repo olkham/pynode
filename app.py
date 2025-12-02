@@ -619,16 +619,6 @@ def get_workflow_stats():
     return jsonify(deployed_engine.get_workflow_stats())
 
 
-@app.route('/api/nodes/<node_id>/inject', methods=['POST'])
-def inject_node(node_id):
-    """Trigger an inject node in deployed workflow."""
-    try:
-        deployed_engine.trigger_inject_node(node_id)
-        return jsonify({'status': 'injected'})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 400
-
-
 @app.route('/api/nodes/<node_id>/<action>', methods=['POST'])
 def trigger_node_action(node_id, action):
     """Trigger a button action on a node in deployed workflow."""

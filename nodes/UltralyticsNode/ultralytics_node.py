@@ -179,11 +179,14 @@ class UltralyticsNode(BaseNode):
             self.report_error(error_msg)
             return
         
-        # Handle different image formats
+        # Handle different image formats and track input format
         image = None
+        input_format = None
+        input_payload = payload
         
         # Standard format: look for image in payload.image first
         if isinstance(payload, dict) and 'image' in payload:
+            input_payload = payload['image']
             payload = payload['image']
         
         # Camera node format: dict with 'format', 'encoding', 'data'
@@ -194,6 +197,7 @@ class UltralyticsNode(BaseNode):
             data = payload.get('data')
             
             if img_format == 'jpeg' and encoding == 'base64':
+                input_format = 'jpeg_base64_dict'
                 try:
                     # Decode base64 JPEG
                     img_bytes = base64.b64decode(data)
@@ -204,6 +208,7 @@ class UltralyticsNode(BaseNode):
                     self.report_error(error_msg)
                     return
             elif img_format == 'bgr' and encoding == 'raw':
+                input_format = 'bgr_raw_dict'
                 try:
                     # Convert list back to numpy array
                     image = np.array(data, dtype=np.uint8)
@@ -212,6 +217,7 @@ class UltralyticsNode(BaseNode):
                     self.report_error(error_msg)
                     return
             elif img_format == 'bgr' and encoding == 'numpy':
+                input_format = 'bgr_numpy_dict'
                 # Direct numpy array from camera
                 if isinstance(data, np.ndarray):
                     image = data
@@ -226,6 +232,7 @@ class UltralyticsNode(BaseNode):
         
         # Direct base64 string
         elif isinstance(payload, str):
+            input_format = 'base64_string'
             try:
                 # Remove data URL prefix if present
                 if payload.startswith('data:image'):
@@ -242,6 +249,7 @@ class UltralyticsNode(BaseNode):
         
         # Direct numpy array
         elif isinstance(payload, np.ndarray):
+            input_format = 'numpy_array'
             image = payload
         
         else:
@@ -294,37 +302,68 @@ class UltralyticsNode(BaseNode):
             if draw_results and len(results) > 0:
                 output_image = results[0].plot()
             
-            # Encode image back to base64 JPEG format (same as camera node)
-            ret, buffer = cv2.imencode('.jpg', output_image)
-            if ret:
-                jpeg_base64 = base64.b64encode(buffer).decode('utf-8')
-                payload_data = {
-                    'format': 'jpeg',
-                    'encoding': 'base64',
-                    'data': jpeg_base64,
-                    'width': output_image.shape[1],
-                    'height': output_image.shape[0]
-                }
-            else:
-                self.report_error("Failed to encode output image")
-                return
-            
-            # Create output message with standard image structure
+            # Encode image back to same format as input
             include_image = self.config.get('include_image', True)
             include_predictions = self.config.get('include_predictions', True)
-            predictions = []
-            if include_predictions and len(results) > 0 and hasattr(result, 'boxes') and result.boxes is not None:
-                predictions = [
-                    box.xyxy[0].cpu().numpy().tolist() if hasattr(box, 'xyxy') else None
-                    for box in result.boxes
-                ]
+            
             payload_out = {}
+            
             if include_image:
-                payload_out['image'] = payload_data
+                # Match output format to input format
+                if input_format == 'jpeg_base64_dict':
+                    # Encode as JPEG base64 dict (camera node format)
+                    ret, buffer = cv2.imencode('.jpg', output_image)
+                    if ret:
+                        jpeg_base64 = base64.b64encode(buffer).decode('utf-8')
+                        payload_out['image'] = {
+                            'format': 'jpeg',
+                            'encoding': 'base64',
+                            'data': jpeg_base64,
+                            'width': output_image.shape[1],
+                            'height': output_image.shape[0]
+                        }
+                    else:
+                        self.report_error("Failed to encode output image")
+                        return
+                        
+                elif input_format == 'base64_string':
+                    # Encode as direct base64 string
+                    ret, buffer = cv2.imencode('.jpg', output_image)
+                    if ret:
+                        payload_out['image'] = base64.b64encode(buffer).decode('utf-8')
+                    else:
+                        self.report_error("Failed to encode output image")
+                        return
+                        
+                elif input_format == 'numpy_array':
+                    # Output as direct numpy array
+                    payload_out['image'] = output_image
+                    
+                elif input_format == 'bgr_numpy_dict':
+                    # Output as dict with numpy array
+                    payload_out['image'] = {
+                        'format': 'bgr',
+                        'encoding': 'numpy',
+                        'data': output_image,
+                        'width': output_image.shape[1],
+                        'height': output_image.shape[0]
+                    }
+                    
+                elif input_format == 'bgr_raw_dict':
+                    # Output as dict with raw list
+                    payload_out['image'] = {
+                        'format': 'bgr',
+                        'encoding': 'raw',
+                        'data': output_image.tolist(),
+                        'width': output_image.shape[1],
+                        'height': output_image.shape[0]
+                    }
+            
             # Always include detections and detection_count if include_predictions is True (for backward compatibility)
             if include_predictions or True:
                 payload_out['detections'] = detections
                 payload_out['detection_count'] = len(detections)
+                
             output_msg = {
                 'payload': payload_out,
                 'topic': msg.get('topic', 'yolo')

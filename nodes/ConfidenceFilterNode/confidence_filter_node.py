@@ -4,7 +4,7 @@ Passes through messages that contain detections meeting the confidence threshold
 """
 
 from typing import Any, Dict, List
-from base_node import BaseNode
+from nodes.base_node import BaseNode
 
 
 class ConfidenceFilterNode(BaseNode):
