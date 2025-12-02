@@ -5,6 +5,8 @@ Auto-generated - do not edit manually.
 
 import os
 import importlib
+import importlib.util
+import inspect
 from pathlib import Path
 
 # Auto-discover node types
@@ -14,29 +16,83 @@ _node_names = []
 # Get the nodes directory
 _nodes_dir = Path(__file__).parent
 
-# Scan for node folders (folders containing a Python file with a class ending in 'Node')
-for item in _nodes_dir.iterdir():
-    if item.is_dir() and not item.name.startswith('_') and not item.name.startswith('.'):
-        # Convert folder name to snake_case module name
-        # e.g., "CameraNode" -> "camera_node"
-        folder_name = item.name
-        module_name = ''.join(['_' + c.lower() if c.isupper() else c for c in folder_name]).lstrip('_')
-        
-        # Try to import the module
-        try:
-            module_path = f".{folder_name}.{module_name}"
-            module = importlib.import_module(module_path, package='nodes')
-            
-            # Look for a class with the same name as the folder
-            if hasattr(module, folder_name):
-                node_class = getattr(module, folder_name)
-                _node_classes.append(node_class)
-                _node_names.append(folder_name)
-                # Dynamically add to module globals
-                globals()[folder_name] = node_class
-        except (ImportError, AttributeError) as e:
-            print(f"Warning: Could not import {folder_name}: {e}")
+
+def _discover_node_classes_in_module(module, folder_name):
+    """
+    Find all BaseNode subclasses in a module.
+    Returns list of (class_name, class_object) tuples.
+    """
+    from nodes.base_node import BaseNode
+    
+    found_classes = []
+    for name, obj in inspect.getmembers(module, inspect.isclass):
+        # Check if it's a BaseNode subclass (but not BaseNode itself)
+        if (issubclass(obj, BaseNode) and 
+            obj is not BaseNode and 
+            name.endswith('Node') and
+            obj.__module__.startswith(f'nodes.{folder_name}')):
+            found_classes.append((name, obj))
+    
+    return found_classes
+
+
+def _try_import_from_init(folder_name):
+    """Try to import from __init__.py"""
+    try:
+        module = importlib.import_module(f'.{folder_name}', package='nodes')
+        return _discover_node_classes_in_module(module, folder_name)
+    except ImportError as e:
+        # Suppress missing dependency errors silently for cleaner output
+        if "No module named" not in str(e):
+            print(f"Warning: Error importing {folder_name}: {e}")
+        return []
+    except Exception as e:
+        print(f"Warning: Error importing {folder_name}: {e}")
+        return []
+
+
+def _try_import_python_files(folder_path, folder_name):
+    """Try to import from individual Python files in the folder"""
+    found_classes = []
+    
+    for py_file in folder_path.glob('*.py'):
+        if py_file.name.startswith('_') or py_file.name == '__init__.py':
             continue
+        
+        module_name = py_file.stem
+        try:
+            module = importlib.import_module(f'.{folder_name}.{module_name}', package='nodes')
+            found_classes.extend(_discover_node_classes_in_module(module, folder_name))
+        except ImportError:
+            # Suppress missing dependency errors silently
+            continue
+        except Exception:
+            continue
+    
+    return found_classes
+
+
+# Scan for node folders
+for item in _nodes_dir.iterdir():
+    if not item.is_dir() or item.name.startswith('_') or item.name.startswith('.'):
+        continue
+    
+    folder_name = item.name
+    found_classes = []
+    
+    # Strategy 1: Try importing from __init__.py
+    found_classes = _try_import_from_init(folder_name)
+    
+    # Strategy 2: If nothing found, scan individual Python files
+    if not found_classes:
+        found_classes = _try_import_python_files(item, folder_name)
+    
+    # Register all found node classes
+    for class_name, node_class in found_classes:
+        if class_name not in _node_names:  # Avoid duplicates
+            _node_classes.append(node_class)
+            _node_names.append(class_name)
+            globals()[class_name] = node_class
 
 
 def get_all_node_types():

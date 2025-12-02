@@ -523,6 +523,29 @@ def inject_node(node_id):
         return jsonify({'error': str(e)}), 400
 
 
+@app.route('/api/nodes/<node_id>/<action>', methods=['POST'])
+def trigger_node_action(node_id, action):
+    """Trigger a button action on a node in deployed workflow."""
+    try:
+        node = deployed_engine.get_node(node_id)
+        if not node:
+            return jsonify({'error': 'Node not found'}), 404
+        
+        # Check if the node has the action method
+        if not hasattr(node, action):
+            return jsonify({'error': f'Action {action} not found on node'}), 404
+        
+        # Call the action method
+        method = getattr(node, action)
+        if callable(method):
+            method()
+            return jsonify({'status': 'success', 'action': action})
+        else:
+            return jsonify({'error': f'{action} is not a callable method'}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/nodes/<node_id>/debug', methods=['GET'])
 def get_debug_messages(node_id):
     """Get debug messages from a debug node in deployed workflow."""

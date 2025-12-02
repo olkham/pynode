@@ -118,23 +118,31 @@ class InjectNode(BaseNode):
         """
         Manually trigger an injection.
         """
-        msg = {}
-        
-        # Set topic if configured
-        topic = self.config.get('topic', '')
-        if topic:
-            msg['topic'] = topic
-        
-        # Process all configured properties
-        props = self.config.get('props', [])
-        for prop in props:
-            property_path = prop.get('property', 'payload')
-            value = self._get_property_value(prop)
-            self._set_nested_property(msg, property_path, value)
-        
-        # Send using create_message to add _msgid
-        msg = self.create_message(**msg)
-        self.send(msg)
+        try:
+            msg = {}
+            
+            # Set topic if configured
+            topic = self.config.get('topic', '')
+            if topic:
+                msg['topic'] = topic
+            
+            # Process all configured properties
+            props = self.config.get('props', [])
+            
+            # Handle case where props might be empty or None
+            if not props:
+                props = []
+            
+            for prop in props:
+                property_path = prop.get('property', 'payload')
+                value = self._get_property_value(prop)
+                self._set_nested_property(msg, property_path, value)
+            
+            # Always send a message, even if it's empty (will get _msgid added)
+            msg = self.create_message(**msg)
+            self.send(msg)
+        except Exception as e:
+            self.report_error(f"Inject failed: {str(e)}")
     
     def on_start(self):
         """

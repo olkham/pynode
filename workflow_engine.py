@@ -174,10 +174,12 @@ class WorkflowEngine:
             node_id: ID of the inject node to trigger
         """
         node = self.get_node(node_id)
-        if node and hasattr(node, 'inject'):
-            node.inject()
-        else:
-            raise ValueError("Node not found or not an inject node")
+        if not node:
+            raise ValueError(f"Node '{node_id}' not found in workflow. Available nodes: {list(self.nodes.keys())}")
+        if not hasattr(node, 'inject'):
+            raise ValueError(f"Node '{node_id}' (type: {node.type}) does not have an inject method")
+        
+        node.inject()
     
     def get_debug_messages(self, node_id: str) -> List[Dict[str, Any]]:
         """

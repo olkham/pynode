@@ -114,23 +114,31 @@ class BaseNode:
                 if node.id != target_node.id
             ]
     
-    def create_message(self, payload: Any, topic: str = "", **kwargs) -> Dict[str, Any]:
+    def create_message(self, payload: Any = None, topic: str = "", **kwargs) -> Dict[str, Any]:
         """
         Create a message in Node-RED format.
         
         Args:
-            payload: The message payload (any type)
+            payload: The message payload (any type, optional)
             topic: Optional topic string
             **kwargs: Additional message properties
             
         Returns:
-            Message dictionary with at least payload and topic
+            Message dictionary with _msgid and optional payload/topic
         """
         msg = {
-            'payload': payload,
-            'topic': topic,
             '_msgid': str(uuid.uuid4())
         }
+        
+        # Only include payload if explicitly provided (even if None was passed explicitly)
+        if 'payload' in kwargs:
+            msg['payload'] = kwargs.pop('payload')
+        elif payload is not None:
+            msg['payload'] = payload
+        
+        if topic:
+            msg['topic'] = topic
+        
         msg.update(kwargs)
         return msg
     
