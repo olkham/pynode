@@ -293,7 +293,7 @@ body {
 }
 
 .palette-category {
-    margin-bottom: 20px;
+    margin-bottom: 8px;
 }
 
 .palette-category-header {
@@ -301,15 +301,53 @@ body {
     font-weight: 600;
     color: #888;
     text-transform: uppercase;
-    margin-bottom: 8px;
-    padding-bottom: 4px;
+    margin-bottom: 0;
+    padding: 4px 0;
     border-bottom: 1px solid #3e3e42;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    user-select: none;
+}
+
+.palette-category-header:hover {
+    color: #aaa;
+}
+
+.palette-category-arrow {
+    font-size: 10px;
+    width: 12px;
+    text-align: center;
+    transition: transform 0.2s ease;
+}
+
+.palette-category-arrow.collapsed {
+    transform: rotate(-90deg);
+}
+
+.palette-category-count {
+    margin-left: auto;
+    font-size: 10px;
+    color: #666;
+    background: #2d2d30;
+    padding: 1px 6px;
+    border-radius: 8px;
 }
 
 .palette-category-list {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
+    overflow: hidden;
+    transition: max-height 0.25s ease-out, opacity 0.2s ease-out, padding 0.25s ease-out;
+    padding-top: 6px;
+}
+
+.palette-category-list.collapsed {
+    max-height: 0 !important;
+    opacity: 0;
+    padding-top: 0;
 }
 
 .palette-node {

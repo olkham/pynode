@@ -2,6 +2,9 @@
 import { API_BASE, NODE_CATEGORIES } from './config.js';
 import { state, setNodeTypes } from './state.js';
 
+// Track collapsed state of categories
+const collapsedCategories = new Set();
+
 export async function loadNodeTypes() {
     try {
         const response = await fetch(`${API_BASE}/node-types`);
@@ -73,11 +76,64 @@ export function renderNodePalette() {
 
         const headerEl = document.createElement('div');
         headerEl.className = 'palette-category-header';
-        headerEl.textContent = category.title;
+        
+        // Add collapse arrow
+        const arrowEl = document.createElement('span');
+        arrowEl.className = 'palette-category-arrow';
+        arrowEl.textContent = '▼';
+        if (collapsedCategories.has(category.title)) {
+            arrowEl.classList.add('collapsed');
+        }
+        headerEl.appendChild(arrowEl);
+        
+        const titleEl = document.createElement('span');
+        titleEl.textContent = category.title;
+        headerEl.appendChild(titleEl);
+        
+        // Add node count badge
+        const countEl = document.createElement('span');
+        countEl.className = 'palette-category-count';
+        countEl.textContent = category.nodes.length;
+        headerEl.appendChild(countEl);
+        
         categoryEl.appendChild(headerEl);
 
         const listEl = document.createElement('div');
         listEl.className = 'palette-category-list';
+        
+        // Apply collapsed state
+        if (collapsedCategories.has(category.title)) {
+            listEl.classList.add('collapsed');
+            arrowEl.classList.add('collapsed');
+        }
+        
+        // Toggle collapse on header click
+        headerEl.addEventListener('click', () => {
+            const isCollapsed = listEl.classList.contains('collapsed');
+            
+            if (isCollapsed) {
+                // Expand: set max-height to scrollHeight for animation
+                listEl.style.maxHeight = listEl.scrollHeight + 'px';
+                listEl.classList.remove('collapsed');
+                arrowEl.classList.remove('collapsed');
+                collapsedCategories.delete(category.title);
+                
+                // After animation, remove max-height to allow dynamic content
+                setTimeout(() => {
+                    if (!listEl.classList.contains('collapsed')) {
+                        listEl.style.maxHeight = 'none';
+                    }
+                }, 250);
+            } else {
+                // Collapse: first set explicit max-height, then collapse
+                listEl.style.maxHeight = listEl.scrollHeight + 'px';
+                // Force reflow
+                listEl.offsetHeight;
+                listEl.classList.add('collapsed');
+                arrowEl.classList.add('collapsed');
+                collapsedCategories.add(category.title);
+            }
+        });
 
         category.nodes.forEach(nodeType => {
             const nodeEl = document.createElement('div');
