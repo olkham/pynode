@@ -4,6 +4,7 @@ Similar to Node-RED's function node.
 """
 
 import time
+import copy
 from typing import Any, Dict
 from nodes.base_node import BaseNode
 
@@ -64,11 +65,27 @@ class FunctionNode(BaseNode):
 result = user_function(msg, node, time)
 '''
             
-            # Create a safe execution context
+            # Create a deep copy to avoid modifying the original and handle non-serializable objects
+            try:
+                msg_copy = copy.deepcopy(msg)
+            except Exception:
+                # If deep copy fails, use shallow copy and let user handle it
+                msg_copy = msg.copy()
+            
+            # Create a safe execution context with helpful utilities
             context = {
-                'msg': msg.copy(),
+                'msg': msg_copy,
                 'node': self,
-                'time': time
+                'time': time,
+                # Add common utilities
+                'isinstance': isinstance,
+                'dict': dict,
+                'list': list,
+                'str': str,
+                'int': int,
+                'float': float,
+                'set': set,
+                'tuple': tuple
             }
             
             # Execute the wrapped function
@@ -88,11 +105,26 @@ result = user_function(msg, node, time)
                     self.send(result)
                     
         except Exception as e:
+            # Provide more helpful error messages
+            error_str = str(e)
+            payload_type = type(msg.get('payload')).__name__
+            
+            # Add context-specific hints
+            if "does not support item assignment" in error_str:
+                hint = f"Hint: msg['payload'] is a {payload_type}, not a dict. "
+                if payload_type in ['float', 'int', 'str', 'bool']:
+                    hint += "To add an index, wrap it: msg['payload'] = {'value': msg['payload'], 'index': 0}"
+                error_str = hint + " Error: " + error_str
+            
             # Report error to the error system
-            self.report_error(f"Function error: {str(e)}")
+            self.report_error(f"Function error: {error_str}")
             # Also send error downstream for debugging
             error_msg = self.create_message(
-                payload={'error': str(e), 'original_payload': msg.get('payload')},
+                payload={
+                    'error': error_str,
+                    'original_payload': msg.get('payload'),
+                    'payload_type': payload_type
+                },
                 topic='error'
             )
             self.send(error_msg)

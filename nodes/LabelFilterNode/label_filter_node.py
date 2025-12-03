@@ -14,7 +14,7 @@ class LabelFilterNode(BaseNode):
     """
     display_name = 'Label Filter'
     icon = '🏷️'
-    category = 'function'
+    category = 'vision'
     color = '#C7E9C0'
     border_color = '#74C476'
     text_color = '#000000'

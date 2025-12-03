@@ -16,7 +16,7 @@ class RateProbeNode(BaseNode):
     """
     display_name = 'Rate Probe'
     icon = '📊'
-    category = 'function'
+    category = 'measurement'
     color = '#E2D96E'
     border_color = '#B8AF4A'
     text_color = '#000000'

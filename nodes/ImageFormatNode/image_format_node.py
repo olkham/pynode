@@ -17,7 +17,7 @@ class ImageFormatNode(BaseNode):
     """
     display_name = 'Image Format'
     icon = '🔄'
-    category = 'function'
+    category = 'vision'
     color = '#FFB6C1'
     border_color = '#FF69B4'
     text_color = '#000000'

@@ -14,7 +14,7 @@ class CounterNode(BaseNode):
     """
     display_name = 'Counter'
     icon = '🔢'
-    category = 'function'
+    category = 'measurement'
     color = '#B4D7FF'
     border_color = '#7BA7D7'
     text_color = '#000000'
