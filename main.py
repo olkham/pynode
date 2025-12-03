@@ -34,9 +34,7 @@ Usage Example:
     
     # Start workflow
     engine.start()
-    
-    # Trigger inject node
-    engine.trigger_inject_node(inject.id)
+
 """
 
 if __name__ == '__main__':

@@ -166,20 +166,20 @@ class WorkflowEngine:
                 except Exception as e:
                     print(f"Error stopping node {node.id}: {e}")
     
-    def trigger_inject_node(self, node_id: str):
-        """
-        Manually trigger an inject node.
+    # def trigger_inject_node(self, node_id: str):
+    #     """
+    #     Manually trigger an inject node.
         
-        Args:
-            node_id: ID of the inject node to trigger
-        """
-        node = self.get_node(node_id)
-        if not node:
-            raise ValueError(f"Node '{node_id}' not found in workflow. Available nodes: {list(self.nodes.keys())}")
-        if not hasattr(node, 'inject'):
-            raise ValueError(f"Node '{node_id}' (type: {node.type}) does not have an inject method")
+    #     Args:
+    #         node_id: ID of the inject node to trigger
+    #     """
+    #     node = self.get_node(node_id)
+    #     if not node:
+    #         raise ValueError(f"Node '{node_id}' not found in workflow. Available nodes: {list(self.nodes.keys())}")
+    #     if not hasattr(node, 'inject'):
+    #         raise ValueError(f"Node '{node_id}' (type: {node.type}) does not have an inject method")
         
-        node.inject()
+    #     node.inject()
     
     def get_debug_messages(self, node_id: str) -> List[Dict[str, Any]]:
         """
