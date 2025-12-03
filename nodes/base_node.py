@@ -7,6 +7,7 @@ import uuid
 import queue
 import threading
 import base64
+import copy
 from typing import Dict, List, Any, Optional, Tuple
 
 # Optional image processing dependencies
@@ -18,6 +19,44 @@ except ImportError:
     np = None
     cv2 = None
     _HAS_CV2 = False
+
+
+def _deep_copy_message(msg: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Deep copy a message, properly handling numpy arrays and other special types.
+    This prevents downstream modifications from affecting upstream data or parallel branches.
+    
+    Args:
+        msg: Message dictionary to copy
+        
+    Returns:
+        Deep copy of the message
+    """
+    def _copy_value(value):
+        """Recursively copy a value, handling special types."""
+        if value is None:
+            return None
+        elif _HAS_CV2 and isinstance(value, np.ndarray):
+            # Copy numpy arrays
+            return value.copy()
+        elif isinstance(value, dict):
+            return {k: _copy_value(v) for k, v in value.items()}
+        elif isinstance(value, list):
+            return [_copy_value(item) for item in value]
+        elif isinstance(value, tuple):
+            return tuple(_copy_value(item) for item in value)
+        elif isinstance(value, (str, int, float, bool, bytes)):
+            # Immutable types don't need copying
+            return value
+        else:
+            # For other types, try copy.deepcopy as fallback
+            try:
+                return copy.deepcopy(value)
+            except Exception:
+                # If deepcopy fails, return as-is (might be an issue)
+                return value
+    
+    return _copy_value(msg)
 
 
 class BaseNode:
@@ -157,6 +196,7 @@ class BaseNode:
         """
         Send a message to connected nodes (non-blocking).
         Messages are queued and processed asynchronously.
+        Each recipient gets a deep copy to prevent cross-talk between branches.
         
         Args:
             msg: Message dictionary (must have 'payload' and 'topic')
@@ -171,8 +211,9 @@ class BaseNode:
             
             for i, (target_node, target_input) in enumerate(connections):
                 if target_node.enabled:
-                    # Only copy message if sending to multiple targets and not the last one
-                    msg_to_send = msg.copy() if i < num_connections - 1 else msg
+                    # Deep copy message for all but the last recipient to prevent cross-talk
+                    # The last recipient can use the original (slight optimization)
+                    msg_to_send = _deep_copy_message(msg) if i < num_connections - 1 else msg
                     
                     # Check if target node prefers direct processing (no outputs = sink node)
                     if target_node.output_count == 0 and hasattr(target_node, 'on_input_direct'):

@@ -39,12 +39,14 @@ class FrameSourceNode(BaseNode):
             'type': 'select',
             'options': [
                 {'value': 'webcam', 'label': 'Webcam'},
-                {'value': 'file', 'label': 'Video File'},
+                {'value': 'video_file', 'label': 'Video File'},
                 {'value': 'ipcam', 'label': 'RTSP Stream'},
-                {'value': 'image_sequence', 'label': 'Image Sequence'},
+                {'value': 'folder', 'label': 'Image Folder'},
                 {'value': 'basler', 'label': 'Basler Camera'},
-                {'value': 'real_sense', 'label': 'RealSense'},
-                {'value': 'screen_capture', 'label': 'Screen Capture'}
+                {'value': 'realsense', 'label': 'RealSense'},
+                {'value': 'screen', 'label': 'Screen Capture'},
+                {'value': 'genicam', 'label': 'GenICam Camera'},
+                {'value': 'audio_spectrogram', 'label': 'Audio Spectrogram'}
             ]
         },
         {
