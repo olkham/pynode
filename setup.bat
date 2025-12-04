@@ -26,6 +26,16 @@ python -m pip install --upgrade pip
 pip install -r requirements.txt
 
 echo.
+set /p INSTALL_NODES="Would you like to install node dependencies? (y/n): "
+if /i "%INSTALL_NODES%"=="y" (
+    echo Installing node dependencies...
+    call install_nodes.bat
+) else (
+    echo Skipping node dependencies installation.
+    echo You can install them later by running: install_nodes.bat
+)
+
+echo.
 echo ========================================
 echo Setup completed successfully!
 echo ========================================
