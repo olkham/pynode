@@ -4,3 +4,5 @@ waitress
 opencv-python
 paho-mqtt
 ultralytics
+torch
+torchvision

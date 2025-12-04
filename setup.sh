@@ -1,0 +1,69 @@
+#!/bin/bash
+
+# Create virtual environment
+echo "Creating virtual environment..."
+python3 -m venv .venv
+
+# Activate virtual environment
+echo "Activating virtual environment..."
+source .venv/bin/activate
+
+# Upgrade pip
+echo "Upgrading pip..."
+pip install --upgrade pip
+
+# Detect CUDA version and install appropriate PyTorch
+echo "Detecting CUDA version..."
+if command -v nvidia-smi &> /dev/null; then
+    CUDA_VERSION=$(nvidia-smi | grep "CUDA Version" | sed -n 's/.*CUDA Version: \([0-9]\+\.[0-9]\+\).*/\1/p')
+    echo "CUDA $CUDA_VERSION detected"
+    
+    # Determine PyTorch installation command based on CUDA version
+    CUDA_MAJOR=$(echo $CUDA_VERSION | cut -d. -f1)
+    CUDA_MINOR=$(echo $CUDA_VERSION | cut -d. -f2)
+    
+    if [[ "$CUDA_MAJOR" -eq 13 && "$CUDA_MINOR" -eq 0 ]]; then
+        echo "Installing PyTorch with CUDA 13.0 support (highest available for CUDA 13.0)..."
+        pip install torch torchvision --index-url https://download.pytorch.org/whl/cu130
+    elif [[ "$CUDA_MAJOR" -eq 12 && "$CUDA_MINOR" -eq 8 ]]; then
+        echo "Installing PyTorch with CUDA 12.8 support..."
+        pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+    elif [[ "$CUDA_MAJOR" -eq 12 && "$CUDA_MINOR" -eq 6 ]]; then
+        echo "Installing PyTorch with CUDA 12.6 support..."
+        pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126
+    elif [[ "$CUDA_MAJOR" -eq 12 ]]; then
+        echo "Installing PyTorch with CUDA 12.1 support..."
+        pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+    elif [[ "$CUDA_VERSION" == "11.8"* ]]; then
+        echo "Installing PyTorch with CUDA 11.8 support..."
+        pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
+    else
+        echo "Installing PyTorch with CUDA 11.8 support (default)..."
+        pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
+    fi
+else
+    echo "CUDA not detected. Installing CPU-only PyTorch..."
+    pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+fi
+
+# Install remaining requirements (excluding torch/torchvision as they're already installed)
+echo "Installing remaining requirements..."
+pip install -r requirements.txt
+
+echo ""
+echo "Setup complete! Virtual environment is activated."
+echo ""
+
+# Ask if user wants to install node dependencies
+read -p "Would you like to install node dependencies? (y/n): " -n 1 -r
+echo ""
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    echo "Installing node dependencies..."
+    ./install_nodes.sh
+else
+    echo "Skipping node dependencies installation."
+    echo "You can install them later by running: ./install_nodes.sh"
+fi
+
+echo ""
+echo "To activate the environment in the future, run: source .venv/bin/activate"
