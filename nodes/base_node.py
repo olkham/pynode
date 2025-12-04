@@ -212,7 +212,8 @@ class BaseNode:
             for target_node, target_input in connections:
                 if target_node.enabled:
                     # Always deep copy message for each recipient to prevent cross-talk
-                    msg_to_send = _deep_copy_message(msg)
+                    # msg_to_send = _deep_copy_message(msg)
+                    msg_to_send = copy.deepcopy(msg)
                     
                     # Check if target node prefers direct processing (no outputs = sink node)
                     if target_node.output_count == 0 and hasattr(target_node, 'on_input_direct'):
