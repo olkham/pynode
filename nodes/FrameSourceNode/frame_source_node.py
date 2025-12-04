@@ -163,6 +163,17 @@ class FrameSourceNode(BaseNode):
             try:
                 ret, frame = self.camera.read()
                 
+                # Check if frame has 4 channels (RGBD data)
+                if ret and frame is not None and len(frame.shape) == 3 and frame.shape[2] == 4:
+                    # Split RGB and depth channels
+                    rgb_frame = frame[:, :, :3]
+                    depth_channel = frame[:, :, 3]
+                    frame = rgb_frame
+                    has_depth = True
+                else:
+                    has_depth = False
+                    depth_channel = None
+                
                 if not ret or frame is None:
                     self.report_error("Failed to capture frame")
                     time.sleep(frame_interval)
@@ -199,8 +210,15 @@ class FrameSourceNode(BaseNode):
                         'height': frame.shape[0]
                     }
                 
-                # Create and send message with image wrapped in payload.image
-                msg = self.create_message(payload={'image': payload}, topic='camera/frame')
+                # Create message payload
+                message_payload: Dict[str, Any] = {'image': payload}
+                
+                # Add depth data if available (compatible with RealsenseDepthNode)
+                if has_depth:
+                    message_payload['depth'] = depth_channel
+                
+                # Create and send message
+                msg = self.create_message(payload=message_payload, topic='camera/frame')
                 self.send(msg)
                 
             except Exception as e:
