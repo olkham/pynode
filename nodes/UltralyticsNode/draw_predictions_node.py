@@ -287,14 +287,17 @@ class DrawPredictionsNode(BaseNode):
                 continue
         
         # Update message with annotated image (keep same format as input)
-        output_msg = msg.copy()
+        # Preserve all original message properties (like frame_count)
+        # Note: send() handles deep copying, so we modify msg directly
         
         # Encode image back to same format as input using base node helper
         encoded_image = self.encode_image(img, input_format)
         if encoded_image is not None:
-            output_msg['payload']['image'] = encoded_image
+            if not isinstance(msg.get('payload'), dict):
+                msg['payload'] = {}
+            msg['payload']['image'] = encoded_image
         else:
             self.report_error("Failed to encode output image")
             return
         
-        self.send(output_msg)
+        self.send(msg)

@@ -86,11 +86,10 @@ class RangeNode(BaseNode):
             if clamp:
                 mapped = max(min(mapped, max(min_out, max_out)), min(min_out, max_out))
             
-            out_msg = self.create_message(
-                payload=mapped,
-                topic=msg.get('topic', '')
-            )
-            self.send(out_msg)
+            # Preserve original message properties (like frame_count)
+            # Note: send() handles deep copying, so we modify msg directly
+            msg['payload'] = mapped
+            self.send(msg)
             
         except (ValueError, TypeError) as e:
             self.report_error(f"Invalid numeric value: {e}")

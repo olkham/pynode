@@ -246,14 +246,14 @@ class UltralyticsNode(BaseNode):
             if include_predictions or True:
                 payload_out['detections'] = detections
                 payload_out['detection_count'] = len(detections)
-                
-            output_msg = {
-                'payload': payload_out,
-                'topic': msg.get('topic', 'yolo')
-            }
+            
+            # Preserve original message properties (like frame_count) and update payload
+            # Note: send() handles deep copying, so we modify msg directly
+            msg['payload'] = payload_out
+            msg['topic'] = msg.get('topic', 'yolo')
             
             # Send the message
-            self.send(output_msg)
+            self.send(msg)
             
         except Exception as e:
             error_msg = f"Error during inference: {e}"

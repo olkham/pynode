@@ -75,17 +75,16 @@ class CounterNode(BaseNode):
         # Increment counter
         self.count += increment
         
-        # Create output message with count info
-        output_msg = self.create_message(
-            payload={
-                'count': self.count,
-                'original_payload': msg.get('payload'),
-                'display': f'{self.count}'
-            },
-            topic=msg.get('topic', 'counter')
-        )
+        # Preserve original message properties (like frame_count) and update payload
+        # Note: send() handles deep copying, so we modify msg directly
+        msg['payload'] = {
+            'count': self.count,
+            'original_payload': msg.get('payload'),
+            'display': f'{self.count}'
+        }
+        msg['topic'] = msg.get('topic', 'counter')
         
-        self.send(output_msg)
+        self.send(msg)
     
     def reset_counter(self):
         """

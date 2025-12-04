@@ -92,6 +92,7 @@ class FrameSourceNode(BaseNode):
         self.camera = None
         self.capture_thread = None
         self.running = False
+        self.frame_count = 0
         self.configure({
             'source_type': 'webcam',
             'source': 0,
@@ -117,6 +118,7 @@ class FrameSourceNode(BaseNode):
             # self.camera = cv2.VideoCapture(camera_index)
             self.camera = FrameSourceFactory.create(source_type, source=source)
             self.camera.connect()
+            self.frame_count = 0  # Reset frame counter on start
             
             if not self.camera.isOpened():
                 self.report_error(f"Failed to open camera {source}")
@@ -217,8 +219,11 @@ class FrameSourceNode(BaseNode):
                 if has_depth:
                     message_payload['depth'] = depth_channel
                 
+                # Increment frame counter
+                self.frame_count += 1
+                
                 # Create and send message
-                msg = self.create_message(payload=message_payload, topic='camera/frame')
+                msg = self.create_message(payload=message_payload, topic='camera/frame', frame_count=self.frame_count)
                 self.send(msg)
                 
             except Exception as e:

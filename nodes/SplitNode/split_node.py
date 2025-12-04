@@ -94,14 +94,13 @@ class SplitNode(BaseNode):
             else:
                 item_payload = item
             
-            out_msg = self.create_message(
-                payload=item_payload,
-                topic=msg.get('topic', ''),
-                parts={
-                    'index': i,
-                    'count': len(items),
-                    'id': msg.get('_msgid')
-                }
-            )
+            # Preserve original message properties (like frame_count)
+            # Note: send() handles deep copying, so we modify msg directly
+            msg['payload'] = item_payload
+            msg['parts'] = {
+                'index': i,
+                'count': len(items),
+                'id': msg.get('_msgid')
+            }
             
-            self.send(out_msg)
+            self.send(msg)

@@ -165,23 +165,20 @@ class LabelFilterNode(BaseNode):
             has_match = set(allowed_labels).issubset(detected_labels)
         
         if has_match:
-            # Create output message
-            output_msg = msg.copy()
-            
+            # Modify msg directly - send() handles deep copying
             if filter_detections and matching_detections:
                 # Replace detections with only matching ones
-                if 'payload' in output_msg and isinstance(output_msg['payload'], dict):
-                    output_msg['payload'] = output_msg['payload'].copy()
+                if 'payload' in msg and isinstance(msg['payload'], dict):
                     # For single detection, keep as single; for array, keep as array
                     if is_single:
-                        self._set_nested_value(output_msg, detections_path, matching_detections[0])
+                        self._set_nested_value(msg, detections_path, matching_detections[0])
                     else:
-                        self._set_nested_value(output_msg, detections_path, matching_detections)
+                        self._set_nested_value(msg, detections_path, matching_detections)
                         # Update detection count if present
-                        if 'detection_count' in output_msg['payload']:
-                            output_msg['payload']['detection_count'] = len(matching_detections)
+                        if 'detection_count' in msg['payload']:
+                            msg['payload']['detection_count'] = len(matching_detections)
             
-            self.send(output_msg, 0)
+            self.send(msg, 0)
         else:
-            # No match, send to second output
+            # No match, send to second output (msg passes through with all properties preserved)
             self.send(msg, 1)

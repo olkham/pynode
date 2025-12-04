@@ -61,11 +61,9 @@ class TemplateNode(BaseNode):
         output = template.replace('{{payload}}', str(msg.get('payload', '')))
         output = output.replace('{{topic}}', str(msg.get('topic', '')))
         
-        # Create new message with processed payload
-        new_msg = self.create_message(
-            payload=output,
-            topic=msg.get('topic', '')
-        )
+        # Preserve original message properties (like frame_count) and update payload
+        # Note: send() handles deep copying, so we modify msg directly
+        msg['payload'] = output
         
         # Send to connected nodes
-        self.send(new_msg)
+        self.send(msg)

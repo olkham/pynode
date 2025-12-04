@@ -147,12 +147,12 @@ class CropNode(BaseNode):
                     crop_info['detection'] = crop_data['detection']
                 encoded_crops.append(crop_info)
 
-        out_msg = self.create_message(
-            payload=encoded_crops,
-            topic=msg.get('topic', 'crops'),
-            crop_count=len(encoded_crops)
-        )
-        self.send(out_msg)
+        # Preserve original message properties (like frame_count) and update payload
+        # Note: send() handles deep copying, so we modify msg directly
+        msg['payload'] = encoded_crops
+        msg['topic'] = msg.get('topic', 'crops')
+        msg['crop_count'] = len(encoded_crops)
+        self.send(msg)
     
     def _decode_image(self, payload: Dict[str, Any]):
         """Decode image from payload using BaseNode helper. Returns (image, format_type) tuple."""

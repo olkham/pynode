@@ -196,7 +196,8 @@ class BaseNode:
         """
         Send a message to connected nodes (non-blocking).
         Messages are queued and processed asynchronously.
-        Each recipient gets a deep copy to prevent cross-talk between branches.
+        Each recipient gets a deep copy to prevent cross-talk between branches
+        and to prevent downstream modifications from affecting the sender.
         
         Args:
             msg: Message dictionary (must have 'payload' and 'topic')
@@ -207,13 +208,11 @@ class BaseNode:
             
         if output_index in self.outputs:
             connections = self.outputs[output_index]
-            num_connections = len(connections)
             
-            for i, (target_node, target_input) in enumerate(connections):
+            for target_node, target_input in connections:
                 if target_node.enabled:
-                    # Deep copy message for all but the last recipient to prevent cross-talk
-                    # The last recipient can use the original (slight optimization)
-                    msg_to_send = _deep_copy_message(msg) if i < num_connections - 1 else msg
+                    # Always deep copy message for each recipient to prevent cross-talk
+                    msg_to_send = _deep_copy_message(msg)
                     
                     # Check if target node prefers direct processing (no outputs = sink node)
                     if target_node.output_count == 0 and hasattr(target_node, 'on_input_direct'):

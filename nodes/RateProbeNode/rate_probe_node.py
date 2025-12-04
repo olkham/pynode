@@ -72,17 +72,16 @@ class RateProbeNode(BaseNode):
         
         self._last_update = current_time
         
-        # Send rate as payload
-        rate_msg = self.create_message(
-            payload={
-                'rate': self._current_rate,
-                'display': self.get_rate_display(),
-                'window_size': window_size,
-                'message_count': len(self._timestamps)
-            },
-            topic=msg.get('topic', 'rate')
-        )
-        self.send(rate_msg)
+        # Preserve original message properties (like frame_count) and add rate info
+        # Note: send() handles deep copying, so we modify msg directly
+        msg['payload'] = {
+            'rate': self._current_rate,
+            'display': self.get_rate_display(),
+            'window_size': window_size,
+            'message_count': len(self._timestamps)
+        }
+        msg['topic'] = msg.get('topic', 'rate')
+        self.send(msg)
     
     def get_rate(self) -> float:
         """Get the current message rate."""
