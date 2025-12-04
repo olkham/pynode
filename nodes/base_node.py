@@ -467,6 +467,8 @@ class BaseNode:
             'name': self.name,
             'config': self.config,
             'enabled': self.enabled,
+            'inputCount': self.input_count,
+            'outputCount': self.output_count,
             'outputs': {
                 str(idx): [(node.id, target_idx) for node, target_idx in connections]
                 for idx, connections in self.outputs.items()

@@ -5,6 +5,7 @@ Similar to Node-RED's delay node.
 
 import time
 import threading
+from collections import deque
 from typing import Any, Dict
 from nodes.base_node import BaseNode
 
@@ -30,6 +31,7 @@ class DelayNode(BaseNode):
             'type': 'select',
             'options': [
                 {'value': 'delay', 'label': 'Delay each message'},
+                {'value': 'delay_count', 'label': 'Delay by message count'},
                 {'value': 'rate', 'label': 'Rate limit'}
             ]
         },
@@ -37,7 +39,16 @@ class DelayNode(BaseNode):
             'name': 'timeout',
             'label': 'Delay (seconds)',
             'type': 'number',
-            'default': 1
+            'default': 1,
+            'help': 'Delay time in seconds (for time-based delay)'
+        },
+        {
+            'name': 'delay_count',
+            'label': 'Delay (messages)',
+            'type': 'number',
+            'default': 1,
+            'min': 1,
+            'help': 'Number of messages to delay by (for count-based delay)'
         },
         {
             'name': 'rate',
@@ -67,6 +78,7 @@ class DelayNode(BaseNode):
         self.configure({
             'mode': 'delay',
             'timeout': 1,
+            'delay_count': 1,
             'rate': 1,
             'rate_time': 1,
             'rate_drop': 'drop',
@@ -76,22 +88,47 @@ class DelayNode(BaseNode):
         self.queued_messages = []
         self.processing_queue = False
         self.queue_lock = threading.Lock()
+        # Buffer for count-based delay
+        self._message_buffer: deque = deque()
+    
+    def on_start(self):
+        """Initialize on start."""
+        super().on_start()
+        self._message_buffer.clear()
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """
-        Handle message based on mode: delay each message or rate limit.
+        Handle message based on mode: delay each message, delay by count, or rate limit.
         """
         mode = self.config.get('mode', 'delay')
         
         if mode == 'delay':
-            # Delay each message (original behavior)
+            # Delay each message by time
             timeout = float(self.config.get('timeout', 1))
             timer = threading.Timer(timeout, self.send, args=(msg,))
             timer.daemon = True
             timer.start()
+        elif mode == 'delay_count':
+            # Delay by message count
+            self._delay_by_count(msg)
         else:
             # Rate limiting mode
             self._rate_limit(msg)
+    
+    def _delay_by_count(self, msg: Dict[str, Any]):
+        """
+        Delay messages by a number of messages.
+        Each message is released after N more messages have arrived.
+        """
+        delay_count = int(self.config.get('delay_count', 1))
+        
+        # Add message to buffer
+        self._message_buffer.append(msg)
+        
+        # If buffer has more messages than delay count, release the oldest
+        while len(self._message_buffer) > delay_count:
+            oldest_msg = self._message_buffer.popleft()
+            self.send(oldest_msg)
     
     def _rate_limit(self, msg: Dict[str, Any]):
         """

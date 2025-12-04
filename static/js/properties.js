@@ -1,7 +1,7 @@
 // Properties panel
 import { state, markNodeModified, setModified, getNodeType } from './state.js';
 import { API_BASE } from './config.js';
-import { updateNodeOutputCount } from './nodes.js';
+import { updateNodeOutputCount, updateNodeInputCount } from './nodes.js';
 import { updateConnections } from './connections.js';
 
 export function renderProperties(nodeData) {
@@ -121,6 +121,11 @@ export function updateNodeConfig(nodeId, key, value) {
     // If outputs property changed, update the node's output ports
     if (key === 'outputs') {
         updateNodeOutputCount(nodeId, parseInt(value, 10));
+    }
+    
+    // If input_count property changed, update the node's input ports
+    if (key === 'input_count') {
+        updateNodeInputCount(nodeId, parseInt(value, 10));
     }
     
     markNodeModified(nodeId);

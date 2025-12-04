@@ -83,11 +83,12 @@ export function renderNode(nodeData) {
     const inputCount = nodeData.inputCount !== undefined ? nodeData.inputCount : 1;
     const outputCount = nodeData.outputCount !== undefined ? nodeData.outputCount : 1;
     
-    // Calculate and apply dynamic height based on output count
-    if (outputCount > 1) {
+    // Calculate and apply dynamic height based on port count (whichever is larger)
+    const maxPorts = Math.max(inputCount, outputCount);
+    if (maxPorts > 1) {
         // Base height (30px) + additional height for extra ports
         // Each port is 10px + 4px gap, need at least 14px per port after the first
-        const extraHeight = (outputCount - 1) * 14;
+        const extraHeight = (maxPorts - 1) * 14;
         const totalHeight = 30 + extraHeight;
         nodeEl.style.minHeight = `${totalHeight}px`;
     }
@@ -96,10 +97,22 @@ export function renderNode(nodeData) {
     // Build node content HTML
     let nodeContent = buildNodeContent(nodeData, icon, inputCount, outputCount);
     
-    // Generate ports HTML with support for multiple outputs
+    // Generate ports HTML with support for multiple inputs and outputs
     let portsHtml = '';
     if (inputCount > 0 || outputCount > 0) {
-        const inputPortsHtml = inputCount > 0 ? `<div class="port input" data-node="${nodeData.id}" data-type="input" data-index="0"></div>` : '';
+        let inputPortsHtml = '';
+        if (inputCount > 0) {
+            if (inputCount === 1) {
+                inputPortsHtml = `<div class="port input" data-node="${nodeData.id}" data-type="input" data-index="0"></div>`;
+            } else {
+                // Multiple inputs - stack them vertically
+                inputPortsHtml = '<div class="input-ports-container">';
+                for (let i = 0; i < inputCount; i++) {
+                    inputPortsHtml += `<div class="port input" data-node="${nodeData.id}" data-type="input" data-index="${i}"></div>`;
+                }
+                inputPortsHtml += '</div>';
+            }
+        }
         
         let outputPortsHtml = '';
         if (outputCount > 0) {
@@ -326,12 +339,30 @@ function attachNodeEventHandlers(nodeEl, nodeData) {
         });
     });
     
+    // Add mouseup handlers on input ports for connection targeting
+    const inputPorts = nodeEl.querySelectorAll('.port.input');
+    inputPorts.forEach(inputPort => {
+        inputPort.addEventListener('mouseup', (e) => {
+            if (state.drawingConnection && state.drawingConnection.sourceId !== nodeData.id) {
+                e.stopPropagation();
+                const inputIndex = parseInt(inputPort.getAttribute('data-index') || '0');
+                import('./connections.js').then(({ endConnection }) => {
+                    endConnection(nodeData.id, inputIndex);
+                });
+            }
+        });
+    });
+    
+    // Also keep the node-level handler for dropping on the node body (defaults to input 0)
     nodeEl.addEventListener('mouseup', (e) => {
         if (state.drawingConnection && state.drawingConnection.sourceId !== nodeData.id) {
-            e.stopPropagation();
-            import('./connections.js').then(({ endConnection }) => {
-                endConnection(nodeData.id);
-            });
+            // Only handle if not already handled by an input port
+            if (!e.target.classList.contains('port')) {
+                e.stopPropagation();
+                import('./connections.js').then(({ endConnection }) => {
+                    endConnection(nodeData.id, 0);
+                });
+            }
         }
     });
 }
@@ -408,6 +439,22 @@ export function updateNodeOutputCount(nodeId, outputCount) {
     
     // Update the output count
     nodeData.outputCount = outputCount;
+    
+    // Re-render the node
+    const nodeEl = document.getElementById(`node-${nodeId}`);
+    if (nodeEl) {
+        nodeEl.remove();
+        renderNode(nodeData);
+        updateConnections();
+    }
+}
+
+export function updateNodeInputCount(nodeId, inputCount) {
+    const nodeData = state.nodes.get(nodeId);
+    if (!nodeData) return;
+    
+    // Update the input count
+    nodeData.inputCount = inputCount;
     
     // Re-render the node
     const nodeEl = document.getElementById(`node-${nodeId}`);

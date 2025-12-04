@@ -143,7 +143,10 @@ export function renderConnection(connection) {
     // Get the correct output port based on index
     const outputPorts = sourceEl.querySelectorAll('.port.output');
     const sourcePort = outputPorts[connection.sourceOutput || 0] || sourceEl.querySelector('.port.output');
-    const targetPort = targetEl.querySelector('.port.input');
+    
+    // Get the correct input port based on index
+    const inputPorts = targetEl.querySelectorAll('.port.input');
+    const targetPort = inputPorts[connection.targetInput || 0] || targetEl.querySelector('.port.input');
     
     if (!sourcePort || !targetPort) return;
     
@@ -177,6 +180,7 @@ export function renderConnection(connection) {
     hitArea.setAttribute('data-source', connection.source);
     hitArea.setAttribute('data-target', connection.target);
     hitArea.setAttribute('data-source-output', connection.sourceOutput || 0);
+    hitArea.setAttribute('data-target-input', connection.targetInput || 0);
     hitArea.style.cursor = 'pointer';
     
     // Create visible path (no arrowhead)
@@ -187,6 +191,7 @@ export function renderConnection(connection) {
     path.setAttribute('data-source', connection.source);
     path.setAttribute('data-target', connection.target);
     path.setAttribute('data-source-output', connection.sourceOutput || 0);
+    hitArea.setAttribute('data-target-input', connection.targetInput || 0);
     path.style.pointerEvents = 'none';
     
     // Add disabled class if either node is disabled
@@ -318,7 +323,7 @@ export function drawTempConnection(e) {
         `;
 }
 
-export function endConnection(targetId) {
+export function endConnection(targetId, targetInputIndex = 0) {
     if (!state.drawingConnection) return;
     
     const sourceId = state.drawingConnection.sourceId;
@@ -329,7 +334,7 @@ export function endConnection(targetId) {
         import('./history.js').then(({ saveState }) => {
             saveState('create connection');
         });
-        createConnection(sourceId, targetId, outputIndex, 0);
+        createConnection(sourceId, targetId, outputIndex, targetInputIndex);
     }
     
     cancelConnection();

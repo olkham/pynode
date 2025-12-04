@@ -753,6 +753,17 @@ body {
     margin-right: -7px;
 }
 
+.input-ports-container {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-right: auto;
+}
+
+.input-ports-container .port.input {
+    margin-left: -7px;
+}
+
 .port {
     width: 10px;
     height: 10px;
