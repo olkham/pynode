@@ -189,7 +189,11 @@ def load_workflow_from_disk():
             deployed_engine.start()
             print("No workflow file found, starting with empty workflow")
     except Exception as e:
+        import traceback
         print(f"Failed to load workflow: {e}")
+        print(f"Error type: {type(e).__name__}")
+        print(f"Full traceback:")
+        traceback.print_exc()
         # Even on error, start the deployed engine to ensure system nodes exist
         try:
             deployed_engine.start()

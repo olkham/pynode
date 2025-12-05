@@ -57,7 +57,7 @@ class LabelFilterNode(BaseNode):
             'name': 'detections_path',
             'label': 'Detections Path',
             'type': 'text',
-            'default': 'payload.detection',
+            'default': 'payload.detections',
             'help': 'Path to detection(s) in message (e.g., "payload.detection" or "payload.detections")'
         }
     ]
