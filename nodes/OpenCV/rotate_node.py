@@ -45,7 +45,8 @@ class RotateNode(BaseNode):
             'default': 45,
             'min': -360,
             'max': 360,
-            'help': 'Rotation angle in degrees (positive = counter-clockwise)'
+            'help': 'Rotation angle in degrees (positive = counter-clockwise)',
+            'showIf': {'mode': 'angle'}
         },
         {
             'name': 'expand',
@@ -56,14 +57,16 @@ class RotateNode(BaseNode):
                 {'value': 'no', 'label': 'No'}
             ],
             'default': 'yes',
-            'help': 'Expand canvas to fit rotated image'
+            'help': 'Expand canvas to fit rotated image',
+            'showIf': {'mode': 'angle'}
         },
         {
             'name': 'fill_color',
             'label': 'Fill Color (B,G,R)',
             'type': 'text',
             'default': '0,0,0',
-            'help': 'Color to fill empty areas'
+            'help': 'Color to fill empty areas',
+            'showIf': {'mode': 'angle'}
         }
     ]
     

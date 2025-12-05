@@ -52,7 +52,8 @@ class BlurNode(BaseNode):
             'type': 'number',
             'default': 0,
             'min': 0,
-            'help': 'Gaussian sigma (0 = auto calculate from kernel size)'
+            'help': 'Gaussian sigma (0 = auto calculate from kernel size)',
+            'showIf': {'method': 'gaussian'}
         },
         {
             'name': 'sigma_color',
@@ -60,7 +61,8 @@ class BlurNode(BaseNode):
             'type': 'number',
             'default': 75,
             'min': 1,
-            'help': 'Bilateral filter sigma in color space'
+            'help': 'Bilateral filter sigma in color space',
+            'showIf': {'method': 'bilateral'}
         },
         {
             'name': 'sigma_space',
@@ -68,7 +70,8 @@ class BlurNode(BaseNode):
             'type': 'number',
             'default': 75,
             'min': 1,
-            'help': 'Bilateral filter sigma in coordinate space'
+            'help': 'Bilateral filter sigma in coordinate space',
+            'showIf': {'method': 'bilateral'}
         }
     ]
     

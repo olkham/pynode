@@ -48,7 +48,8 @@ class ThresholdNode(BaseNode):
             'default': 127,
             'min': 0,
             'max': 255,
-            'help': 'Threshold value (ignored for Otsu and adaptive methods)'
+            'help': 'Threshold value (ignored for Otsu and adaptive methods)',
+            'showIf': {'method': ['binary', 'binary_inv', 'trunc', 'tozero', 'tozero_inv']}
         },
         {
             'name': 'max_value',
@@ -66,14 +67,16 @@ class ThresholdNode(BaseNode):
             'default': 11,
             'min': 3,
             'max': 99,
-            'help': 'Block size for adaptive methods (must be odd)'
+            'help': 'Block size for adaptive methods (must be odd)',
+            'showIf': {'method': ['adaptive_mean', 'adaptive_gaussian']}
         },
         {
             'name': 'c_value',
             'label': 'C Value',
             'type': 'number',
             'default': 2,
-            'help': 'Constant subtracted from mean (adaptive methods)'
+            'help': 'Constant subtracted from mean (adaptive methods)',
+            'showIf': {'method': ['adaptive_mean', 'adaptive_gaussian']}
         },
         {
             'name': 'convert_gray',

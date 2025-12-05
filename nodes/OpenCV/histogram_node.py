@@ -43,7 +43,8 @@ class HistogramNode(BaseNode):
             'min': 0.1,
             'max': 10,
             'step': 0.1,
-            'help': 'Threshold for contrast limiting (CLAHE)'
+            'help': 'Threshold for contrast limiting (CLAHE)',
+            'showIf': {'operation': 'clahe'}
         },
         {
             'name': 'tile_size',
@@ -52,7 +53,8 @@ class HistogramNode(BaseNode):
             'default': 8,
             'min': 2,
             'max': 32,
-            'help': 'Size of grid for CLAHE'
+            'help': 'Size of grid for CLAHE',
+            'showIf': {'operation': 'clahe'}
         },
         {
             'name': 'normalize_alpha',
@@ -61,7 +63,8 @@ class HistogramNode(BaseNode):
             'default': 0,
             'min': 0,
             'max': 255,
-            'help': 'Lower bound for normalization'
+            'help': 'Lower bound for normalization',
+            'showIf': {'operation': 'normalize'}
         },
         {
             'name': 'normalize_beta',
@@ -70,7 +73,8 @@ class HistogramNode(BaseNode):
             'default': 255,
             'min': 0,
             'max': 255,
-            'help': 'Upper bound for normalization'
+            'help': 'Upper bound for normalization',
+            'showIf': {'operation': 'normalize'}
         }
     ]
     

@@ -65,7 +65,8 @@ class HoughLinesNode(BaseNode):
             'type': 'number',
             'default': 50,
             'min': 1,
-            'help': 'Minimum line length (probabilistic only)'
+            'help': 'Minimum line length (probabilistic only)',
+            'showIf': {'method': 'probabilistic'}
         },
         {
             'name': 'max_gap',
@@ -73,7 +74,8 @@ class HoughLinesNode(BaseNode):
             'type': 'number',
             'default': 10,
             'min': 1,
-            'help': 'Maximum gap between line segments (probabilistic only)'
+            'help': 'Maximum gap between line segments (probabilistic only)',
+            'showIf': {'method': 'probabilistic'}
         },
         {
             'name': 'draw_lines',

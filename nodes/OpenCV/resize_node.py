@@ -41,7 +41,8 @@ class ResizeNode(BaseNode):
             'type': 'number',
             'default': 640,
             'min': 1,
-            'help': 'Target width in pixels'
+            'help': 'Target width in pixels',
+            'showIf': {'mode': ['absolute', 'fit', 'fill']}
         },
         {
             'name': 'height',
@@ -49,7 +50,8 @@ class ResizeNode(BaseNode):
             'type': 'number',
             'default': 480,
             'min': 1,
-            'help': 'Target height in pixels'
+            'help': 'Target height in pixels',
+            'showIf': {'mode': ['absolute', 'fit', 'fill']}
         },
         {
             'name': 'scale',
@@ -59,7 +61,8 @@ class ResizeNode(BaseNode):
             'min': 0.01,
             'max': 10,
             'step': 0.1,
-            'help': 'Scale multiplier (1.0 = original size)'
+            'help': 'Scale multiplier (1.0 = original size)',
+            'showIf': {'mode': 'scale'}
         },
         {
             'name': 'interpolation',

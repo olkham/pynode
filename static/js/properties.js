@@ -4,6 +4,26 @@ import { API_BASE } from './config.js';
 import { updateNodeOutputCount, updateNodeInputCount } from './nodes.js';
 import { updateConnections } from './connections.js';
 
+// Helper function to check if property should be shown
+function shouldShowProperty(showIf, config) {
+    for (const [key, value] of Object.entries(showIf)) {
+        const configValue = config[key];
+        
+        if (Array.isArray(value)) {
+            // Check if config value is in the array
+            if (!value.includes(configValue)) {
+                return false;
+            }
+        } else {
+            // Check if config value matches
+            if (configValue !== value) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
 export function renderProperties(nodeData) {
     const panel = document.getElementById('properties-panel');
     const panelContainer = document.getElementById('properties-panel-container');
@@ -32,7 +52,19 @@ export function renderProperties(nodeData) {
     const nodeType = getNodeType(nodeData.type);
     if (nodeType && nodeType.properties) {
         nodeType.properties.forEach(prop => {
-            html += '<div class="property-group">';
+            // Add property group with conditional visibility
+            const shouldShow = !prop.showIf || shouldShowProperty(prop.showIf, nodeData.config);
+            
+            html += '<div class="property-group"';
+            // Add data attribute for dynamic visibility
+            if (prop.showIf) {
+                html += ` data-show-if='${JSON.stringify(prop.showIf)}'`;
+            }
+            // Hide initially if condition not met
+            if (!shouldShow) {
+                html += ' style="display: none;"';
+            }
+            html += '>';
             
             if (prop.type === 'text') {
                 const value = nodeData.config[prop.name] !== undefined ? nodeData.config[prop.name] : (prop.default || '');
@@ -75,7 +107,7 @@ export function renderProperties(nodeData) {
                 html += `
                     <label class="property-label">${prop.label}</label>
                     <select class="property-select" 
-                            onchange="window.updateNodeConfig('${nodeData.id}', '${prop.name}', this.value)">
+                            onchange="window.updateNodeConfig('${nodeData.id}', '${prop.name}', this.value); window.updatePropertyVisibility('${nodeData.id}')">
                 `;
                 prop.options.forEach(option => {
                     const selected = nodeData.config[prop.name] === option.value ? 'selected' : '';
@@ -101,6 +133,9 @@ export function renderProperties(nodeData) {
     }
     
     panel.innerHTML = html;
+    
+    // Update property visibility based on current config
+    window.updatePropertyVisibility(nodeData.id);
 }
 
 export function updateNodeProperty(nodeId, property, value) {
@@ -127,6 +162,9 @@ export function updateNodeConfig(nodeId, key, value) {
     if (key === 'input_count') {
         updateNodeInputCount(nodeId, parseInt(value, 10));
     }
+    
+    // Update property visibility since config changed
+    window.updatePropertyVisibility(nodeId);
     
     markNodeModified(nodeId);
     setModified(true);
@@ -434,3 +472,33 @@ export function updateInjectProp(nodeId, propName, propIndex, field, value) {
         setModified(true);
     }
 }
+
+// Update property visibility based on current config values
+window.updatePropertyVisibility = function(nodeId) {
+    const nodeData = state.nodes.get(nodeId);
+    if (!nodeData) return;
+    
+    const nodeType = getNodeType(nodeData.type);
+    if (!nodeType || !nodeType.properties) return;
+    
+    // Get all property groups
+    const propertyGroups = document.querySelectorAll('.property-group[data-show-if]');
+    
+    propertyGroups.forEach(group => {
+        const showIfStr = group.getAttribute('data-show-if');
+        if (!showIfStr) return;
+        
+        try {
+            const showIf = JSON.parse(showIfStr);
+            const shouldShow = shouldShowProperty(showIf, nodeData.config);
+            
+            if (shouldShow) {
+                group.style.display = '';
+            } else {
+                group.style.display = 'none';
+            }
+        } catch (e) {
+            console.error('Error parsing showIf condition:', e);
+        }
+    });
+};

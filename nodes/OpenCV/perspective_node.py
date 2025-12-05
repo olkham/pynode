@@ -55,7 +55,8 @@ class PerspectiveNode(BaseNode):
             'label': 'Source Points',
             'type': 'text',
             'default': '0,0;100,0;100,100;0,100',
-            'help': 'Source points as x1,y1;x2,y2;x3,y3;x4,y4 (TL,TR,BR,BL)'
+            'help': 'Source points as x1,y1;x2,y2;x3,y3;x4,y4 (TL,TR,BR,BL)',
+            'showIf': {'mode': 'manual'}
         }
     ]
     

@@ -43,7 +43,8 @@ class EdgeDetectorNode(BaseNode):
             'default': 100,
             'min': 0,
             'max': 500,
-            'help': 'First threshold for Canny hysteresis'
+            'help': 'First threshold for Canny hysteresis',
+            'showIf': {'method': 'canny'}
         },
         {
             'name': 'threshold2',
@@ -52,7 +53,8 @@ class EdgeDetectorNode(BaseNode):
             'default': 200,
             'min': 0,
             'max': 500,
-            'help': 'Second threshold for Canny hysteresis'
+            'help': 'Second threshold for Canny hysteresis',
+            'showIf': {'method': 'canny'}
         },
         {
             'name': 'aperture_size',
@@ -61,7 +63,8 @@ class EdgeDetectorNode(BaseNode):
             'default': 3,
             'min': 3,
             'max': 7,
-            'help': 'Aperture size for Sobel operator (3, 5, or 7)'
+            'help': 'Aperture size for Sobel operator (3, 5, or 7)',
+            'showIf': {'method': ['canny', 'sobel', 'laplacian']}
         },
         {
             'name': 'sobel_direction',
@@ -73,7 +76,8 @@ class EdgeDetectorNode(BaseNode):
                 {'value': 'y', 'label': 'Y only'}
             ],
             'default': 'both',
-            'help': 'Direction for Sobel/Scharr edge detection'
+            'help': 'Direction for Sobel/Scharr edge detection',
+            'showIf': {'method': ['sobel', 'scharr']}
         },
         {
             'name': 'l2_gradient',
@@ -84,7 +88,8 @@ class EdgeDetectorNode(BaseNode):
                 {'value': 'no', 'label': 'No (faster)'}
             ],
             'default': 'no',
-            'help': 'Use L2 norm for Canny gradient calculation'
+            'help': 'Use L2 norm for Canny gradient calculation',
+            'showIf': {'method': 'canny'}
         }
     ]
     

@@ -39,8 +39,9 @@ class DelayNode(BaseNode):
             'name': 'timeout',
             'label': 'Delay (seconds)',
             'type': 'number',
-            'default': 1,
-            'help': 'Delay time in seconds (for time-based delay)'
+            'default': 0,
+            'help': 'Delay time in seconds (for time-based delay)',
+            'showIf': {'mode': ['delay', 'rate']}
         },
         {
             'name': 'delay_count',
@@ -48,19 +49,22 @@ class DelayNode(BaseNode):
             'type': 'number',
             'default': 1,
             'min': 1,
-            'help': 'Number of messages to delay by (for count-based delay)'
+            'help': 'Number of messages to delay by (for count-based delay)',
+            'showIf': {'mode': 'delay_count'}
         },
         {
             'name': 'rate',
             'label': 'Rate Limit (count)',
             'type': 'number',
-            'default': 1
+            'default': 1,
+            'showIf': {'mode': 'rate'}
         },
         {
             'name': 'rate_time',
             'label': 'Per Time (seconds)',
             'type': 'number',
-            'default': 1
+            'default': 1,
+            'showIf': {'mode': 'rate'}
         },
         {
             'name': 'rate_drop',
@@ -69,7 +73,8 @@ class DelayNode(BaseNode):
             'options': [
                 {'value': 'drop', 'label': 'Drop'},
                 {'value': 'queue', 'label': 'Queue'}
-            ]
+            ],
+            'showIf': {'mode': 'rate'}
         }
     ]
     

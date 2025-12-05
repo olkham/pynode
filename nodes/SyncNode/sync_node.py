@@ -57,7 +57,8 @@ class SyncNode(BaseNode):
                 {'value': 'none', 'label': 'None (arrival order)'}
             ],
             'default': 'ascending',
-            'help': 'How to sort messages before release'
+            'help': 'How to sort messages before release',
+            'showIf': {'output_mode': 'sequential'}
         },
         {
             'name': 'clear_on_release',

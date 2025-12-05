@@ -42,35 +42,40 @@ class DrawNode(BaseNode):
             'label': 'X1 / Center X',
             'type': 'number',
             'default': 100,
-            'help': 'X coordinate (start point or center)'
+            'help': 'X coordinate (start point or center)',
+            'showIf': {'shape': ['rectangle', 'circle', 'line', 'text']}
         },
         {
             'name': 'y1',
             'label': 'Y1 / Center Y',
             'type': 'number',
             'default': 100,
-            'help': 'Y coordinate (start point or center)'
+            'help': 'Y coordinate (start point or center)',
+            'showIf': {'shape': ['rectangle', 'circle', 'line', 'text']}
         },
         {
             'name': 'x2',
             'label': 'X2 / Width',
             'type': 'number',
             'default': 200,
-            'help': 'X2 for line/rect, or width'
+            'help': 'X2 for line/rect, or width',
+            'showIf': {'shape': ['rectangle', 'line']}
         },
         {
             'name': 'y2',
             'label': 'Y2 / Height',
             'type': 'number',
             'default': 200,
-            'help': 'Y2 for line/rect, or height'
+            'help': 'Y2 for line/rect, or height',
+            'showIf': {'shape': ['rectangle', 'line']}
         },
         {
             'name': 'radius',
             'label': 'Radius',
             'type': 'number',
             'default': 50,
-            'help': 'Circle radius'
+            'help': 'Circle radius',
+            'showIf': {'shape': 'circle'}
         },
         {
             'name': 'color',
@@ -92,7 +97,8 @@ class DrawNode(BaseNode):
             'label': 'Text',
             'type': 'text',
             'default': 'Hello',
-            'help': 'Text to draw'
+            'help': 'Text to draw',
+            'showIf': {'shape': 'text'}
         },
         {
             'name': 'font_scale',
@@ -101,7 +107,8 @@ class DrawNode(BaseNode):
             'default': 1.0,
             'min': 0.1,
             'step': 0.1,
-            'help': 'Font scale for text'
+            'help': 'Font scale for text',
+            'showIf': {'shape': 'text'}
         }
     ]
     
