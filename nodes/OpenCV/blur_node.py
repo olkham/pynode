@@ -116,7 +116,19 @@ class BlurNode(BaseNode):
         else:
             result = img
         
+        # Preserve bbox if present (for crop workflows)
+        bbox = None
+        if isinstance(msg.get('payload'), dict):
+            bbox = msg['payload'].get('bbox')
+        
         if 'payload' not in msg or not isinstance(msg['payload'], dict):
             msg['payload'] = {}
         msg['payload']['image'] = self.encode_image(result, format_type)
+        
+        # Restore bbox if it was present
+        if bbox is not None:
+            msg['payload']['bbox'] = bbox
+            # Also set at message level for PasteNode
+            msg['bbox'] = {'x1': bbox[0], 'y1': bbox[1], 'x2': bbox[2], 'y2': bbox[3]}
+        
         self.send(msg)
