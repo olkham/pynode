@@ -21,44 +21,6 @@ except ImportError:
     _HAS_CV2 = False
 
 
-def _deep_copy_message(msg: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Deep copy a message, properly handling numpy arrays and other special types.
-    This prevents downstream modifications from affecting upstream data or parallel branches.
-    
-    Args:
-        msg: Message dictionary to copy
-        
-    Returns:
-        Deep copy of the message
-    """
-    def _copy_value(value):
-        """Recursively copy a value, handling special types."""
-        if value is None:
-            return None
-        elif _HAS_CV2 and isinstance(value, np.ndarray):
-            # Copy numpy arrays
-            return value.copy()
-        elif isinstance(value, dict):
-            return {k: _copy_value(v) for k, v in value.items()}
-        elif isinstance(value, list):
-            return [_copy_value(item) for item in value]
-        elif isinstance(value, tuple):
-            return tuple(_copy_value(item) for item in value)
-        elif isinstance(value, (str, int, float, bool, bytes)):
-            # Immutable types don't need copying
-            return value
-        else:
-            # For other types, try copy.deepcopy as fallback
-            try:
-                return copy.deepcopy(value)
-            except Exception:
-                # If deepcopy fails, return as-is (might be an issue)
-                return value
-    
-    return _copy_value(msg)
-
-
 class BaseNode:
     """
     Base class for all nodes in the workflow system.
