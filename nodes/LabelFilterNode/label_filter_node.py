@@ -20,13 +20,21 @@ class LabelFilterNode(BaseNode):
     text_color = '#000000'
     input_count = 1
     output_count = 2  # Output 1: matched, Output 2: unmatched
-    
+
+    DEFAULT_CONFIG = {
+        'labels': 'person, car',
+        'match_mode': 'any',
+        'case_sensitive': False,
+        'filter_detections': True,
+        'detections_path': 'payload.detections'
+    }
+
     properties = [
         {
             'name': 'labels',
             'label': 'Allowed Labels',
             'type': 'text',
-            'default': 'person, car',
+            'default': DEFAULT_CONFIG['labels'],
             'help': 'Comma-separated list of labels to allow (e.g., "person, car, dog")'
         },
         {
@@ -37,41 +45,35 @@ class LabelFilterNode(BaseNode):
                 {'value': 'any', 'label': 'Any label matches'},
                 {'value': 'all', 'label': 'All labels must be present'}
             ],
-            'default': 'any',
+            'default': DEFAULT_CONFIG['match_mode'],
             'help': 'How to match multiple labels'
         },
         {
             'name': 'case_sensitive',
             'label': 'Case Sensitive',
             'type': 'checkbox',
-            'default': False
+            'default': DEFAULT_CONFIG['case_sensitive'],
         },
         {
             'name': 'filter_detections',
             'label': 'Filter Detections Array',
             'type': 'checkbox',
-            'default': True,
+            'default': DEFAULT_CONFIG['filter_detections'],
             'help': 'Remove non-matching detections from the output'
         },
         {
             'name': 'detections_path',
             'label': 'Detections Path',
             'type': 'text',
-            'default': 'payload.detections',
-            'help': 'Path to detection(s) in message (e.g., "payload.detection" or "payload.detections")'
+            'default': DEFAULT_CONFIG['detections_path'],
+            'help': f'Path to detection(s) in message (e.g., "{DEFAULT_CONFIG["detections_path"]}")'
         }
     ]
     
     def __init__(self, node_id=None, name="label filter"):
         super().__init__(node_id, name)
-        self.configure({
-            'labels': 'person, car',
-            'match_mode': 'any',
-            'case_sensitive': False,
-            'filter_detections': True,
-            'detections_path': 'payload.detection'
-        })
-    
+        self.configure(self.DEFAULT_CONFIG)
+
     def _get_nested_value(self, obj: Dict, path: str) -> Any:
         """Get a nested value from a dictionary using dot notation."""
         parts = path.split('.')
@@ -117,7 +119,7 @@ class LabelFilterNode(BaseNode):
             self.send(msg, 0)
             return
         
-        detections_path = self.config.get('detections_path', 'payload.detection')
+        detections_path = self.config.get('detections_path', self.DEFAULT_CONFIG['detections_path'])
         detection_data = self._get_nested_value(msg, detections_path)
         
         if detection_data is None:
@@ -137,10 +139,10 @@ class LabelFilterNode(BaseNode):
             self.send(msg, 1)
             return
         
-        case_sensitive = self.config.get('case_sensitive', False)
-        match_mode = self.config.get('match_mode', 'any')
-        filter_detections = self.config.get('filter_detections', True)
-        
+        case_sensitive = self.config.get('case_sensitive', self.DEFAULT_CONFIG['case_sensitive'])
+        match_mode = self.config.get('match_mode', self.DEFAULT_CONFIG['match_mode'])
+        filter_detections = self.config.get('filter_detections', self.DEFAULT_CONFIG['filter_detections'])
+
         # Get labels from detections
         detected_labels = set()
         matching_detections = []
