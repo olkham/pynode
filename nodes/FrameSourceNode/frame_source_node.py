@@ -31,7 +31,17 @@ class FrameSourceNode(BaseNode):
     text_color = '#000000'
     input_count = 0  # No input
     output_count = 1
-    
+
+    DEFAULT_CONFIG = {
+        'source_type': 'webcam',
+        'source': 0,
+        'fps': 30,
+        'width': 640,
+        'height': 480,
+        'encode_jpeg': False,
+        'jpeg_quality': 75
+    }
+
     properties = [
         {
             'name': 'source_type',
@@ -47,43 +57,44 @@ class FrameSourceNode(BaseNode):
                 {'value': 'screen', 'label': 'Screen Capture'},
                 {'value': 'genicam', 'label': 'GenICam Camera'},
                 {'value': 'audio_spectrogram', 'label': 'Audio Spectrogram'}
-            ]
+            ],
+            'default': DEFAULT_CONFIG['source_type'],
         },
         {
             'name': 'source',
             'label': 'Source',
             'type': 'text',
-            'default': '0'
+            'default': str(DEFAULT_CONFIG['source'])
         },
         {
             'name': 'fps',
             'label': 'Frame Rate (FPS)',
             'type': 'number',
-            'default': 30
+            'default': DEFAULT_CONFIG['fps']
         },
         {
             'name': 'width',
             'label': 'Width',
             'type': 'number',
-            'default': 640
+            'default': DEFAULT_CONFIG['width']
         },
         {
             'name': 'height',
             'label': 'Height',
             'type': 'number',
-            'default': 480
+            'default': DEFAULT_CONFIG['height']
         },
         {
             'name': 'encode_jpeg',
             'label': 'Encode as JPEG',
             'type': 'checkbox',
-            'default': True
+            'default': DEFAULT_CONFIG['encode_jpeg']
         },
         {
             'name': 'jpeg_quality',
             'label': 'JPEG Quality (1-100)',
             'type': 'number',
-            'default': 75
+            'default': DEFAULT_CONFIG['jpeg_quality']
         }
     ]
     
@@ -93,15 +104,7 @@ class FrameSourceNode(BaseNode):
         self.capture_thread = None
         self.running = False
         self.frame_count = 0
-        self.configure({
-            'source_type': 'webcam',
-            'source': 0,
-            'fps': 30,
-            'width': 640,
-            'height': 480,
-            'encode_jpeg': True,
-            'jpeg_quality': 75
-        })
+        self.configure(self.DEFAULT_CONFIG)
     
     def on_start(self):
         """Start the camera capture when workflow starts."""
