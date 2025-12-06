@@ -4,19 +4,25 @@ import { state, generateNodeId, markNodeModified, markNodeAdded, markNodeDeleted
 import { updateConnections, nodeHasConnections, getConnectionAtPoint, highlightConnectionForInsert, clearConnectionHighlight, getHoveredConnection, insertNodeIntoConnection } from './connections.js';
 import { selectNode } from './selection.js';
 
-export function createNode(type, x, y) {
-    const nodeType = getNodeType(type);
-    const displayName = nodeType ? nodeType.name : type;
+/**
+ * Generate a unique name for a node by checking existing node names
+ */
+export function generateUniqueName(baseName, nodeType = null) {
+    // Extract base name without number suffix (e.g., "debug 2" -> "debug")
+    let cleanBaseName = baseName;
+    const match = baseName.match(/^(.+?)\s+(\d+)$/);
+    if (match) {
+        cleanBaseName = match[1];
+    }
     
-    // Generate unique name by checking existing nodes
-    let baseName = displayName;
-    let uniqueName = baseName;
+    let uniqueName = cleanBaseName;
     let counter = 1;
     
     // Check if name already exists
     const existingNames = new Set();
     state.nodes.forEach(node => {
-        if (node.type === type) {
+        // If nodeType is provided, only check nodes of the same type
+        if (!nodeType || node.type === nodeType) {
             existingNames.add(node.name.toLowerCase());
         }
     });
@@ -24,8 +30,19 @@ export function createNode(type, x, y) {
     // If base name exists, try with numbers
     while (existingNames.has(uniqueName.toLowerCase())) {
         counter++;
-        uniqueName = `${baseName} ${counter}`;
+        uniqueName = `${cleanBaseName} ${counter}`;
     }
+    
+    return uniqueName;
+}
+
+export function createNode(type, x, y) {
+    const nodeType = getNodeType(type);
+    const displayName = nodeType ? nodeType.name : type;
+    
+    // Generate unique name by checking existing nodes
+    const uniqueName = generateUniqueName(displayName, type);
+
     
     // Save state before creating node
     import('./history.js').then(({ saveState }) => {

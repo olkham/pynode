@@ -1,6 +1,6 @@
 // Clipboard management for copy, cut, paste operations
-import { state, generateNodeId, setModified } from './state.js';
-import { renderNode } from './nodes.js';
+import { state, generateNodeId, setModified, markNodeAdded } from './state.js';
+import { renderNode, generateUniqueName } from './nodes.js';
 import { createConnection } from './connections.js';
 import { selectNode } from './selection.js';
 
@@ -96,9 +96,13 @@ export function pasteNodes() {
         const newId = generateNodeId();
         idMap.set(nodeData.originalId, newId);
         
+        // Generate unique name for pasted node
+        const uniqueName = generateUniqueName(nodeData.name, nodeData.type);
+        
         const newNode = {
             ...nodeData,
             id: newId,
+            name: uniqueName,
             x: nodeData.x + pasteOffset,
             y: nodeData.y + pasteOffset
         };
@@ -107,6 +111,7 @@ export function pasteNodes() {
         
         state.nodes.set(newId, newNode);
         renderNode(newNode);
+        markNodeAdded(newId);
         
         // Select the new node
         selectNode(newId, true);
