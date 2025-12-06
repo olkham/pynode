@@ -187,35 +187,40 @@ export function setupEventListeners() {
                            e.target.tagName === 'TEXTAREA' || 
                            e.target.isContentEditable;
         
+        // Check if focus is within the properties panel
+        const propertiesPanel = document.getElementById('properties-panel');
+        const isInPropertiesPanel = propertiesPanel && propertiesPanel.contains(document.activeElement);
+        
         if (e.key === 'Escape') {
             deselectAllNodes();
         }
         
-        if (e.key === 'Delete') {
+        // Delete only works when not in input field AND not in properties panel
+        if (e.key === 'Delete' && !isInputField && !isInPropertiesPanel) {
             console.log('Delete key pressed, selectedNodes:', state.selectedNodes.size, 'selectedConnection:', state.selectedConnection);
             if (state.selectedNodes.size > 0) {
-                // Save state before deleting
-                import('./history.js').then(({ saveState }) => {
-                    saveState('delete nodes');
-                });
-                
                 const nodesToDelete = Array.from(state.selectedNodes);
                 
-                if (e.ctrlKey || e.metaKey) {
-                    // Ctrl+Delete: Delete and reconnect nodes on either side
-                    nodesToDelete.forEach(nodeId => deleteNodeAndReconnect(nodeId));
-                } else {
-                    // Normal Delete: Just delete the nodes
-                    nodesToDelete.forEach(nodeId => deleteNode(nodeId));
-                }
-                deselectAllNodes();
+                // Save state before deleting - must be sync or await
+                import('./history.js').then(({ saveState }) => {
+                    saveState('delete nodes');
+                    
+                    if (e.ctrlKey || e.metaKey) {
+                        // Ctrl+Delete: Delete and reconnect nodes on either side
+                        nodesToDelete.forEach(nodeId => deleteNodeAndReconnect(nodeId));
+                    } else {
+                        // Normal Delete: Just delete the nodes
+                        nodesToDelete.forEach(nodeId => deleteNode(nodeId));
+                    }
+                    deselectAllNodes();
+                });
             } else if (state.selectedConnection) {
                 console.log('Deleting selected connection');
                 import('./history.js').then(({ saveState }) => {
                     saveState('delete connection');
-                });
-                import('./connections.js').then(({ deleteSelectedConnection }) => {
-                    deleteSelectedConnection();
+                    import('./connections.js').then(({ deleteSelectedConnection }) => {
+                        deleteSelectedConnection();
+                    });
                 });
             }
         }
