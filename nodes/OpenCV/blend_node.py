@@ -21,12 +21,18 @@ class BlendNode(BaseNode):
     input_count = 2  # Input 0: image1, Input 1: image2
     output_count = 1
     
+    DEFAULT_CONFIG = {
+        'alpha': 0.5,
+        'beta': 0.5,
+        'gamma': 0
+    }
+    
     properties = [
         {
             'name': 'alpha',
             'label': 'Alpha (image 1 weight)',
             'type': 'number',
-            'default': 0.5,
+            'default': DEFAULT_CONFIG['alpha'],
             'min': 0,
             'max': 1,
             'step': 0.1,
@@ -36,7 +42,7 @@ class BlendNode(BaseNode):
             'name': 'beta',
             'label': 'Beta (image 2 weight)',
             'type': 'number',
-            'default': 0.5,
+            'default': DEFAULT_CONFIG['beta'],
             'min': 0,
             'max': 1,
             'step': 0.1,
@@ -46,7 +52,7 @@ class BlendNode(BaseNode):
             'name': 'gamma',
             'label': 'Gamma (brightness)',
             'type': 'number',
-            'default': 0,
+            'default': DEFAULT_CONFIG['gamma'],
             'min': -100,
             'max': 100,
             'help': 'Added to final result'
@@ -55,11 +61,7 @@ class BlendNode(BaseNode):
     
     def __init__(self, node_id=None, name="blend"):
         super().__init__(node_id, name)
-        self.configure({
-            'alpha': 0.5,
-            'beta': 0.5,
-            'gamma': 0
-        })
+        self.configure(self.DEFAULT_CONFIG)
         self._image1 = None
         self._image2 = None
         self._format_type = None

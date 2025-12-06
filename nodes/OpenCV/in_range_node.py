@@ -23,12 +23,22 @@ class InRangeNode(BaseNode):
     input_count = 1
     output_count = 2  # Output 0: mask, Output 1: masked image
     
+    DEFAULT_CONFIG = {
+        'channel1_min': 0,
+        'channel1_max': 180,
+        'channel2_min': 50,
+        'channel2_max': 255,
+        'channel3_min': 50,
+        'channel3_max': 255,
+        'output_mode': 'both'
+    }
+    
     properties = [
         {
             'name': 'channel1_min',
             'label': 'Channel 1 Min (H/B)',
             'type': 'number',
-            'default': 0,
+            'default': DEFAULT_CONFIG['channel1_min'],
             'min': 0,
             'max': 255,
             'help': 'Minimum value for channel 1 (Hue in HSV: 0-179)'
@@ -37,7 +47,7 @@ class InRangeNode(BaseNode):
             'name': 'channel1_max',
             'label': 'Channel 1 Max (H/B)',
             'type': 'number',
-            'default': 180,
+            'default': DEFAULT_CONFIG['channel1_max'],
             'min': 0,
             'max': 255,
             'help': 'Maximum value for channel 1'
@@ -46,7 +56,7 @@ class InRangeNode(BaseNode):
             'name': 'channel2_min',
             'label': 'Channel 2 Min (S/G)',
             'type': 'number',
-            'default': 50,
+            'default': DEFAULT_CONFIG['channel2_min'],
             'min': 0,
             'max': 255,
             'help': 'Minimum value for channel 2 (Saturation in HSV)'
@@ -55,7 +65,7 @@ class InRangeNode(BaseNode):
             'name': 'channel2_max',
             'label': 'Channel 2 Max (S/G)',
             'type': 'number',
-            'default': 255,
+            'default': DEFAULT_CONFIG['channel2_max'],
             'min': 0,
             'max': 255,
             'help': 'Maximum value for channel 2'
@@ -64,7 +74,7 @@ class InRangeNode(BaseNode):
             'name': 'channel3_min',
             'label': 'Channel 3 Min (V/R)',
             'type': 'number',
-            'default': 50,
+            'default': DEFAULT_CONFIG['channel3_min'],
             'min': 0,
             'max': 255,
             'help': 'Minimum value for channel 3 (Value in HSV)'
@@ -73,7 +83,7 @@ class InRangeNode(BaseNode):
             'name': 'channel3_max',
             'label': 'Channel 3 Max (V/R)',
             'type': 'number',
-            'default': 255,
+            'default': DEFAULT_CONFIG['channel3_max'],
             'min': 0,
             'max': 255,
             'help': 'Maximum value for channel 3'
@@ -87,22 +97,14 @@ class InRangeNode(BaseNode):
                 {'value': 'masked', 'label': 'Masked image only'},
                 {'value': 'both', 'label': 'Both (mask + masked)'}
             ],
-            'default': 'both',
+            'default': DEFAULT_CONFIG['output_mode'],
             'help': 'What to include in output'
         }
     ]
     
     def __init__(self, node_id=None, name="in range"):
         super().__init__(node_id, name)
-        self.configure({
-            'channel1_min': 0,
-            'channel1_max': 180,
-            'channel2_min': 50,
-            'channel2_max': 255,
-            'channel3_min': 50,
-            'channel3_max': 255,
-            'output_mode': 'both'
-        })
+        self.configure(self.DEFAULT_CONFIG)
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """Apply color range filter to the input image."""

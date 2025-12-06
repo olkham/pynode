@@ -25,26 +25,37 @@ class MqttOutNode(BaseNode):
     input_count = 1
     output_count = 0
     
+    DEFAULT_CONFIG = {
+        'broker': 'localhost',
+        'port': '1883',
+        'topic': 'test/topic',
+        'qos': '0',
+        'retain': 'false',
+        'clientId': '',
+        'username': '',
+        'password': ''
+    }
+    
     properties = [
         {
             'name': 'broker',
             'label': 'Broker',
             'type': 'text',
-            'default': 'localhost',
+            'default': DEFAULT_CONFIG['broker'],
             'help': 'MQTT broker address'
         },
         {
             'name': 'port',
             'label': 'Port',
             'type': 'text',
-            'default': '1883',
+            'default': DEFAULT_CONFIG['port'],
             'help': 'MQTT broker port'
         },
         {
             'name': 'topic',
             'label': 'Topic',
             'type': 'text',
-            'default': 'test/topic',
+            'default': DEFAULT_CONFIG['topic'],
             'help': 'MQTT topic to publish to'
         },
         {
@@ -56,7 +67,7 @@ class MqttOutNode(BaseNode):
                 {'value': '1', 'label': '1 - At least once'},
                 {'value': '2', 'label': '2 - Exactly once'}
             ],
-            'default': '0'
+            'default': DEFAULT_CONFIG['qos']
         },
         {
             'name': 'retain',
@@ -66,13 +77,13 @@ class MqttOutNode(BaseNode):
                 {'value': 'false', 'label': 'False'},
                 {'value': 'true', 'label': 'True'}
             ],
-            'default': 'false'
+            'default': DEFAULT_CONFIG['retain']
         },
         {
             'name': 'clientId',
             'label': 'Client ID',
             'type': 'text',
-            'default': '',
+            'default': DEFAULT_CONFIG['clientId'],
             'help': 'Leave blank for auto-generated'
         },
         {
@@ -94,16 +105,7 @@ class MqttOutNode(BaseNode):
         self.client = None
         self._connected = False
         
-        self.configure({
-            'broker': 'localhost',
-            'port': '1883',
-            'topic': 'test/topic',
-            'qos': '0',
-            'retain': 'false',
-            'clientId': '',
-            'username': '',
-            'password': ''
-        })
+        self.configure(self.DEFAULT_CONFIG)
     
     def on_connect(self, client, userdata, flags, rc):
         """Callback when connected to broker."""

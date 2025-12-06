@@ -21,19 +21,29 @@ class SyncNode(BaseNode):
     input_count = 1
     output_count = 1
     
+    DEFAULT_CONFIG = {
+        'index_property': 'index',
+        'release_payload': 'release',
+        'output_mode': 'sequential',
+        'sort_order': 'ascending',
+        'clear_on_release': 'true',
+        'max_buffer_size': '1000',
+        'allow_duplicates': 'false'
+    }
+    
     properties = [
         {
             'name': 'index_property',
             'label': 'Index Property',
             'type': 'text',
-            'default': 'index',
+            'default': DEFAULT_CONFIG['index_property'],
             'help': 'Property name containing the message index (e.g., "index", "id", "sequence")'
         },
         {
             'name': 'release_payload',
             'label': 'Release Payload',
             'type': 'text',
-            'default': 'release',
+            'default': DEFAULT_CONFIG['release_payload'],
             'help': 'Payload value that triggers release (default: "release")'
         },
         {
@@ -44,7 +54,7 @@ class SyncNode(BaseNode):
                 {'value': 'sequential', 'label': 'Sequential (one by one)'},
                 {'value': 'array', 'label': 'Array (all at once)'}
             ],
-            'default': 'sequential',
+            'default': DEFAULT_CONFIG['output_mode'],
             'help': 'How to output buffered messages'
         },
         {
@@ -56,7 +66,7 @@ class SyncNode(BaseNode):
                 {'value': 'descending', 'label': 'Descending (..., 2, 1, 0)'},
                 {'value': 'none', 'label': 'None (arrival order)'}
             ],
-            'default': 'ascending',
+            'default': DEFAULT_CONFIG['sort_order'],
             'help': 'How to sort messages before release',
             'showIf': {'output_mode': 'sequential'}
         },
@@ -68,14 +78,14 @@ class SyncNode(BaseNode):
                 {'value': 'true', 'label': 'Yes (clear buffer)'},
                 {'value': 'false', 'label': 'No (keep buffer)'}
             ],
-            'default': 'true',
+            'default': DEFAULT_CONFIG['clear_on_release'],
             'help': 'Clear buffer after releasing messages'
         },
         {
             'name': 'max_buffer_size',
             'label': 'Max Buffer Size',
             'type': 'text',
-            'default': '1000',
+            'default': DEFAULT_CONFIG['max_buffer_size'],
             'help': 'Maximum number of messages to buffer (0 = unlimited)'
         },
         {
@@ -86,22 +96,14 @@ class SyncNode(BaseNode):
                 {'value': 'false', 'label': 'No (keep first)'},
                 {'value': 'true', 'label': 'Yes (overwrite with latest)'}
             ],
-            'default': 'false',
+            'default': DEFAULT_CONFIG['allow_duplicates'],
             'help': 'Allow multiple messages for the same index (false = keep first, true = keep latest)'
         }
     ]
     
     def __init__(self, node_id=None, name="sync"):
         super().__init__(node_id, name)
-        self.configure({
-            'index_property': 'index',
-            'release_payload': 'release',
-            'output_mode': 'sequential',
-            'sort_order': 'ascending',
-            'clear_on_release': 'true',
-            'max_buffer_size': '1000',
-            'allow_duplicates': 'false'
-        })
+        self.configure(self.DEFAULT_CONFIG)
         # Buffer to store messages: {index: msg}
         self._buffer: Dict[Any, Dict[str, Any]] = {}
         # Track arrival order for non-sorted output

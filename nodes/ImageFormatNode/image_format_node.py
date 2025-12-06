@@ -24,6 +24,13 @@ class ImageFormatNode(BaseNode):
     input_count = 1
     output_count = 1
     
+    DEFAULT_CONFIG = {
+        'mode': 'auto',
+        'image_format': 'jpeg',
+        'jpeg_quality': 85,
+        'data_path': 'payload.image'
+    }
+    
     properties = [
         {
             'name': 'mode',
@@ -33,7 +40,8 @@ class ImageFormatNode(BaseNode):
                 {'value': 'auto', 'label': 'Auto Detect'},
                 {'value': 'to_base64', 'label': 'Numpy to Base64'},
                 {'value': 'to_numpy', 'label': 'Base64 to Numpy'}
-            ]
+            ],
+            'default': DEFAULT_CONFIG['mode']
         },
         {
             'name': 'image_format',
@@ -42,31 +50,27 @@ class ImageFormatNode(BaseNode):
             'options': [
                 {'value': 'jpeg', 'label': 'JPEG'},
                 {'value': 'png', 'label': 'PNG'}
-            ]
+            ],
+            'default': DEFAULT_CONFIG['image_format']
         },
         {
             'name': 'jpeg_quality',
             'label': 'JPEG Quality (1-100)',
             'type': 'number',
-            'default': 85
+            'default': DEFAULT_CONFIG['jpeg_quality']
         },
         {
             'name': 'data_path',
             'label': 'Data Path',
             'type': 'text',
-            'default': 'payload.image',
+            'default': DEFAULT_CONFIG['data_path'],
             'description': 'Dot-separated path to image data (e.g. payload.image)'
         }
     ]
     
     def __init__(self, node_id=None, name="image format"):
         super().__init__(node_id, name)
-        self.configure({
-            'mode': 'auto',
-            'image_format': 'jpeg',
-            'jpeg_quality': 85,
-            'data_path': 'payload.image'
-        })
+        self.configure(self.DEFAULT_CONFIG)
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """

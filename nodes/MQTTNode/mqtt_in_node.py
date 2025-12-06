@@ -26,26 +26,36 @@ class MqttInNode(BaseNode):
     input_count = 0
     output_count = 1
     
+    DEFAULT_CONFIG = {
+        'broker': 'localhost',
+        'port': '1883',
+        'topic': 'test/topic',
+        'qos': '0',
+        'clientId': '',
+        'username': '',
+        'password': ''
+    }
+    
     properties = [
         {
             'name': 'broker',
             'label': 'Broker',
             'type': 'text',
-            'default': 'localhost',
+            'default': DEFAULT_CONFIG['broker'],
             'help': 'MQTT broker address'
         },
         {
             'name': 'port',
             'label': 'Port',
             'type': 'text',
-            'default': '1883',
+            'default': DEFAULT_CONFIG['port'],
             'help': 'MQTT broker port'
         },
         {
             'name': 'topic',
             'label': 'Topic',
             'type': 'text',
-            'default': 'test/topic',
+            'default': DEFAULT_CONFIG['topic'],
             'help': 'MQTT topic to subscribe to (supports wildcards)'
         },
         {
@@ -57,13 +67,13 @@ class MqttInNode(BaseNode):
                 {'value': '1', 'label': '1 - At least once'},
                 {'value': '2', 'label': '2 - Exactly once'}
             ],
-            'default': '0'
+            'default': DEFAULT_CONFIG['qos']
         },
         {
             'name': 'clientId',
             'label': 'Client ID',
             'type': 'text',
-            'default': '',
+            'default': DEFAULT_CONFIG['clientId'],
             'help': 'Leave blank for auto-generated'
         },
         {
@@ -85,15 +95,7 @@ class MqttInNode(BaseNode):
         self.client = None
         self._connected = False
         
-        self.configure({
-            'broker': 'localhost',
-            'port': '1883',
-            'topic': 'test/topic',
-            'qos': '0',
-            'clientId': '',
-            'username': '',
-            'password': ''
-        })
+        self.configure(self.DEFAULT_CONFIG)
     
     def on_message(self, client, userdata, message):
         """Callback when message is received."""

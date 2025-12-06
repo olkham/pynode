@@ -22,6 +22,17 @@ class HoughLinesNode(BaseNode):
     input_count = 1
     output_count = 1
     
+    DEFAULT_CONFIG = {
+        'method': 'probabilistic',
+        'rho': 1,
+        'theta_degrees': 1,
+        'threshold': 100,
+        'min_length': 50,
+        'max_gap': 10,
+        'draw_lines': 'yes',
+        'line_color': '0,0,255'
+    }
+    
     properties = [
         {
             'name': 'method',
@@ -31,14 +42,14 @@ class HoughLinesNode(BaseNode):
                 {'value': 'standard', 'label': 'Standard'},
                 {'value': 'probabilistic', 'label': 'Probabilistic'}
             ],
-            'default': 'probabilistic',
+            'default': DEFAULT_CONFIG['method'],
             'help': 'Hough transform method'
         },
         {
             'name': 'rho',
             'label': 'Rho (pixels)',
             'type': 'number',
-            'default': 1,
+            'default': DEFAULT_CONFIG['rho'],
             'min': 1,
             'help': 'Distance resolution in pixels'
         },
@@ -46,7 +57,7 @@ class HoughLinesNode(BaseNode):
             'name': 'theta_degrees',
             'label': 'Theta (degrees)',
             'type': 'number',
-            'default': 1,
+            'default': DEFAULT_CONFIG['theta_degrees'],
             'min': 0.1,
             'step': 0.1,
             'help': 'Angle resolution in degrees'
@@ -55,7 +66,7 @@ class HoughLinesNode(BaseNode):
             'name': 'threshold',
             'label': 'Threshold',
             'type': 'number',
-            'default': 100,
+            'default': DEFAULT_CONFIG['threshold'],
             'min': 1,
             'help': 'Accumulator threshold'
         },
@@ -63,7 +74,7 @@ class HoughLinesNode(BaseNode):
             'name': 'min_length',
             'label': 'Min Line Length',
             'type': 'number',
-            'default': 50,
+            'default': DEFAULT_CONFIG['min_length'],
             'min': 1,
             'help': 'Minimum line length (probabilistic only)',
             'showIf': {'method': 'probabilistic'}
@@ -72,7 +83,7 @@ class HoughLinesNode(BaseNode):
             'name': 'max_gap',
             'label': 'Max Line Gap',
             'type': 'number',
-            'default': 10,
+            'default': DEFAULT_CONFIG['max_gap'],
             'min': 1,
             'help': 'Maximum gap between line segments (probabilistic only)',
             'showIf': {'method': 'probabilistic'}
@@ -85,30 +96,21 @@ class HoughLinesNode(BaseNode):
                 {'value': 'yes', 'label': 'Yes'},
                 {'value': 'no', 'label': 'No'}
             ],
-            'default': 'yes',
+            'default': DEFAULT_CONFIG['draw_lines'],
             'help': 'Draw detected lines on output'
         },
         {
             'name': 'line_color',
             'label': 'Line Color (B,G,R)',
             'type': 'text',
-            'default': '0,0,255',
+            'default': DEFAULT_CONFIG['line_color'],
             'help': 'Color for drawn lines'
         }
     ]
     
     def __init__(self, node_id=None, name="hough lines"):
         super().__init__(node_id, name)
-        self.configure({
-            'method': 'probabilistic',
-            'rho': 1,
-            'theta_degrees': 1,
-            'threshold': 100,
-            'min_length': 50,
-            'max_gap': 10,
-            'draw_lines': 'yes',
-            'line_color': '0,0,255'
-        })
+        self.configure(self.DEFAULT_CONFIG)
     
     def _parse_color(self, color_str):
         """Parse color string to BGR tuple."""

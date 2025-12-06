@@ -22,6 +22,13 @@ class MorphologyNode(BaseNode):
     input_count = 1
     output_count = 1
     
+    DEFAULT_CONFIG = {
+        'operation': 'dilate',
+        'kernel_shape': 'rect',
+        'kernel_size': 5,
+        'iterations': 1
+    }
+    
     properties = [
         {
             'name': 'operation',
@@ -36,7 +43,7 @@ class MorphologyNode(BaseNode):
                 {'value': 'tophat', 'label': 'Top Hat'},
                 {'value': 'blackhat', 'label': 'Black Hat'}
             ],
-            'default': 'dilate',
+            'default': DEFAULT_CONFIG['operation'],
             'help': 'Morphological operation to apply'
         },
         {
@@ -48,14 +55,14 @@ class MorphologyNode(BaseNode):
                 {'value': 'ellipse', 'label': 'Ellipse'},
                 {'value': 'cross', 'label': 'Cross'}
             ],
-            'default': 'rect',
+            'default': DEFAULT_CONFIG['kernel_shape'],
             'help': 'Shape of the structuring element'
         },
         {
             'name': 'kernel_size',
             'label': 'Kernel Size',
             'type': 'number',
-            'default': 5,
+            'default': DEFAULT_CONFIG['kernel_size'],
             'min': 1,
             'max': 99,
             'help': 'Size of the structuring element'
@@ -64,7 +71,7 @@ class MorphologyNode(BaseNode):
             'name': 'iterations',
             'label': 'Iterations',
             'type': 'number',
-            'default': 1,
+            'default': DEFAULT_CONFIG['iterations'],
             'min': 1,
             'max': 20,
             'help': 'Number of times to apply the operation'
@@ -73,12 +80,7 @@ class MorphologyNode(BaseNode):
     
     def __init__(self, node_id=None, name="morphology"):
         super().__init__(node_id, name)
-        self.configure({
-            'operation': 'dilate',
-            'kernel_shape': 'rect',
-            'kernel_size': 5,
-            'iterations': 1
-        })
+        self.configure(self.DEFAULT_CONFIG)
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """Apply morphological operation to the input image."""

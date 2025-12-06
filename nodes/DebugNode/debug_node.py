@@ -28,6 +28,11 @@ class DebugNode(BaseNode):
         'label': 'Enable'
     }
     
+    DEFAULT_CONFIG = {
+        'console': True,
+        'complete': 'payload'
+    }
+    
     properties = [
         {
             'name': 'complete',
@@ -36,16 +41,14 @@ class DebugNode(BaseNode):
             'options': [
                 {'value': 'payload', 'label': 'msg.payload'},
                 {'value': 'msg', 'label': 'Complete msg'}
-            ]
+            ],
+            'default': DEFAULT_CONFIG['complete']
         }
     ]
     
     def __init__(self, node_id=None, name="debug"):
         super().__init__(node_id, name)
-        self.configure({
-            'console': True,
-            'complete': 'payload'  # Can be 'payload', 'msg', or a property path
-        })
+        self.configure(self.DEFAULT_CONFIG)
         self.messages = []  # Store messages for API access
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):

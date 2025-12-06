@@ -21,6 +21,14 @@ class TemplateMatchNode(BaseNode):
     input_count = 2  # Input 0: image, Input 1: template
     output_count = 1
     
+    DEFAULT_CONFIG = {
+        'method': 'ccoeff_normed',
+        'threshold': 0.8,
+        'multi_match': 'no',
+        'draw_matches': 'yes',
+        'match_color': '0,255,0'
+    }
+    
     properties = [
         {
             'name': 'method',
@@ -34,14 +42,14 @@ class TemplateMatchNode(BaseNode):
                 {'value': 'ccorr', 'label': 'Cross Correlation'},
                 {'value': 'sqdiff', 'label': 'Squared Difference'}
             ],
-            'default': 'ccoeff_normed',
+            'default': DEFAULT_CONFIG['method'],
             'help': 'Template matching method'
         },
         {
             'name': 'threshold',
             'label': 'Threshold',
             'type': 'number',
-            'default': 0.8,
+            'default': DEFAULT_CONFIG['threshold'],
             'min': 0,
             'max': 1,
             'step': 0.05,
@@ -55,7 +63,7 @@ class TemplateMatchNode(BaseNode):
                 {'value': 'yes', 'label': 'Yes (find all)'},
                 {'value': 'no', 'label': 'No (best only)'}
             ],
-            'default': 'no',
+            'default': DEFAULT_CONFIG['multi_match'],
             'help': 'Find multiple matches above threshold'
         },
         {
@@ -66,27 +74,21 @@ class TemplateMatchNode(BaseNode):
                 {'value': 'yes', 'label': 'Yes'},
                 {'value': 'no', 'label': 'No'}
             ],
-            'default': 'yes',
+            'default': DEFAULT_CONFIG['draw_matches'],
             'help': 'Draw rectangles around matches'
         },
         {
             'name': 'match_color',
             'label': 'Match Color (B,G,R)',
             'type': 'text',
-            'default': '0,255,0',
+            'default': DEFAULT_CONFIG['match_color'],
             'help': 'Color for match rectangles'
         }
     ]
     
     def __init__(self, node_id=None, name="template match"):
         super().__init__(node_id, name)
-        self.configure({
-            'method': 'ccoeff_normed',
-            'threshold': 0.8,
-            'multi_match': 'no',
-            'draw_matches': 'yes',
-            'match_color': '0,255,0'
-        })
+        self.configure(self.DEFAULT_CONFIG)
         self._template = None
     
     def _parse_color(self, color_str):

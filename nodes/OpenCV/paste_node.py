@@ -30,6 +30,13 @@ class PasteNode(BaseNode):
     input_count = 2  # Input 0: background, Input 1: foreground
     output_count = 1
     
+    DEFAULT_CONFIG = {
+        'position_source': 'bbox',
+        'x': 0,
+        'y': 0,
+        'resize_to_fit': 'true'
+    }
+    
     properties = [
         {
             'name': 'position_source',
@@ -39,21 +46,21 @@ class PasteNode(BaseNode):
                 {'value': 'bbox', 'label': 'From msg.bbox (auto from CropNode)'},
                 {'value': 'manual', 'label': 'Manual coordinates'}
             ],
-            'default': 'bbox',
+            'default': DEFAULT_CONFIG['position_source'],
             'help': 'Where to get the paste position from'
         },
         {
             'name': 'x',
             'label': 'X Position',
             'type': 'number',
-            'default': 0,
+            'default': DEFAULT_CONFIG['x'],
             'help': 'X coordinate for manual positioning'
         },
         {
             'name': 'y',
             'label': 'Y Position',
             'type': 'number',
-            'default': 0,
+            'default': DEFAULT_CONFIG['y'],
             'help': 'Y coordinate for manual positioning'
         },
         {
@@ -64,19 +71,14 @@ class PasteNode(BaseNode):
                 {'value': 'true', 'label': 'Yes (resize foreground to bbox size)'},
                 {'value': 'false', 'label': 'No (use foreground as-is)'}
             ],
-            'default': 'true',
+            'default': DEFAULT_CONFIG['resize_to_fit'],
             'help': 'Resize foreground to match the original bbox size'
         }
     ]
     
     def __init__(self, node_id=None, name="paste"):
         super().__init__(node_id, name)
-        self.configure({
-            'position_source': 'bbox',
-            'x': 0,
-            'y': 0,
-            'resize_to_fit': 'true'
-        })
+        self.configure(self.DEFAULT_CONFIG)
         self._background: Optional[np.ndarray] = None
         self._background_msg: Optional[Dict] = None
         self._format_type: Optional[str] = None

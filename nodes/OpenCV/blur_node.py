@@ -22,6 +22,14 @@ class BlurNode(BaseNode):
     input_count = 1
     output_count = 1
     
+    DEFAULT_CONFIG = {
+        'method': 'gaussian',
+        'kernel_size': 5,
+        'sigma': 0,
+        'sigma_color': 75,
+        'sigma_space': 75
+    }
+    
     properties = [
         {
             'name': 'method',
@@ -34,14 +42,14 @@ class BlurNode(BaseNode):
                 {'value': 'box', 'label': 'Box (average)'},
                 {'value': 'stack', 'label': 'Stack Blur'}
             ],
-            'default': 'gaussian',
+            'default': DEFAULT_CONFIG['method'],
             'help': 'Blur method to apply'
         },
         {
             'name': 'kernel_size',
             'label': 'Kernel Size',
             'type': 'number',
-            'default': 5,
+            'default': DEFAULT_CONFIG['kernel_size'],
             'min': 1,
             'max': 99,
             'help': 'Size of blur kernel (must be odd for most methods)'
@@ -50,7 +58,7 @@ class BlurNode(BaseNode):
             'name': 'sigma',
             'label': 'Sigma',
             'type': 'number',
-            'default': 0,
+            'default': DEFAULT_CONFIG['sigma'],
             'min': 0,
             'help': 'Gaussian sigma (0 = auto calculate from kernel size)',
             'showIf': {'method': 'gaussian'}
@@ -59,7 +67,7 @@ class BlurNode(BaseNode):
             'name': 'sigma_color',
             'label': 'Sigma Color',
             'type': 'number',
-            'default': 75,
+            'default': DEFAULT_CONFIG['sigma_color'],
             'min': 1,
             'help': 'Bilateral filter sigma in color space',
             'showIf': {'method': 'bilateral'}
@@ -68,7 +76,7 @@ class BlurNode(BaseNode):
             'name': 'sigma_space',
             'label': 'Sigma Space',
             'type': 'number',
-            'default': 75,
+            'default': DEFAULT_CONFIG['sigma_space'],
             'min': 1,
             'help': 'Bilateral filter sigma in coordinate space',
             'showIf': {'method': 'bilateral'}
@@ -77,13 +85,7 @@ class BlurNode(BaseNode):
     
     def __init__(self, node_id=None, name="blur"):
         super().__init__(node_id, name)
-        self.configure({
-            'method': 'gaussian',
-            'kernel_size': 5,
-            'sigma': 0,
-            'sigma_color': 75,
-            'sigma_space': 75
-        })
+        self.configure(self.DEFAULT_CONFIG)
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """Apply blur to the input image."""

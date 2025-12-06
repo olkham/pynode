@@ -44,7 +44,7 @@ class FilterNode(BaseNode):
         self.configure({
             'mode': 'dedupe',
             'count': 1,
-            'drop_messages': 'false'
+            'drop_messages': False
         })
         self.last_value = None
         self.message_count = 0

@@ -33,7 +33,7 @@ class FunctionNode(BaseNode):
             'name': 'outputs',
             'label': 'Outputs',
             'type': 'number',
-            'default': 1,
+            'default': DEFAULT_CONFIG['outputs'],
             'min': 1,
             'max': 10
         }
@@ -41,10 +41,7 @@ class FunctionNode(BaseNode):
     
     def __init__(self, node_id=None, name="function"):
         super().__init__(node_id, name)
-        self.configure({
-            'func': 'msg["payload"] = msg["payload"]\nreturn msg',
-            'outputs': 1
-        })
+        self.configure(self.DEFAULT_CONFIG)
     
     def configure(self, config: Dict[str, Any]):
         """Configure the node and update output_count based on outputs setting."""

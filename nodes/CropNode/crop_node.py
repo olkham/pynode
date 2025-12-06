@@ -23,6 +23,16 @@ class CropNode(BaseNode):
     input_count = 1
     output_count = 1
     
+    DEFAULT_CONFIG = {
+        'bbox_source': 'detections',
+        'x1': 0,
+        'y1': 0,
+        'x2': 100,
+        'y2': 100,
+        'output_mode': 'separate',
+        'drop_messages': False
+    }
+    
     properties = [
         {
             'name': 'bbox_source',
@@ -31,31 +41,32 @@ class CropNode(BaseNode):
             'options': [
                 {'value': 'detections', 'label': 'From msg.payload.detections'},
                 {'value': 'manual', 'label': 'Manual coordinates'}
-            ]
+            ],
+            'default': DEFAULT_CONFIG['bbox_source']
         },
         {
             'name': 'x1',
             'label': 'X1 (left)',
             'type': 'number',
-            'default': 0
+            'default': DEFAULT_CONFIG['x1']
         },
         {
             'name': 'y1',
             'label': 'Y1 (top)',
             'type': 'number',
-            'default': 0
+            'default': DEFAULT_CONFIG['y1']
         },
         {
             'name': 'x2',
             'label': 'X2 (right)',
             'type': 'number',
-            'default': 100
+            'default': DEFAULT_CONFIG['x2']
         },
         {
             'name': 'y2',
             'label': 'Y2 (bottom)',
             'type': 'number',
-            'default': 100
+            'default': DEFAULT_CONFIG['y2']
         },
         {
             'name': 'output_mode',
@@ -64,21 +75,14 @@ class CropNode(BaseNode):
             'options': [
                 {'value': 'all', 'label': 'All crops in one message'},
                 {'value': 'separate', 'label': 'Separate messages per crop'}
-            ]
+            ],
+            'default': DEFAULT_CONFIG['output_mode']
         }
     ]
     
     def __init__(self, node_id=None, name="crop"):
         super().__init__(node_id, name)
-        self.configure({
-            'bbox_source': 'detections',
-            'x1': 0,
-            'y1': 0,
-            'x2': 100,
-            'y2': 100,
-            'output_mode': 'separate',
-            'drop_messages': 'false'
-        })
+        self.configure(self.DEFAULT_CONFIG)
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """Process incoming image and crop based on bounding boxes."""

@@ -81,12 +81,8 @@ class BaseNode:
         {
             'name': 'drop_messages',
             'label': 'Drop Messages When Busy',
-            'type': 'select',
-            'options': [
-                {'value': 'false', 'label': 'No (Queue messages)'},
-                {'value': 'true', 'label': 'Yes (Drop when busy)'}
-            ],
-            'default': 'false'
+            'type': 'checkbox',
+            'default': False
         }
     ]
     
@@ -116,8 +112,8 @@ class BaseNode:
         self._worker_thread = None
         self._stop_worker_flag = False
         
-        # Initialize drop_while_busy flag from config (defaults to False)
-        self.drop_while_busy = False
+        # Initialize drop_while_busy flag from config (defaults to True)
+        self.drop_while_busy = True
         
         # Error handling
         self._workflow_engine = None  # Will be set by workflow engine
@@ -311,7 +307,12 @@ class BaseNode:
         """
         self.config.update(config)
         # Update drop_while_busy flag from config
-        self.drop_while_busy = self.config.get('drop_messages', 'false') == 'true'
+        # Handle both boolean and string values for compatibility
+        val = self.config.get('drop_messages', True)
+        if isinstance(val, str):
+            self.drop_while_busy = val.lower() == 'true'
+        else:
+            self.drop_while_busy = bool(val)
     
     # Image processing helper methods
     @staticmethod

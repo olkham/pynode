@@ -21,12 +21,23 @@ class HoughCirclesNode(BaseNode):
     input_count = 1
     output_count = 1
     
+    DEFAULT_CONFIG = {
+        'dp': 1.2,
+        'min_dist': 50,
+        'param1': 100,
+        'param2': 30,
+        'min_radius': 10,
+        'max_radius': 0,
+        'draw_circles': 'yes',
+        'circle_color': '0,255,0'
+    }
+    
     properties = [
         {
             'name': 'dp',
             'label': 'DP (resolution ratio)',
             'type': 'number',
-            'default': 1.2,
+            'default': DEFAULT_CONFIG['dp'],
             'min': 1,
             'step': 0.1,
             'help': 'Inverse ratio of accumulator resolution (1 = same as image)'
@@ -35,7 +46,7 @@ class HoughCirclesNode(BaseNode):
             'name': 'min_dist',
             'label': 'Min Distance',
             'type': 'number',
-            'default': 50,
+            'default': DEFAULT_CONFIG['min_dist'],
             'min': 1,
             'help': 'Minimum distance between circle centers'
         },
@@ -43,7 +54,7 @@ class HoughCirclesNode(BaseNode):
             'name': 'param1',
             'label': 'Canny Threshold',
             'type': 'number',
-            'default': 100,
+            'default': DEFAULT_CONFIG['param1'],
             'min': 1,
             'help': 'Higher threshold for Canny edge detector'
         },
@@ -51,7 +62,7 @@ class HoughCirclesNode(BaseNode):
             'name': 'param2',
             'label': 'Accumulator Threshold',
             'type': 'number',
-            'default': 30,
+            'default': DEFAULT_CONFIG['param2'],
             'min': 1,
             'help': 'Accumulator threshold for circle detection'
         },
@@ -59,7 +70,7 @@ class HoughCirclesNode(BaseNode):
             'name': 'min_radius',
             'label': 'Min Radius',
             'type': 'number',
-            'default': 10,
+            'default': DEFAULT_CONFIG['min_radius'],
             'min': 0,
             'help': 'Minimum circle radius (0 = no minimum)'
         },
@@ -67,7 +78,7 @@ class HoughCirclesNode(BaseNode):
             'name': 'max_radius',
             'label': 'Max Radius',
             'type': 'number',
-            'default': 0,
+            'default': DEFAULT_CONFIG['max_radius'],
             'min': 0,
             'help': 'Maximum circle radius (0 = no maximum)'
         },
@@ -79,30 +90,21 @@ class HoughCirclesNode(BaseNode):
                 {'value': 'yes', 'label': 'Yes'},
                 {'value': 'no', 'label': 'No'}
             ],
-            'default': 'yes',
+            'default': DEFAULT_CONFIG['draw_circles'],
             'help': 'Draw detected circles on output'
         },
         {
             'name': 'circle_color',
             'label': 'Circle Color (B,G,R)',
             'type': 'text',
-            'default': '0,255,0',
+            'default': DEFAULT_CONFIG['circle_color'],
             'help': 'Color for drawn circles'
         }
     ]
     
     def __init__(self, node_id=None, name="hough circles"):
         super().__init__(node_id, name)
-        self.configure({
-            'dp': 1.2,
-            'min_dist': 50,
-            'param1': 100,
-            'param2': 30,
-            'min_radius': 10,
-            'max_radius': 0,
-            'draw_circles': 'yes',
-            'circle_color': '0,255,0'
-        })
+        self.configure(self.DEFAULT_CONFIG)
     
     def _parse_color(self, color_str):
         """Parse color string to BGR tuple."""

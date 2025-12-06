@@ -21,6 +21,13 @@ class MDNSBroadcastNode(BaseNode):
     input_count = 1  # Receives broadcast information
     output_count = 1  # Passes through messages
     
+    DEFAULT_CONFIG = {
+        'node_id': '',
+        'service_port': '5000',
+        'service_type': '_http._tcp.local.',
+        'auto_start': 'true'
+    }
+    
     properties = [
         {
             'name': 'node_id',
@@ -49,7 +56,7 @@ class MDNSBroadcastNode(BaseNode):
                 {'value': 'true', 'label': 'Yes'},
                 {'value': 'false', 'label': 'No'}
             ],
-            'default': 'true',
+            'default': DEFAULT_CONFIG['auto_start'],
             'help': 'Start broadcasting when workflow starts'
         },
         {
@@ -70,12 +77,7 @@ class MDNSBroadcastNode(BaseNode):
         super().__init__(node_id, name)
         self.broadcaster = None
         self.broadcast_info = {}
-        self.configure({
-            'node_id': '',
-            'service_port': '5000',
-            'service_type': '_http._tcp.local.',
-            'auto_start': 'false'
-        })
+        self.configure(self.DEFAULT_CONFIG)
     
     
     def start_broadcast(self):

@@ -24,6 +24,16 @@ class DelayNode(BaseNode):
     input_count = 1
     output_count = 1
     
+    DEFAULT_CONFIG = {
+        'mode': 'delay',
+        'timeout': 1,
+        'delay_count': 1,
+        'rate': 1,
+        'rate_time': 1,
+        'rate_drop': 'drop',
+        'drop_messages': False
+    }
+    
     properties = [
         {
             'name': 'mode',
@@ -39,7 +49,7 @@ class DelayNode(BaseNode):
             'name': 'timeout',
             'label': 'Delay (seconds)',
             'type': 'number',
-            'default': 0,
+            'default': DEFAULT_CONFIG['timeout'],
             'help': 'Delay time in seconds (for time-based delay)',
             'showIf': {'mode': ['delay', 'rate']}
         },
@@ -47,7 +57,7 @@ class DelayNode(BaseNode):
             'name': 'delay_count',
             'label': 'Delay (messages)',
             'type': 'number',
-            'default': 1,
+            'default': DEFAULT_CONFIG['delay_count'],
             'min': 1,
             'help': 'Number of messages to delay by (for count-based delay)',
             'showIf': {'mode': 'delay_count'}
@@ -56,14 +66,14 @@ class DelayNode(BaseNode):
             'name': 'rate',
             'label': 'Rate Limit (count)',
             'type': 'number',
-            'default': 1,
+            'default': DEFAULT_CONFIG['rate'],
             'showIf': {'mode': 'rate'}
         },
         {
             'name': 'rate_time',
             'label': 'Per Time (seconds)',
             'type': 'number',
-            'default': 1,
+            'default': DEFAULT_CONFIG['rate_time'],
             'showIf': {'mode': 'rate'}
         },
         {
@@ -80,15 +90,7 @@ class DelayNode(BaseNode):
     
     def __init__(self, node_id=None, name="delay"):
         super().__init__(node_id, name)
-        self.configure({
-            'mode': 'delay',
-            'timeout': 1,
-            'delay_count': 1,
-            'rate': 1,
-            'rate_time': 1,
-            'rate_drop': 'drop',
-            'drop_messages': 'false'
-        })
+        self.configure(self.DEFAULT_CONFIG)
         self.last_send_time = 0
         self.queued_messages = []
         self.processing_queue = False

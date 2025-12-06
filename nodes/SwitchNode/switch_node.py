@@ -24,6 +24,14 @@ class SwitchNode(BaseNode):
     input_count = 1
     output_count = 1  # Will be dynamically updated based on rules
     
+    DEFAULT_CONFIG = {
+        'property': 'payload',
+        'checkall': False,
+        'rules': [
+            {'operator': 'eq', 'value': '', 'valueType': 'str'}
+        ]
+    }
+    
     properties = [
         {
             'name': 'property',
@@ -41,20 +49,14 @@ class SwitchNode(BaseNode):
             'name': 'checkall',
             'label': 'Check all rules',
             'type': 'checkbox',
-            'default': False,
+            'default': DEFAULT_CONFIG['checkall'],
             'help': 'If checked, checks all rules and sends to all matching outputs. If unchecked, stops at first match.'
         }
     ]
     
     def __init__(self, node_id=None, name="switch"):
         super().__init__(node_id, name)
-        self.configure({
-            'property': 'payload',
-            'checkall': False,
-            'rules': [
-                {'operator': 'eq', 'value': '', 'valueType': 'str'}
-            ]
-        })
+        self.configure(self.DEFAULT_CONFIG)
         self._update_output_count()
     
     def configure(self, config: Dict[str, Any]):

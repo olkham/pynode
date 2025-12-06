@@ -26,6 +26,17 @@ class UltralyticsNode(BaseNode):
     input_count = 1
     output_count = 1
     
+    DEFAULT_CONFIG = {
+        'model': 'yolov8n.pt',
+        'confidence': '0.25',
+        'iou': '0.45',
+        'draw_results': 'true',
+        'max_det': '300',
+        'include_image': True,
+        'include_predictions': True,
+        'drop_messages': 'true'  # Enable by default for YOLO to prevent queue buildup
+    }
+    
     @staticmethod
     def _get_device_options() -> List[Dict[str, str]]:
         """Get available CUDA devices for the dropdown."""
@@ -109,21 +120,17 @@ class UltralyticsNode(BaseNode):
     
     properties = property(lambda self: self.get_properties())
     
+    @staticmethod
+    def _get_default_device():
+        """Get default device based on availability."""
+        return 'cuda:0' if torch.cuda.is_available() else 'cpu'
+    
     def __init__(self, node_id=None, name="yolo"):
         super().__init__(node_id, name)
-        # Detect default device
-        default_device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
-        self.configure({
-            'model': 'yolov8n.pt',
-            'device': default_device,
-            'confidence': '0.25',
-            'iou': '0.45',
-            'draw_results': 'true',
-            'max_det': '300',
-            'include_image': True,
-            'include_predictions': True,
-            'drop_messages': 'true'  # Enable by default for YOLO to prevent queue buildup
-        })
+        # Configure with defaults, then set device dynamically
+        config = self.DEFAULT_CONFIG.copy()
+        config['device'] = self._get_default_device()
+        self.configure(config)
         self.model = None
         self._model_loaded = False
     

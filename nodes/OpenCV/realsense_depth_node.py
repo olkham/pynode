@@ -24,6 +24,12 @@ class RealsenseDepthNode(BaseNode):
     input_count = 1
     output_count = 1
     
+    DEFAULT_CONFIG = {
+        'output_format': 'both',
+        'depth_scale': 0.03,
+        'colormap': 'jet'
+    }
+    
     properties = [
         {
             'name': 'output_format',
@@ -36,14 +42,14 @@ class RealsenseDepthNode(BaseNode):
                 {'value': 'side_by_side', 'label': 'Side by side (RGB + Depth)'},
                 {'value': 'both', 'label': 'Both (separate in payload)'}
             ],
-            'default': 'both',
+            'default': DEFAULT_CONFIG['output_format'],
             'help': 'Output format for processed frames'
         },
         {
             'name': 'depth_scale',
             'label': 'Depth Scale (alpha)',
             'type': 'number',
-            'default': 0.03,
+            'default': DEFAULT_CONFIG['depth_scale'],
             'min': 0.001,
             'max': 1.0,
             'step': 0.005,
@@ -64,7 +70,7 @@ class RealsenseDepthNode(BaseNode):
                 {'value': 'bone', 'label': 'Bone'},
                 {'value': 'rainbow', 'label': 'Rainbow'}
             ],
-            'default': 'jet',
+            'default': DEFAULT_CONFIG['colormap'],
             'help': 'Colormap for depth visualization'
         }
     ]
@@ -84,11 +90,7 @@ class RealsenseDepthNode(BaseNode):
     
     def __init__(self, node_id=None, name="realsense depth"):
         super().__init__(node_id, name)
-        self.configure({
-            'output_format': 'both',
-            'depth_scale': 0.03,
-            'colormap': 'jet'
-        })
+        self.configure(self.DEFAULT_CONFIG)
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """Process RealSense depth camera frames."""

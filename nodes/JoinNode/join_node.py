@@ -63,7 +63,7 @@ class JoinNode(BaseNode):
             'count': 2,
             'timeout': 1.0,
             'combine': 'array',
-            'drop_messages': 'false'
+            'drop_messages': False
         })
         self.message_buffer = []
         self.first_message_time = None

@@ -22,6 +22,15 @@ class EdgeDetectorNode(BaseNode):
     input_count = 1
     output_count = 1
     
+    DEFAULT_CONFIG = {
+        'method': 'canny',
+        'threshold1': 100,
+        'threshold2': 200,
+        'aperture_size': 3,
+        'sobel_direction': 'both',
+        'l2_gradient': 'no'
+    }
+    
     properties = [
         {
             'name': 'method',
@@ -33,14 +42,14 @@ class EdgeDetectorNode(BaseNode):
                 {'value': 'laplacian', 'label': 'Laplacian'},
                 {'value': 'scharr', 'label': 'Scharr'}
             ],
-            'default': 'canny',
+            'default': DEFAULT_CONFIG['method'],
             'help': 'Edge detection algorithm'
         },
         {
             'name': 'threshold1',
             'label': 'Threshold 1',
             'type': 'number',
-            'default': 100,
+            'default': DEFAULT_CONFIG['threshold1'],
             'min': 0,
             'max': 500,
             'help': 'First threshold for Canny hysteresis',
@@ -50,7 +59,7 @@ class EdgeDetectorNode(BaseNode):
             'name': 'threshold2',
             'label': 'Threshold 2',
             'type': 'number',
-            'default': 200,
+            'default': DEFAULT_CONFIG['threshold2'],
             'min': 0,
             'max': 500,
             'help': 'Second threshold for Canny hysteresis',
@@ -60,7 +69,7 @@ class EdgeDetectorNode(BaseNode):
             'name': 'aperture_size',
             'label': 'Aperture Size',
             'type': 'number',
-            'default': 3,
+            'default': DEFAULT_CONFIG['aperture_size'],
             'min': 3,
             'max': 7,
             'help': 'Aperture size for Sobel operator (3, 5, or 7)',
@@ -75,7 +84,7 @@ class EdgeDetectorNode(BaseNode):
                 {'value': 'x', 'label': 'X only'},
                 {'value': 'y', 'label': 'Y only'}
             ],
-            'default': 'both',
+            'default': DEFAULT_CONFIG['sobel_direction'],
             'help': 'Direction for Sobel/Scharr edge detection',
             'showIf': {'method': ['sobel', 'scharr']}
         },
@@ -87,7 +96,7 @@ class EdgeDetectorNode(BaseNode):
                 {'value': 'yes', 'label': 'Yes (more accurate)'},
                 {'value': 'no', 'label': 'No (faster)'}
             ],
-            'default': 'no',
+            'default': DEFAULT_CONFIG['l2_gradient'],
             'help': 'Use L2 norm for Canny gradient calculation',
             'showIf': {'method': 'canny'}
         }
@@ -95,14 +104,7 @@ class EdgeDetectorNode(BaseNode):
     
     def __init__(self, node_id=None, name="edge detector"):
         super().__init__(node_id, name)
-        self.configure({
-            'method': 'canny',
-            'threshold1': 100,
-            'threshold2': 200,
-            'aperture_size': 3,
-            'sobel_direction': 'both',
-            'l2_gradient': 'no'
-        })
+        self.configure(self.DEFAULT_CONFIG)
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """Detect edges in the input image."""

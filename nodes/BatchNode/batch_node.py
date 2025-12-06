@@ -19,28 +19,30 @@ class BatchNode(BaseNode):
     input_count = 1
     output_count = 1
     
+    DEFAULT_CONFIG = {
+        'batch_size': 10,
+        'overlap': 0,
+        'drop_messages': False
+    }
+    
     properties = [
         {
             'name': 'batch_size',
             'label': 'Batch Size',
             'type': 'number',
-            'default': 10
+            'default': DEFAULT_CONFIG['batch_size']
         },
         {
             'name': 'overlap',
             'label': 'Overlap (messages)',
             'type': 'number',
-            'default': 0
+            'default': DEFAULT_CONFIG['overlap'],
         }
     ]
     
     def __init__(self, node_id=None, name="batch"):
         super().__init__(node_id, name)
-        self.configure({
-            'batch_size': 10,
-            'overlap': 0,
-            'drop_messages': 'false'
-        })
+        self.configure(self.DEFAULT_CONFIG)
         self.buffer = []
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):

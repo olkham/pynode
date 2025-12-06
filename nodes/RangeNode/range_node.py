@@ -61,7 +61,7 @@ class RangeNode(BaseNode):
             'min_out': 0,
             'max_out': 1,
             'clamp': True,
-            'drop_messages': 'false'
+            'drop_messages': False
         })
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):

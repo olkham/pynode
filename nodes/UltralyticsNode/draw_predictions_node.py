@@ -29,6 +29,15 @@ class DrawPredictionsNode(BaseNode):
         'label': 'Draw'
     }
     
+    DEFAULT_CONFIG = {
+        'line_width': '2',
+        'font_scale': '1',
+        'text_thickness': '2',
+        'text_color': 'white',
+        'show_confidence': 'true',
+        'show_class': 'true'
+    }
+    
     properties = [
         {
             'name': 'enabled',
@@ -41,21 +50,21 @@ class DrawPredictionsNode(BaseNode):
             'name': 'line_width',
             'label': 'Line Width',
             'type': 'text',
-            'default': '2',
+            'default': DEFAULT_CONFIG['line_width'],
             'help': 'Thickness of bounding box lines'
         },
         {
             'name': 'font_scale',
             'label': 'Font Scale',
             'type': 'text',
-            'default': '1',
+            'default': DEFAULT_CONFIG['font_scale'],
             'help': 'Size of label text'
         },
         {
             'name': 'text_thickness',
             'label': 'Text Thickness',
             'type': 'text',
-            'default': '2',
+            'default': DEFAULT_CONFIG['text_thickness'],
             'help': 'Thickness of label text'
         },
         {
@@ -70,7 +79,7 @@ class DrawPredictionsNode(BaseNode):
                 {'value': 'blue', 'label': 'Blue'},
                 {'value': 'yellow', 'label': 'Yellow'}
             ],
-            'default': 'white',
+            'default': DEFAULT_CONFIG['text_color'],
             'help': 'Color of label text'
         },
         {
@@ -81,7 +90,7 @@ class DrawPredictionsNode(BaseNode):
                 {'value': 'true', 'label': 'Yes'},
                 {'value': 'false', 'label': 'No'}
             ],
-            'default': 'true',
+            'default': DEFAULT_CONFIG['show_confidence'],
             'help': 'Display confidence scores on labels'
         },
         {
@@ -92,7 +101,7 @@ class DrawPredictionsNode(BaseNode):
                 {'value': 'true', 'label': 'Yes'},
                 {'value': 'false', 'label': 'No'}
             ],
-            'default': 'true',
+            'default': DEFAULT_CONFIG['show_class'],
             'help': 'Display class names on labels'
         }
     ]

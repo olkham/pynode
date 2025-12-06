@@ -21,6 +21,13 @@ class RotateNode(BaseNode):
     input_count = 1
     output_count = 1
     
+    DEFAULT_CONFIG = {
+        'mode': '90cw',
+        'angle': 45,
+        'expand': 'yes',
+        'fill_color': '0,0,0'
+    }
+    
     properties = [
         {
             'name': 'mode',
@@ -35,14 +42,14 @@ class RotateNode(BaseNode):
                 {'value': 'flip_v', 'label': 'Flip vertical'},
                 {'value': 'flip_both', 'label': 'Flip both'}
             ],
-            'default': '90cw',
+            'default': DEFAULT_CONFIG['mode'],
             'help': 'Rotation mode'
         },
         {
             'name': 'angle',
             'label': 'Angle (degrees)',
             'type': 'number',
-            'default': 45,
+            'default': DEFAULT_CONFIG['angle'],
             'min': -360,
             'max': 360,
             'help': 'Rotation angle in degrees (positive = counter-clockwise)',
@@ -56,7 +63,7 @@ class RotateNode(BaseNode):
                 {'value': 'yes', 'label': 'Yes'},
                 {'value': 'no', 'label': 'No'}
             ],
-            'default': 'yes',
+            'default': DEFAULT_CONFIG['expand'],
             'help': 'Expand canvas to fit rotated image',
             'showIf': {'mode': 'angle'}
         },
@@ -64,7 +71,7 @@ class RotateNode(BaseNode):
             'name': 'fill_color',
             'label': 'Fill Color (B,G,R)',
             'type': 'text',
-            'default': '0,0,0',
+            'default': DEFAULT_CONFIG['fill_color'],
             'help': 'Color to fill empty areas',
             'showIf': {'mode': 'angle'}
         }
@@ -72,12 +79,7 @@ class RotateNode(BaseNode):
     
     def __init__(self, node_id=None, name="rotate"):
         super().__init__(node_id, name)
-        self.configure({
-            'mode': '90cw',
-            'angle': 45,
-            'expand': 'yes',
-            'fill_color': '0,0,0'
-        })
+        self.configure(self.DEFAULT_CONFIG)
     
     def _parse_color(self, color_str):
         """Parse color string to BGR tuple."""

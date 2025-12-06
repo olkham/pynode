@@ -23,6 +23,15 @@ class ThresholdNode(BaseNode):
     input_count = 1
     output_count = 1
     
+    DEFAULT_CONFIG = {
+        'method': 'binary',
+        'threshold': 127,
+        'max_value': 255,
+        'block_size': 11,
+        'c_value': 2,
+        'convert_gray': 'yes'
+    }
+    
     properties = [
         {
             'name': 'method',
@@ -38,14 +47,14 @@ class ThresholdNode(BaseNode):
                 {'value': 'adaptive_mean', 'label': 'Adaptive Mean'},
                 {'value': 'adaptive_gaussian', 'label': 'Adaptive Gaussian'}
             ],
-            'default': 'binary',
+            'default': DEFAULT_CONFIG['method'],
             'help': 'Thresholding method to apply'
         },
         {
             'name': 'threshold',
             'label': 'Threshold Value',
             'type': 'number',
-            'default': 127,
+            'default': DEFAULT_CONFIG['threshold'],
             'min': 0,
             'max': 255,
             'help': 'Threshold value (ignored for Otsu and adaptive methods)',
@@ -55,7 +64,7 @@ class ThresholdNode(BaseNode):
             'name': 'max_value',
             'label': 'Max Value',
             'type': 'number',
-            'default': 255,
+            'default': DEFAULT_CONFIG['max_value'],
             'min': 0,
             'max': 255,
             'help': 'Maximum value for binary thresholding'
@@ -64,7 +73,7 @@ class ThresholdNode(BaseNode):
             'name': 'block_size',
             'label': 'Block Size',
             'type': 'number',
-            'default': 11,
+            'default': DEFAULT_CONFIG['block_size'],
             'min': 3,
             'max': 99,
             'help': 'Block size for adaptive methods (must be odd)',
@@ -74,7 +83,7 @@ class ThresholdNode(BaseNode):
             'name': 'c_value',
             'label': 'C Value',
             'type': 'number',
-            'default': 2,
+            'default': DEFAULT_CONFIG['c_value'],
             'help': 'Constant subtracted from mean (adaptive methods)',
             'showIf': {'method': ['adaptive_mean', 'adaptive_gaussian']}
         },
@@ -86,21 +95,14 @@ class ThresholdNode(BaseNode):
                 {'value': 'yes', 'label': 'Yes'},
                 {'value': 'no', 'label': 'No'}
             ],
-            'default': 'yes',
+            'default': DEFAULT_CONFIG['convert_gray'],
             'help': 'Automatically convert color images to grayscale'
         }
     ]
     
     def __init__(self, node_id=None, name="threshold"):
         super().__init__(node_id, name)
-        self.configure({
-            'method': 'binary',
-            'threshold': 127,
-            'max_value': 255,
-            'block_size': 11,
-            'c_value': 2,
-            'convert_gray': 'yes'
-        })
+        self.configure(self.DEFAULT_CONFIG)
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """Apply thresholding to the input image."""

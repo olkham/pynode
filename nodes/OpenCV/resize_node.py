@@ -21,6 +21,14 @@ class ResizeNode(BaseNode):
     input_count = 1
     output_count = 1
     
+    DEFAULT_CONFIG = {
+        'mode': 'scale',
+        'width': 640,
+        'height': 480,
+        'scale': 0.5,
+        'interpolation': 'linear'
+    }
+    
     properties = [
         {
             'name': 'mode',
@@ -32,14 +40,14 @@ class ResizeNode(BaseNode):
                 {'value': 'fit', 'label': 'Fit within bounds'},
                 {'value': 'fill', 'label': 'Fill bounds (crop)'}
             ],
-            'default': 'scale',
+            'default': DEFAULT_CONFIG['mode'],
             'help': 'How to determine new size'
         },
         {
             'name': 'width',
             'label': 'Width',
             'type': 'number',
-            'default': 640,
+            'default': DEFAULT_CONFIG['width'],
             'min': 1,
             'help': 'Target width in pixels',
             'showIf': {'mode': ['absolute', 'fit', 'fill']}
@@ -48,7 +56,7 @@ class ResizeNode(BaseNode):
             'name': 'height',
             'label': 'Height',
             'type': 'number',
-            'default': 480,
+            'default': DEFAULT_CONFIG['height'],
             'min': 1,
             'help': 'Target height in pixels',
             'showIf': {'mode': ['absolute', 'fit', 'fill']}
@@ -57,7 +65,7 @@ class ResizeNode(BaseNode):
             'name': 'scale',
             'label': 'Scale Factor',
             'type': 'number',
-            'default': 0.5,
+            'default': DEFAULT_CONFIG['scale'],
             'min': 0.01,
             'max': 10,
             'step': 0.1,
@@ -75,20 +83,14 @@ class ResizeNode(BaseNode):
                 {'value': 'cubic', 'label': 'Bicubic'},
                 {'value': 'lanczos', 'label': 'Lanczos'}
             ],
-            'default': 'linear',
+            'default': DEFAULT_CONFIG['interpolation'],
             'help': 'Interpolation method'
         }
     ]
     
     def __init__(self, node_id=None, name="resize"):
         super().__init__(node_id, name)
-        self.configure({
-            'mode': 'scale',
-            'width': 640,
-            'height': 480,
-            'scale': 0.5,
-            'interpolation': 'linear'
-        })
+        self.configure(self.DEFAULT_CONFIG)
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """Resize the input image."""

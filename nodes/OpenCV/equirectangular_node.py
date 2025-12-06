@@ -119,12 +119,23 @@ class EquirectangularNode(BaseNode):
     input_count = 1
     output_count = 1
     
+    DEFAULT_CONFIG = {
+        'yaw': 0,
+        'pitch': 0,
+        'roll': 0,
+        'fov': 90,
+        'output_width': 1920,
+        'output_height': 1080,
+        'angle_source': 'config',
+        'interpolation': 'linear'
+    }
+    
     properties = [
         {
             'name': 'yaw',
             'label': 'Yaw (°)',
             'type': 'number',
-            'default': 0,
+            'default': DEFAULT_CONFIG['yaw'],
             'min': -180,
             'max': 180,
             'step': 1,
@@ -134,7 +145,7 @@ class EquirectangularNode(BaseNode):
             'name': 'pitch',
             'label': 'Pitch (°)',
             'type': 'number',
-            'default': 0,
+            'default': DEFAULT_CONFIG['pitch'],
             'min': -90,
             'max': 90,
             'step': 1,
@@ -144,7 +155,7 @@ class EquirectangularNode(BaseNode):
             'name': 'roll',
             'label': 'Roll (°)',
             'type': 'number',
-            'default': 0,
+            'default': DEFAULT_CONFIG['roll'],
             'min': -180,
             'max': 180,
             'step': 1,
@@ -154,7 +165,7 @@ class EquirectangularNode(BaseNode):
             'name': 'fov',
             'label': 'Field of View (°)',
             'type': 'number',
-            'default': 90,
+            'default': DEFAULT_CONFIG['fov'],
             'min': 10,
             'max': 170,
             'step': 5,
@@ -164,7 +175,7 @@ class EquirectangularNode(BaseNode):
             'name': 'output_width',
             'label': 'Output Width',
             'type': 'number',
-            'default': 1920,
+            'default': DEFAULT_CONFIG['output_width'],
             'min': 64,
             'max': 4096,
             'help': 'Width of output image'
@@ -173,7 +184,7 @@ class EquirectangularNode(BaseNode):
             'name': 'output_height',
             'label': 'Output Height',
             'type': 'number',
-            'default': 1080,
+            'default': DEFAULT_CONFIG['output_height'],
             'min': 64,
             'max': 4096,
             'help': 'Height of output image'
@@ -186,7 +197,7 @@ class EquirectangularNode(BaseNode):
                 {'value': 'config', 'label': 'From config'},
                 {'value': 'msg', 'label': 'From message (msg.yaw, msg.pitch, msg.roll)'}
             ],
-            'default': 'config',
+            'default': DEFAULT_CONFIG['angle_source'],
             'help': 'Source for yaw/pitch/roll values'
         },
         {
@@ -198,23 +209,14 @@ class EquirectangularNode(BaseNode):
                 {'value': 'cubic', 'label': 'Bicubic (quality)'},
                 {'value': 'lanczos', 'label': 'Lanczos (best quality)'}
             ],
-            'default': 'linear',
+            'default': DEFAULT_CONFIG['interpolation'],
             'help': 'Interpolation method for remapping'
         }
     ]
     
     def __init__(self, node_id=None, name="equirectangular"):
         super().__init__(node_id, name)
-        self.configure({
-            'yaw': 0,
-            'pitch': 0,
-            'roll': 0,
-            'fov': 90,
-            'output_width': 1920,
-            'output_height': 1080,
-            'angle_source': 'config',
-            'interpolation': 'linear'
-        })
+        self.configure(self.DEFAULT_CONFIG)
         
         # Coordinate mapping cache
         self._map_cache = {}

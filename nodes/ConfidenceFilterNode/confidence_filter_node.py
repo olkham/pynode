@@ -22,12 +22,19 @@ class ConfidenceFilterNode(BaseNode):
     input_count = 1
     output_count = 2  # Output 0: >= threshold, Output 1: < threshold
     
+    DEFAULT_CONFIG = {
+        'threshold': 0.5,
+        'threshold_source': 'config',
+        'detection_path': 'payload.detection',
+        'confidence_field': 'confidence'
+    }
+    
     properties = [
         {
             'name': 'threshold',
             'label': 'Confidence Threshold',
             'type': 'number',
-            'default': 0.5,
+            'default': DEFAULT_CONFIG['threshold'],
             'min': 0,
             'max': 1,
             'step': 0.01,
@@ -41,33 +48,28 @@ class ConfidenceFilterNode(BaseNode):
                 {'value': 'config', 'label': 'Use configured value'},
                 {'value': 'msg', 'label': 'Use msg.threshold'}
             ],
-            'default': 'config',
+            'default': DEFAULT_CONFIG['threshold_source'],
             'help': 'Where to read the threshold value from'
         },
         {
             'name': 'detection_path',
             'label': 'Detection Path',
             'type': 'text',
-            'default': 'payload.detection',
+            'default': DEFAULT_CONFIG['detection_path'],
             'help': 'Path to detection object in message (e.g., "payload.detection")'
         },
         {
             'name': 'confidence_field',
             'label': 'Confidence Field',
             'type': 'text',
-            'default': 'confidence',
+            'default': DEFAULT_CONFIG['confidence_field'],
             'help': 'Name of the confidence field in detection object'
         }
     ]
     
     def __init__(self, node_id=None, name="confidence filter"):
         super().__init__(node_id, name)
-        self.configure({
-            'threshold': 0.5,
-            'threshold_source': 'config',
-            'detection_path': 'payload.detection',
-            'confidence_field': 'confidence'
-        })
+        self.configure(self.DEFAULT_CONFIG)
     
     def _get_nested_value(self, obj: Dict, path: str) -> Any:
         """Get a nested value from a dictionary using dot notation."""

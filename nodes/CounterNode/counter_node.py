@@ -29,29 +29,31 @@ class CounterNode(BaseNode):
         'tooltip': 'Reset Count'
     }
     
+    DEFAULT_CONFIG = {
+        'initial_value': '0',
+        'increment': '1'
+    }
+    
     properties = [
         {
             'name': 'initial_value',
             'label': 'Initial Value',
             'type': 'text',
-            'default': '0',
+            'default': DEFAULT_CONFIG['initial_value'],
             'help': 'Starting count value'
         },
         {
             'name': 'increment',
             'label': 'Increment By',
             'type': 'text',
-            'default': '1',
+            'default': DEFAULT_CONFIG['increment'],
             'help': 'Amount to increment per message'
         }
     ]
     
     def __init__(self, node_id=None, name="counter"):
         super().__init__(node_id, name)
-        self.configure({
-            'initial_value': '0',
-            'increment': '1'
-        })
+        self.configure(self.DEFAULT_CONFIG)
         self.count = 0
         self._reset_to_initial()
     

@@ -22,6 +22,16 @@ class ColormapNode(BaseNode):
     input_count = 1
     output_count = 1
     
+    DEFAULT_CONFIG = {
+        'input_source': 'depth',
+        'colormap': 'jet',
+        'alpha': 0.03,
+        'auto_scale': 'false',
+        'min_value': 0,
+        'max_value': 0,
+        'invert': 'false'
+    }
+    
     properties = [
         {
             'name': 'input_source',
@@ -31,7 +41,7 @@ class ColormapNode(BaseNode):
                 {'value': 'image', 'label': 'From msg.payload.image'},
                 {'value': 'depth', 'label': 'From msg.payload.depth'}
             ],
-            'default': 'depth',
+            'default': DEFAULT_CONFIG['input_source'],
             'help': 'Source of the grayscale/depth data'
         },
         {
@@ -61,14 +71,14 @@ class ColormapNode(BaseNode):
                 {'value': 'twilight_shifted', 'label': 'Twilight Shifted'},
                 {'value': 'deepgreen', 'label': 'Deep Green'}
             ],
-            'default': 'jet',
+            'default': DEFAULT_CONFIG['colormap'],
             'help': 'Colormap to apply'
         },
         {
             'name': 'alpha',
             'label': 'Scale (alpha)',
             'type': 'number',
-            'default': 0.03,
+            'default': DEFAULT_CONFIG['alpha'],
             'min': 0.001,
             'max': 1.0,
             'step': 0.005,
@@ -82,21 +92,21 @@ class ColormapNode(BaseNode):
                 {'value': 'true', 'label': 'Yes (normalize to full range)'},
                 {'value': 'false', 'label': 'No (use alpha scale)'}
             ],
-            'default': 'false',
+            'default': DEFAULT_CONFIG['auto_scale'],
             'help': 'Automatically normalize values to 0-255 range'
         },
         {
             'name': 'min_value',
             'label': 'Min Value (for auto-scale)',
             'type': 'number',
-            'default': 0,
+            'default': DEFAULT_CONFIG['min_value'],
             'help': 'Minimum value for normalization (0 = auto detect)'
         },
         {
             'name': 'max_value',
             'label': 'Max Value (for auto-scale)',
             'type': 'number',
-            'default': 0,
+            'default': DEFAULT_CONFIG['max_value'],
             'help': 'Maximum value for normalization (0 = auto detect)'
         },
         {
@@ -107,7 +117,7 @@ class ColormapNode(BaseNode):
                 {'value': 'false', 'label': 'No'},
                 {'value': 'true', 'label': 'Yes'}
             ],
-            'default': 'false',
+            'default': DEFAULT_CONFIG['invert'],
             'help': 'Invert the colormap (flip colors)'
         }
     ]
@@ -139,15 +149,7 @@ class ColormapNode(BaseNode):
     
     def __init__(self, node_id=None, name="colormap"):
         super().__init__(node_id, name)
-        self.configure({
-            'input_source': 'depth',
-            'colormap': 'jet',
-            'alpha': 0.03,
-            'auto_scale': 'false',
-            'min_value': 0,
-            'max_value': 0,
-            'invert': 'false'
-        })
+        self.configure(self.DEFAULT_CONFIG)
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """Apply colormap to input image/depth data."""

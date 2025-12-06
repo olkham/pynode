@@ -23,42 +23,51 @@ class CameraNode(BaseNode):
     input_count = 0  # No input
     output_count = 1
     
+    DEFAULT_CONFIG = {
+        'camera_index': 0,
+        'fps': 30,
+        'width': 640,
+        'height': 480,
+        'encode_jpeg': False,
+        'jpeg_quality': 75
+    }
+    
     properties = [
         {
             'name': 'camera_index',
             'label': 'Camera Index',
             'type': 'number',
-            'default': 0
+            'default': DEFAULT_CONFIG['camera_index']
         },
         {
             'name': 'fps',
             'label': 'Frame Rate (FPS)',
             'type': 'number',
-            'default': 30
+            'default': DEFAULT_CONFIG['fps']
         },
         {
             'name': 'width',
             'label': 'Width',
             'type': 'number',
-            'default': 640
+            'default': DEFAULT_CONFIG['width']
         },
         {
             'name': 'height',
             'label': 'Height',
             'type': 'number',
-            'default': 480
+            'default': DEFAULT_CONFIG['height']
         },
         {
             'name': 'encode_jpeg',
             'label': 'Encode as JPEG',
             'type': 'checkbox',
-            'default': True
+            'default': DEFAULT_CONFIG['encode_jpeg']
         },
         {
             'name': 'jpeg_quality',
             'label': 'JPEG Quality (1-100)',
             'type': 'number',
-            'default': 75
+            'default': DEFAULT_CONFIG['jpeg_quality']
         }
     ]
     
@@ -67,14 +76,7 @@ class CameraNode(BaseNode):
         self.camera = None
         self.capture_thread = None
         self.running = False
-        self.configure({
-            'camera_index': 0,
-            'fps': 30,
-            'width': 640,
-            'height': 480,
-            'encode_jpeg': True,
-            'jpeg_quality': 75
-        })
+        self.configure(self.DEFAULT_CONFIG)
     
     def on_start(self):
         """Start the camera capture when workflow starts."""

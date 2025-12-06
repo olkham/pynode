@@ -22,24 +22,30 @@ class ImageViewerNode(BaseNode):
     input_count = 1
     output_count = 0
     
+    DEFAULT_CONFIG = {
+        'width': 320,
+        'height': 240,
+        'image_path': 'payload.image'
+    }
+    
     properties = [
         {
             'name': 'width',
             'label': 'Display Width (px)',
             'type': 'number',
-            'default': 320
+            'default': DEFAULT_CONFIG['width']
         },
         {
             'name': 'height',
             'label': 'Display Height (px)',
             'type': 'number',
-            'default': 240
+            'default': DEFAULT_CONFIG['height']
         },
         {
             'name': 'image_path',
             'label': 'Image Data Path',
             'type': 'text',
-            'default': 'payload.image',
+            'default': DEFAULT_CONFIG['image_path'],
             'description': 'Dot-separated path to image data (e.g. payload.image)'
         }
     ]
@@ -49,11 +55,7 @@ class ImageViewerNode(BaseNode):
         self.current_frame = None
         self.frame_timestamp = 0
         self.last_sent_timestamp = 0
-        self.configure({
-            'width': 320,
-            'height': 240,
-            'image_path': 'payload.image'
-        })
+        self.configure(self.DEFAULT_CONFIG)
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """

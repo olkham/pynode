@@ -21,6 +21,10 @@ class BitwiseNode(BaseNode):
     input_count = 2  # Input 0: image1, Input 1: image2 or mask
     output_count = 1
     
+    DEFAULT_CONFIG = {
+        'operation': 'and'
+    }
+    
     properties = [
         {
             'name': 'operation',
@@ -33,16 +37,14 @@ class BitwiseNode(BaseNode):
                 {'value': 'not', 'label': 'NOT (invert)'},
                 {'value': 'mask', 'label': 'Apply mask'}
             ],
-            'default': 'and',
+            'default': DEFAULT_CONFIG['operation'],
             'help': 'Bitwise operation to perform'
         }
     ]
     
     def __init__(self, node_id=None, name="bitwise"):
         super().__init__(node_id, name)
-        self.configure({
-            'operation': 'and'
-        })
+        self.configure(self.DEFAULT_CONFIG)
         self._image1 = None
         self._image2 = None
         self._format_type = None

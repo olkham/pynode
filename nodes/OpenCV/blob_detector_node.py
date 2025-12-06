@@ -23,12 +23,22 @@ class BlobDetectorNode(BaseNode):
     input_count = 1
     output_count = 1
     
+    DEFAULT_CONFIG = {
+        'min_area': 100,
+        'max_area': 50000,
+        'min_circularity': 0.1,
+        'min_convexity': 0.5,
+        'min_inertia': 0.1,
+        'filter_by_color': 'dark',
+        'draw_keypoints': 'yes'
+    }
+    
     properties = [
         {
             'name': 'min_area',
             'label': 'Min Area',
             'type': 'number',
-            'default': 100,
+            'default': DEFAULT_CONFIG['min_area'],
             'min': 1,
             'help': 'Minimum blob area in pixels'
         },
@@ -36,7 +46,7 @@ class BlobDetectorNode(BaseNode):
             'name': 'max_area',
             'label': 'Max Area',
             'type': 'number',
-            'default': 50000,
+            'default': DEFAULT_CONFIG['max_area'],
             'min': 1,
             'help': 'Maximum blob area in pixels'
         },
@@ -44,7 +54,7 @@ class BlobDetectorNode(BaseNode):
             'name': 'min_circularity',
             'label': 'Min Circularity',
             'type': 'number',
-            'default': 0.1,
+            'default': DEFAULT_CONFIG['min_circularity'],
             'min': 0,
             'max': 1,
             'step': 0.1,
@@ -54,7 +64,7 @@ class BlobDetectorNode(BaseNode):
             'name': 'min_convexity',
             'label': 'Min Convexity',
             'type': 'number',
-            'default': 0.5,
+            'default': DEFAULT_CONFIG['min_convexity'],
             'min': 0,
             'max': 1,
             'step': 0.1,
@@ -64,7 +74,7 @@ class BlobDetectorNode(BaseNode):
             'name': 'min_inertia',
             'label': 'Min Inertia Ratio',
             'type': 'number',
-            'default': 0.1,
+            'default': DEFAULT_CONFIG['min_inertia'],
             'min': 0,
             'max': 1,
             'step': 0.1,
@@ -79,7 +89,7 @@ class BlobDetectorNode(BaseNode):
                 {'value': 'dark', 'label': 'Dark blobs'},
                 {'value': 'light', 'label': 'Light blobs'}
             ],
-            'default': 'dark',
+            'default': DEFAULT_CONFIG['filter_by_color'],
             'help': 'Filter blobs by color (dark or light)'
         },
         {
@@ -90,22 +100,14 @@ class BlobDetectorNode(BaseNode):
                 {'value': 'yes', 'label': 'Yes'},
                 {'value': 'no', 'label': 'No'}
             ],
-            'default': 'yes',
+            'default': DEFAULT_CONFIG['draw_keypoints'],
             'help': 'Draw detected keypoints on output image'
         }
     ]
     
     def __init__(self, node_id=None, name="blob detector"):
         super().__init__(node_id, name)
-        self.configure({
-            'min_area': 100,
-            'max_area': 50000,
-            'min_circularity': 0.1,
-            'min_convexity': 0.5,
-            'min_inertia': 0.1,
-            'filter_by_color': 'dark',
-            'draw_keypoints': 'yes'
-        })
+        self.configure(self.DEFAULT_CONFIG)
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """Detect blobs in the input image."""

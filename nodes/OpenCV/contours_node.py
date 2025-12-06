@@ -23,6 +23,15 @@ class ContoursNode(BaseNode):
     input_count = 1
     output_count = 1
     
+    DEFAULT_CONFIG = {
+        'mode': 'external',
+        'approximation': 'simple',
+        'min_area': 100,
+        'max_area': 0,
+        'draw_contours': 'yes',
+        'draw_bboxes': 'no'
+    }
+    
     properties = [
         {
             'name': 'mode',
@@ -34,7 +43,7 @@ class ContoursNode(BaseNode):
                 {'value': 'tree', 'label': 'All (hierarchy)'},
                 {'value': 'ccomp', 'label': 'Two-level hierarchy'}
             ],
-            'default': 'external',
+            'default': DEFAULT_CONFIG['mode'],
             'help': 'How to retrieve contours'
         },
         {
@@ -47,14 +56,14 @@ class ContoursNode(BaseNode):
                 {'value': 'tc89_l1', 'label': 'Teh-Chin L1'},
                 {'value': 'tc89_kcos', 'label': 'Teh-Chin KCOS'}
             ],
-            'default': 'simple',
+            'default': DEFAULT_CONFIG['approximation'],
             'help': 'Contour approximation method'
         },
         {
             'name': 'min_area',
             'label': 'Min Area',
             'type': 'number',
-            'default': 100,
+            'default': DEFAULT_CONFIG['min_area'],
             'min': 0,
             'help': 'Minimum contour area to include'
         },
@@ -62,7 +71,7 @@ class ContoursNode(BaseNode):
             'name': 'max_area',
             'label': 'Max Area',
             'type': 'number',
-            'default': 0,
+            'default': DEFAULT_CONFIG['max_area'],
             'min': 0,
             'help': 'Maximum contour area (0 = no limit)'
         },
@@ -74,7 +83,7 @@ class ContoursNode(BaseNode):
                 {'value': 'yes', 'label': 'Yes'},
                 {'value': 'no', 'label': 'No'}
             ],
-            'default': 'yes',
+            'default': DEFAULT_CONFIG['draw_contours'],
             'help': 'Draw detected contours on output image'
         },
         {
@@ -85,21 +94,14 @@ class ContoursNode(BaseNode):
                 {'value': 'yes', 'label': 'Yes'},
                 {'value': 'no', 'label': 'No'}
             ],
-            'default': 'no',
+            'default': DEFAULT_CONFIG['draw_bboxes'],
             'help': 'Draw bounding boxes around contours'
         }
     ]
     
     def __init__(self, node_id=None, name="find contours"):
         super().__init__(node_id, name)
-        self.configure({
-            'mode': 'external',
-            'approximation': 'simple',
-            'min_area': 100,
-            'max_area': 0,
-            'draw_contours': 'yes',
-            'draw_bboxes': 'no'
-        })
+        self.configure(self.DEFAULT_CONFIG)
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """Find contours in the input image."""

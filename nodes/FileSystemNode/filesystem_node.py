@@ -25,19 +25,29 @@ class FileSystemNode(BaseNode):
     input_count = 1
     output_count = 1
     
+    DEFAULT_CONFIG = {
+        'directory': './output',
+        'filename': 'frame',
+        'extension': 'jpg',
+        'naming_mode': 'counter',
+        'counter_digits': '4',
+        'overwrite': 'false',
+        'create_subdirs': 'true'
+    }
+    
     properties = [
         {
             'name': 'directory',
             'label': 'Output Directory',
             'type': 'text',
-            'default': './output',
+            'default': DEFAULT_CONFIG['directory'],
             'help': 'Directory where files will be saved (created if doesn\'t exist)'
         },
         {
             'name': 'filename',
             'label': 'Filename/Prefix',
             'type': 'text',
-            'default': 'frame',
+            'default': DEFAULT_CONFIG['filename'],
             'help': 'Filename or prefix. Can be overridden by msg.fname. Supports {timestamp}, {counter}'
         },
         {
@@ -52,7 +62,7 @@ class FileSystemNode(BaseNode):
                 {'value': 'json', 'label': '.json'},
                 {'value': 'bin', 'label': '.bin (binary)'}
             ],
-            'default': 'jpg',
+            'default': DEFAULT_CONFIG['extension'],
             'help': 'File extension. Can be overridden by msg.extension'
         },
         {
@@ -65,14 +75,14 @@ class FileSystemNode(BaseNode):
                 {'value': 'datetime', 'label': 'DateTime (frame_2024-12-03_153045.jpg)'},
                 {'value': 'message', 'label': 'From Message (msg.fname)'}
             ],
-            'default': 'counter',
+            'default': DEFAULT_CONFIG['naming_mode'],
             'help': 'How to generate filenames'
         },
         {
             'name': 'counter_digits',
             'label': 'Counter Digits',
             'type': 'text',
-            'default': '4',
+            'default': DEFAULT_CONFIG['counter_digits'],
             'help': 'Number of digits for counter padding (e.g., 4 = 0001, 0002, ...)'
         },
         {
@@ -83,7 +93,7 @@ class FileSystemNode(BaseNode):
                 {'value': 'false', 'label': 'No (skip if exists)'},
                 {'value': 'true', 'label': 'Yes (overwrite)'}
             ],
-            'default': 'false',
+            'default': DEFAULT_CONFIG['overwrite'],
             'help': 'Overwrite existing files or skip them'
         },
         {
@@ -94,22 +104,15 @@ class FileSystemNode(BaseNode):
                 {'value': 'true', 'label': 'Yes'},
                 {'value': 'false', 'label': 'No'}
             ],
-            'default': 'true',
+            'default': DEFAULT_CONFIG['create_subdirs'],
             'help': 'Create directory structure if it doesn\'t exist'
         }
     ]
     
     def __init__(self, node_id=None, name="file system"):
         super().__init__(node_id, name)
-        self.configure({
-            'directory': './output',
-            'filename': 'frame',
-            'extension': 'jpg',
-            'naming_mode': 'counter',
-            'counter_digits': '4',
-            'overwrite': 'false',
-            'create_subdirs': 'true'
-        })
+        self.configure(self.DEFAULT_CONFIG)
+        
         self._counter = 0
         self._last_written = None
     

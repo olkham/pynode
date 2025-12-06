@@ -22,12 +22,17 @@ class AutoSyncNode(BaseNode):
     input_count = 2  # Default, can be changed via properties
     output_count = 1
     
+    DEFAULT_CONFIG = {
+        'input_count': 2,
+        'sync_property': 'frame_count'
+    }
+    
     properties = [
         {
             'name': 'input_count',
             'label': 'Number of Inputs',
             'type': 'number',
-            'default': 2,
+            'default': DEFAULT_CONFIG['input_count'],
             'min': 2,
             'max': 10,
             'help': 'Number of input ports to join'
@@ -36,7 +41,7 @@ class AutoSyncNode(BaseNode):
             'name': 'sync_property',
             'label': 'Sync Property Path',
             'type': 'text',
-            'default': 'frame_count',
+            'default': DEFAULT_CONFIG['sync_property'],
             'help': 'Property path to compare for delta (e.g., "frame_count", "timestamp")'
         }
     ]
@@ -45,10 +50,7 @@ class AutoSyncNode(BaseNode):
         super().__init__(node_id, name)
         self._buffers: Dict[int, Optional[Dict[str, Any]]] = {}
         
-        self.configure({
-            'input_count': 2,
-            'sync_property': 'frame_count'
-        })
+        self.configure(self.DEFAULT_CONFIG)
     
     def configure(self, config: Dict[str, Any]):
         """Configure node and update input count."""

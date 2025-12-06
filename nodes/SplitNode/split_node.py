@@ -20,6 +20,12 @@ class SplitNode(BaseNode):
     input_count = 1
     output_count = 1
     
+    DEFAULT_CONFIG = {
+        'split_type': 'auto',
+        'delimiter': ',',
+        'drop_messages': False
+    }
+    
     properties = [
         {
             'name': 'split_type',
@@ -30,23 +36,20 @@ class SplitNode(BaseNode):
                 {'value': 'array', 'label': 'Array'},
                 {'value': 'string', 'label': 'String'},
                 {'value': 'object', 'label': 'Object (key-value pairs)'}
-            ]
+            ],
+            'default': DEFAULT_CONFIG['split_type']
         },
         {
             'name': 'delimiter',
             'label': 'String Delimiter',
             'type': 'text',
-            'default': ','
+            'default': DEFAULT_CONFIG['delimiter']
         }
     ]
     
     def __init__(self, node_id=None, name="split"):
         super().__init__(node_id, name)
-        self.configure({
-            'split_type': 'auto',
-            'delimiter': ',',
-            'drop_messages': 'false'
-        })
+        self.configure(self.DEFAULT_CONFIG)
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """Split incoming message into multiple messages."""

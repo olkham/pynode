@@ -22,6 +22,13 @@ class PerspectiveNode(BaseNode):
     input_count = 1
     output_count = 1
     
+    DEFAULT_CONFIG = {
+        'mode': 'from_msg',
+        'output_width': 400,
+        'output_height': 300,
+        'src_points': '0,0;100,0;100,100;0,100'
+    }
+    
     properties = [
         {
             'name': 'mode',
@@ -31,14 +38,14 @@ class PerspectiveNode(BaseNode):
                 {'value': 'from_msg', 'label': 'Points from message'},
                 {'value': 'manual', 'label': 'Manual points'}
             ],
-            'default': 'from_msg',
+            'default': DEFAULT_CONFIG['mode'],
             'help': 'How to get source points'
         },
         {
             'name': 'output_width',
             'label': 'Output Width',
             'type': 'number',
-            'default': 400,
+            'default': DEFAULT_CONFIG['output_width'],
             'min': 1,
             'help': 'Width of output image'
         },
@@ -46,7 +53,7 @@ class PerspectiveNode(BaseNode):
             'name': 'output_height',
             'label': 'Output Height',
             'type': 'number',
-            'default': 300,
+            'default': DEFAULT_CONFIG['output_height'],
             'min': 1,
             'help': 'Height of output image'
         },
@@ -54,7 +61,7 @@ class PerspectiveNode(BaseNode):
             'name': 'src_points',
             'label': 'Source Points',
             'type': 'text',
-            'default': '0,0;100,0;100,100;0,100',
+            'default': DEFAULT_CONFIG['src_points'],
             'help': 'Source points as x1,y1;x2,y2;x3,y3;x4,y4 (TL,TR,BR,BL)',
             'showIf': {'mode': 'manual'}
         }
@@ -62,12 +69,7 @@ class PerspectiveNode(BaseNode):
     
     def __init__(self, node_id=None, name="perspective"):
         super().__init__(node_id, name)
-        self.configure({
-            'mode': 'from_msg',
-            'output_width': 400,
-            'output_height': 300,
-            'src_points': '0,0;100,0;100,100;0,100'
-        })
+        self.configure(self.DEFAULT_CONFIG)
     
     def _parse_points(self, points_str):
         """Parse points string to numpy array."""

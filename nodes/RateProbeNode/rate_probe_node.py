@@ -27,22 +27,24 @@ class RateProbeNode(BaseNode):
         'format': '{value}/s',
         'precision': 1
     }
-    
+
+    DEFAULT_CONFIG = {
+        'window_size': 1.0  # in seconds
+    }
+
     properties = [
         {
             'name': 'window_size',
             'label': 'Window Size (seconds)',
             'type': 'number',
-            'default': 1.0,
+            'default': DEFAULT_CONFIG['window_size'],
             'help': 'Time window for calculating rate'
         }
     ]
     
     def __init__(self, node_id=None, name="rate probe"):
         super().__init__(node_id, name)
-        self.configure({
-            'window_size': 1.0
-        })
+        self.configure(self.DEFAULT_CONFIG)
         # Store timestamps of recent messages
         self._timestamps = deque()
         self._current_rate = 0.0

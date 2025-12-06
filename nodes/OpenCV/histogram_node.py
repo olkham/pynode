@@ -21,6 +21,14 @@ class HistogramNode(BaseNode):
     input_count = 1
     output_count = 1
     
+    DEFAULT_CONFIG = {
+        'operation': 'equalize',
+        'clip_limit': 2.0,
+        'tile_size': 8,
+        'normalize_alpha': 0,
+        'normalize_beta': 255
+    }
+    
     properties = [
         {
             'name': 'operation',
@@ -32,14 +40,14 @@ class HistogramNode(BaseNode):
                 {'value': 'clahe', 'label': 'CLAHE (adaptive)'},
                 {'value': 'normalize', 'label': 'Normalize'}
             ],
-            'default': 'equalize',
+            'default': DEFAULT_CONFIG['operation'],
             'help': 'Histogram operation to perform'
         },
         {
             'name': 'clip_limit',
             'label': 'CLAHE Clip Limit',
             'type': 'number',
-            'default': 2.0,
+            'default': DEFAULT_CONFIG['clip_limit'],
             'min': 0.1,
             'max': 10,
             'step': 0.1,
@@ -50,7 +58,7 @@ class HistogramNode(BaseNode):
             'name': 'tile_size',
             'label': 'CLAHE Tile Size',
             'type': 'number',
-            'default': 8,
+            'default': DEFAULT_CONFIG['tile_size'],
             'min': 2,
             'max': 32,
             'help': 'Size of grid for CLAHE',
@@ -60,7 +68,7 @@ class HistogramNode(BaseNode):
             'name': 'normalize_alpha',
             'label': 'Normalize Alpha',
             'type': 'number',
-            'default': 0,
+            'default': DEFAULT_CONFIG['normalize_alpha'],
             'min': 0,
             'max': 255,
             'help': 'Lower bound for normalization',
@@ -70,7 +78,7 @@ class HistogramNode(BaseNode):
             'name': 'normalize_beta',
             'label': 'Normalize Beta',
             'type': 'number',
-            'default': 255,
+            'default': DEFAULT_CONFIG['normalize_beta'],
             'min': 0,
             'max': 255,
             'help': 'Upper bound for normalization',
@@ -80,13 +88,7 @@ class HistogramNode(BaseNode):
     
     def __init__(self, node_id=None, name="histogram"):
         super().__init__(node_id, name)
-        self.configure({
-            'operation': 'equalize',
-            'clip_limit': 2.0,
-            'tile_size': 8,
-            'normalize_alpha': 0,
-            'normalize_beta': 255
-        })
+        self.configure(self.DEFAULT_CONFIG)
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """Process image histogram."""

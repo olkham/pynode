@@ -22,6 +22,11 @@ class ColorSpaceNode(BaseNode):
     input_count = 1
     output_count = 1
     
+    DEFAULT_CONFIG = {
+        'input_space': 'bgr',
+        'output_space': 'gray'
+    }
+    
     properties = [
         {
             'name': 'input_space',
@@ -36,7 +41,7 @@ class ColorSpaceNode(BaseNode):
                 {'value': 'yuv', 'label': 'YUV'},
                 {'value': 'gray', 'label': 'Grayscale'}
             ],
-            'default': 'bgr',
+            'default': DEFAULT_CONFIG['input_space'],
             'help': 'Input image color space'
         },
         {
@@ -52,17 +57,14 @@ class ColorSpaceNode(BaseNode):
                 {'value': 'yuv', 'label': 'YUV'},
                 {'value': 'gray', 'label': 'Grayscale'}
             ],
-            'default': 'gray',
+            'default': DEFAULT_CONFIG['output_space'],
             'help': 'Output image color space'
         }
     ]
     
     def __init__(self, node_id=None, name="color space"):
         super().__init__(node_id, name)
-        self.configure({
-            'input_space': 'bgr',
-            'output_space': 'gray'
-        })
+        self.configure(self.DEFAULT_CONFIG)
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """Convert image color space."""

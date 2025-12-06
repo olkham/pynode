@@ -22,6 +22,19 @@ class DrawNode(BaseNode):
     input_count = 1
     output_count = 1
     
+    DEFAULT_CONFIG = {
+        'shape': 'rectangle',
+        'x1': 100,
+        'y1': 100,
+        'x2': 200,
+        'y2': 200,
+        'radius': 50,
+        'color': '0,255,0',
+        'thickness': 2,
+        'text': 'Hello',
+        'font_scale': 1.0
+    }
+    
     properties = [
         {
             'name': 'shape',
@@ -34,14 +47,14 @@ class DrawNode(BaseNode):
                 {'value': 'text', 'label': 'Text'},
                 {'value': 'from_msg', 'label': 'From message (msg.shapes)'}
             ],
-            'default': 'rectangle',
+            'default': DEFAULT_CONFIG['shape'],
             'help': 'Shape to draw'
         },
         {
             'name': 'x1',
             'label': 'X1 / Center X',
             'type': 'number',
-            'default': 100,
+            'default': DEFAULT_CONFIG['x1'],
             'help': 'X coordinate (start point or center)',
             'showIf': {'shape': ['rectangle', 'circle', 'line', 'text']}
         },
@@ -49,7 +62,7 @@ class DrawNode(BaseNode):
             'name': 'y1',
             'label': 'Y1 / Center Y',
             'type': 'number',
-            'default': 100,
+            'default': DEFAULT_CONFIG['y1'],
             'help': 'Y coordinate (start point or center)',
             'showIf': {'shape': ['rectangle', 'circle', 'line', 'text']}
         },
@@ -57,7 +70,7 @@ class DrawNode(BaseNode):
             'name': 'x2',
             'label': 'X2 / Width',
             'type': 'number',
-            'default': 200,
+            'default': DEFAULT_CONFIG['x2'],
             'help': 'X2 for line/rect, or width',
             'showIf': {'shape': ['rectangle', 'line']}
         },
@@ -65,7 +78,7 @@ class DrawNode(BaseNode):
             'name': 'y2',
             'label': 'Y2 / Height',
             'type': 'number',
-            'default': 200,
+            'default': DEFAULT_CONFIG['y2'],
             'help': 'Y2 for line/rect, or height',
             'showIf': {'shape': ['rectangle', 'line']}
         },
@@ -73,7 +86,7 @@ class DrawNode(BaseNode):
             'name': 'radius',
             'label': 'Radius',
             'type': 'number',
-            'default': 50,
+            'default': DEFAULT_CONFIG['radius'],
             'help': 'Circle radius',
             'showIf': {'shape': 'circle'}
         },
@@ -81,14 +94,14 @@ class DrawNode(BaseNode):
             'name': 'color',
             'label': 'Color (B,G,R)',
             'type': 'text',
-            'default': '0,255,0',
+            'default': DEFAULT_CONFIG['color'],
             'help': 'Color as B,G,R values (e.g., 0,255,0 for green)'
         },
         {
             'name': 'thickness',
             'label': 'Thickness',
             'type': 'number',
-            'default': 2,
+            'default': DEFAULT_CONFIG['thickness'],
             'min': -1,
             'help': 'Line thickness (-1 for filled)'
         },
@@ -96,7 +109,7 @@ class DrawNode(BaseNode):
             'name': 'text',
             'label': 'Text',
             'type': 'text',
-            'default': 'Hello',
+            'default': DEFAULT_CONFIG['text'],
             'help': 'Text to draw',
             'showIf': {'shape': 'text'}
         },
@@ -104,7 +117,7 @@ class DrawNode(BaseNode):
             'name': 'font_scale',
             'label': 'Font Scale',
             'type': 'number',
-            'default': 1.0,
+            'default': DEFAULT_CONFIG['font_scale'],
             'min': 0.1,
             'step': 0.1,
             'help': 'Font scale for text',
