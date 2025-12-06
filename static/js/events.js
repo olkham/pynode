@@ -151,12 +151,31 @@ export function setupEventListeners() {
     // Properties panel resize
     setupPropertiesResize();
     
-    // Canvas click to deselect
+    // Canvas click to deselect or select connections
     nodesContainer.addEventListener('click', (e) => {
         if (e.target === nodesContainer && !state.justSelectedConnection) {
-            deselectNode();
-            import('./connections.js').then(({ deselectConnection }) => {
-                deselectConnection();
+            // Check if clicking near a connection
+            import('./connections.js').then(({ getConnectionAtPoint, selectConnection, deselectConnection }) => {
+                // Get click coordinates in SVG space
+                const svg = document.getElementById('canvas');
+                const pt = svg.createSVGPoint();
+                pt.x = e.clientX;
+                pt.y = e.clientY;
+                const svgP = pt.matrixTransform(svg.getScreenCTM().inverse());
+                
+                const clickedConnection = getConnectionAtPoint(svgP.x, svgP.y, 20);
+                if (clickedConnection) {
+                    // Select the connection
+                    selectConnection(clickedConnection.source, clickedConnection.target, clickedConnection.sourceOutput);
+                    state.justSelectedConnection = true;
+                    setTimeout(() => {
+                        state.justSelectedConnection = false;
+                    }, 100);
+                } else {
+                    // Deselect everything
+                    deselectNode();
+                    deselectConnection();
+                }
             });
         }
     });
@@ -398,56 +417,36 @@ function setupSelectionBox() {
         if (state.selectionBox) {
             // Check if we should select a connection instead of nodes
             const boxRect = state.selectionBox.getBoundingClientRect();
-            const boxLeft = boxRect.left;
-            const boxTop = boxRect.top;
-            const boxRight = boxRect.right;
-            const boxBottom = boxRect.bottom;
             
-            // If selection box is very small (like a click), check for connection intersection
+            // If selection box is very small (like a click), check for connection using distance
             const isSmallBox = boxRect.width < 50 && boxRect.height < 50;
             
             if (isSmallBox) {
-                // Check if any connection path intersects with the selection box
-                const paths = document.querySelectorAll('#connections path');
-                let foundConnection = null;
+                // Use proper distance-based connection detection instead of bounding box
+                const centerX = boxRect.left + boxRect.width / 2;
+                const centerY = boxRect.top + boxRect.height / 2;
                 
-                console.log('Checking connections, found paths:', paths.length);
+                // Transform to SVG coordinates
+                const svg = document.getElementById('canvas');
+                const pt = svg.createSVGPoint();
+                pt.x = centerX;
+                pt.y = centerY;
+                const svgP = pt.matrixTransform(svg.getScreenCTM().inverse());
                 
-                paths.forEach(path => {
-                    const pathRect = path.getBoundingClientRect();
+                import('./connections.js').then(({ getConnectionAtPoint, selectConnection }) => {
+                    const foundConnection = getConnectionAtPoint(svgP.x, svgP.y, 20);
                     
-                    console.log('Path rect:', pathRect, 'Box:', { boxLeft, boxTop, boxRight, boxBottom });
-                    
-                    // Check if path bounding box intersects with selection box
-                    if (pathRect.left < boxRight && pathRect.right > boxLeft && 
-                        pathRect.top < boxBottom && pathRect.bottom > boxTop) {
-                        // Get connection data from path attributes
-                        const source = path.getAttribute('data-source');
-                        const target = path.getAttribute('data-target');
-                        const sourceOutput = parseInt(path.getAttribute('data-source-output') || '0');
+                    if (foundConnection) {
+                        console.log('Found connection via distance check:', foundConnection);
+                        selectConnection(foundConnection.source, foundConnection.target, foundConnection.sourceOutput);
                         
-                        console.log('Found intersecting connection:', source, target, sourceOutput);
-                        
-                        if (source && target) {
-                            foundConnection = { source, target, sourceOutput };
-                        }
+                        // Prevent canvas click from deselecting immediately
+                        state.justSelectedConnection = true;
+                        setTimeout(() => {
+                            state.justSelectedConnection = false;
+                        }, 100);
                     }
                 });
-                
-                if (foundConnection) {
-                    // Select the connection
-                    console.log('Attempting to select connection:', foundConnection);
-                    import('./connections.js').then(({ selectConnection }) => {
-                        console.log('selectConnection function loaded:', typeof selectConnection);
-                        selectConnection(foundConnection.source, foundConnection.target, foundConnection.sourceOutput);
-                    });
-                    
-                    // Prevent canvas click from deselecting immediately
-                    setTimeout(() => {
-                        state.justSelectedConnection = false;
-                    }, 100);
-                    state.justSelectedConnection = true;
-                }
             }
             
             state.selectionBox.remove();

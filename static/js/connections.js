@@ -17,31 +17,30 @@ export function getHoveredConnection() {
 // Check if a point is near a connection path and return the connection if so
 export function getConnectionAtPoint(x, y, threshold = 15) {
     const paths = document.querySelectorAll('#connections path.connection');
-    // const canvasRect = document.getElementById('canvas').getBoundingClientRect();
+    let closestConnection = null;
+    let closestDistance = Infinity;
+    
+    console.log(`Checking connections at (${x.toFixed(1)}, ${y.toFixed(1)}) with threshold ${threshold}px`);
     
     for (const path of paths) {
-        // Quick bounding box check first (much faster than path calculations)
-        const bbox = path.getBBox();
-        const expandedThreshold = threshold + 5;
-        
-        // Skip if point is clearly outside the bounding box
-        if (x < bbox.x - expandedThreshold || x > bbox.x + bbox.width + expandedThreshold ||
-            y < bbox.y - expandedThreshold || y > bbox.y + bbox.height + expandedThreshold) {
-            continue;
-        }
-        
-        // Only do expensive path distance check if within bounding box
+        // Calculate actual distance to the path by sampling points along it
         const pathLength = path.getTotalLength();
-        const step = 20; // Larger step for better performance
+        const step = 10; // Sample every 10px for accuracy
+        let minDistanceForPath = Infinity;
         
         for (let i = 0; i <= pathLength; i += step) {
             const point = path.getPointAtLength(i);
             const dx = point.x - x;
             const dy = point.y - y;
-            const distanceSquared = dx * dx + dy * dy;
+            const distance = Math.sqrt(dx * dx + dy * dy);
             
-            if (distanceSquared < threshold * threshold) {
-                return {
+            if (distance < minDistanceForPath) {
+                minDistanceForPath = distance;
+            }
+            
+            if (distance < closestDistance) {
+                closestDistance = distance;
+                closestConnection = {
                     source: path.getAttribute('data-source'),
                     target: path.getAttribute('data-target'),
                     sourceOutput: parseInt(path.getAttribute('data-source-output') || '0'),
@@ -49,8 +48,16 @@ export function getConnectionAtPoint(x, y, threshold = 15) {
                 };
             }
         }
+        
+        console.log(`  Path ${path.getAttribute('data-source')} -> ${path.getAttribute('data-target')}: min distance = ${minDistanceForPath.toFixed(1)}px`);
     }
     
+    if (closestConnection && closestDistance <= threshold) {
+        console.log(`  → Selected connection at ${closestDistance.toFixed(1)}px distance`);
+        return closestConnection;
+    }
+    
+    console.log(`  → No connection within threshold`);
     return null;
 }
 
@@ -171,18 +178,6 @@ export function renderConnection(connection) {
     const cx2 = x2 - control;
     const pathData = `M ${x1} ${y1} C ${cx1} ${y1}, ${cx2} ${y2}, ${x2} ${y2}`;
     
-    // Create invisible wider path for easier clicking
-    const hitArea = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    hitArea.setAttribute('d', pathData);
-    hitArea.setAttribute('stroke', 'transparent');
-    hitArea.setAttribute('stroke-width', '20');
-    hitArea.setAttribute('fill', 'none');
-    hitArea.setAttribute('data-source', connection.source);
-    hitArea.setAttribute('data-target', connection.target);
-    hitArea.setAttribute('data-source-output', connection.sourceOutput || 0);
-    hitArea.setAttribute('data-target-input', connection.targetInput || 0);
-    hitArea.style.cursor = 'pointer';
-    
     // Create visible path (no arrowhead)
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     path.setAttribute('class', 'connection');
@@ -191,7 +186,7 @@ export function renderConnection(connection) {
     path.setAttribute('data-source', connection.source);
     path.setAttribute('data-target', connection.target);
     path.setAttribute('data-source-output', connection.sourceOutput || 0);
-    hitArea.setAttribute('data-target-input', connection.targetInput || 0);
+    path.setAttribute('data-target-input', connection.targetInput || 0);
     path.style.pointerEvents = 'none';
     
     // Add disabled class if either node is disabled
@@ -208,22 +203,6 @@ export function renderConnection(connection) {
         console.log('Added selected class to connection:', connection.source, '->', connection.target);
     }
     
-    // Add click handler to hit area
-    hitArea.addEventListener('click', (e) => {
-        e.stopPropagation();
-        e.preventDefault();
-        console.log('Connection clicked:', connection);
-        selectConnection(connection.source, connection.target, connection.sourceOutput || 0);
-        
-        // Prevent canvas click from deselecting immediately
-        import('./state.js').then(({ state }) => {
-            state.justSelectedConnection = true;
-            setTimeout(() => {
-                state.justSelectedConnection = false;
-            }, 100);
-        });
-    });
-    
     // Check if this connection is selected
     if (state.selectedConnection && 
         state.selectedConnection.source === connection.source &&
@@ -232,8 +211,7 @@ export function renderConnection(connection) {
         path.classList.add('selected');
     }
     
-    // Append both hit area and visible path
-    document.getElementById('connections').appendChild(hitArea);
+    // Append visible path
     document.getElementById('connections').appendChild(path);
 }
 
