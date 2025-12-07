@@ -111,24 +111,25 @@ class FrameSourceNode(BaseNode):
         
         source_type = self.config.get('source_type', 'webcam')
         source = self.config.get('source', 0)
-        fps = self.get_config_int('fps', 10)
+        fps = self.get_config_int('fps', 30)
         width = self.get_config_int('width', 640)
         height = self.get_config_int('height', 480)
         
         try:
-            # Open the camera
-            # self.camera = cv2.VideoCapture(camera_index)
-            self.camera = FrameSourceFactory.create(source_type, source=source)
-            self.camera.connect()
-            self.frame_count = 0  # Reset frame counter on start
+            # Create camera with config including resolution and fps
+            self.camera = FrameSourceFactory.create(
+                source_type, 
+                source=source,
+                width=width,
+                height=height,
+                fps=fps
+            )
             
-            if not self.camera.isOpened():
-                self.report_error(f"Failed to open camera {source}")
+            if not self.camera.connect():
+                self.report_error(f"Failed to connect to {source_type} source: {source}")
                 return
             
-            # Set resolution
-            self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, width)
-            self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+            self.frame_count = 0  # Reset frame counter on start
             
             # Start capture thread
             self.running = True
