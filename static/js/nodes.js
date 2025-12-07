@@ -525,41 +525,10 @@ window.toggleDrawPredictions = async function(nodeId, enabled) {
     }
 };
 
-// Toggle debug node enabled state
+// Toggle debug node enabled state - delegates to toggleNodeState
 window.toggleDebug = async function(nodeId, enabled) {
-    const nodeData = state.nodes.get(nodeId);
-    if (!nodeData) return;
-    
-    const newEnabled = enabled;
-    
-    try {
-        const response = await fetch(`${API_BASE}/nodes/${nodeId}/enabled`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ enabled: newEnabled })
-        });
-        
-        if (response.ok) {
-            nodeData.enabled = newEnabled;
-            
-            // Update node visual state
-            const nodeEl = document.getElementById(`node-${nodeId}`);
-            if (nodeEl) {
-                nodeEl.classList.toggle('disabled', !newEnabled);
-            }
-            
-            // Update connections (dashed when disabled)
-            updateConnections();
-            
-            // Sync properties panel if this node is selected
-            if (state.selectedNode === nodeId) {
-                const propsToggle = document.querySelector('#properties-panel .gate-switch input');
-                if (propsToggle) propsToggle.checked = newEnabled;
-            }
-        }
-    } catch (error) {
-        console.error('Failed to toggle debug state:', error);
-    }
+    // Use the consolidated toggleNodeState from properties.js
+    await window.toggleNodeState(nodeId, enabled);
 };
 
 // Trigger inject node

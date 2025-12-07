@@ -178,45 +178,25 @@ export async function triggerNodeAction(nodeId, action) {
     }
 }
 
-export async function toggleGate(nodeId, open) {
+/**
+ * Generic function to toggle node enabled state.
+ * Consolidates toggleGate, toggleDebug, and toggleNodeEnabled into one function.
+ * @param {string} nodeId - The node ID
+ * @param {boolean} enabled - The new enabled state
+ * @param {Object} options - Optional configuration
+ * @param {string} options.checkboxSelector - CSS selector for checkbox to sync (e.g., '#gate-{nodeId}')
+ */
+export async function toggleNodeState(nodeId, enabled, options = {}) {
     try {
-        await fetch(`${API_BASE}/nodes/${nodeId}/enabled`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ enabled: open })
-        });
-        
-        const nodeData = state.nodes.get(nodeId);
-        if (nodeData) {
-            nodeData.enabled = open;
-            
-            // Update node visual state
-            const nodeEl = document.getElementById(`node-${nodeId}`);
-            if (nodeEl) {
-                nodeEl.classList.toggle('disabled', !open);
-            }
-            
-            // Update connections (dashed when disabled)
-            updateConnections();
-            
-            // Sync properties panel if this node is selected
-            if (state.selectedNode === nodeId) {
-                const propsToggle = document.querySelector('#properties-panel .gate-switch input');
-                if (propsToggle) propsToggle.checked = open;
-            }
-        }
-    } catch (error) {
-        console.error('Failed to toggle gate:', error);
-    }
-}
-
-export async function toggleNodeEnabled(nodeId, enabled) {
-    try {
-        await fetch(`${API_BASE}/nodes/${nodeId}/enabled`, {
+        const response = await fetch(`${API_BASE}/nodes/${nodeId}/enabled`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ enabled: enabled })
         });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
         
         const nodeData = state.nodes.get(nodeId);
         if (nodeData) {
@@ -236,11 +216,21 @@ export async function toggleNodeEnabled(nodeId, enabled) {
             const debugCheckbox = document.getElementById(`debug-${nodeId}`);
             if (gateCheckbox) gateCheckbox.checked = enabled;
             if (debugCheckbox) debugCheckbox.checked = enabled;
+            
+            // Sync properties panel if this node is selected
+            if (state.selectedNode === nodeId) {
+                const propsToggle = document.querySelector('#properties-panel .gate-switch input');
+                if (propsToggle) propsToggle.checked = enabled;
+            }
         }
     } catch (error) {
-        console.error('Failed to toggle node enabled:', error);
+        console.error('Failed to toggle node state:', error);
     }
 }
+
+// Backwards compatibility aliases
+export const toggleGate = toggleNodeState;
+export const toggleNodeEnabled = toggleNodeState;
 
 // Rules editor for switch node
 function renderRulesEditor(nodeId, propName, rules) {
