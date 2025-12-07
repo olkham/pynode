@@ -6,3 +6,4 @@ paho-mqtt
 ultralytics
 torch
 torchvision
+supervision
