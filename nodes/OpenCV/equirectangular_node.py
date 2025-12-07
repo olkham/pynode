@@ -242,13 +242,13 @@ class EquirectangularNode(BaseNode):
             pitch = float(msg.get('pitch', self.config.get('pitch', 0)))
             roll = float(msg.get('roll', self.config.get('roll', 0)))
         else:
-            yaw = float(self.config.get('yaw', 0))
-            pitch = float(self.config.get('pitch', 0))
-            roll = float(self.config.get('roll', 0))
+            yaw = self.get_config_float('yaw', 0)
+            pitch = self.get_config_float('pitch', 0)
+            roll = self.get_config_float('roll', 0)
         
-        fov = float(self.config.get('fov', 90))
-        output_width = int(self.config.get('output_width', 1920))
-        output_height = int(self.config.get('output_height', 1080))
+        fov = self.get_config_float('fov', 90)
+        output_width = self.get_config_int('output_width', 1920)
+        output_height = self.get_config_int('output_height', 1080)
         
         # Normalize angles for consistent caching
         norm_yaw, norm_pitch, norm_roll = self._normalize_angles(yaw, pitch, roll)

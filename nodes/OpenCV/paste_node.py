@@ -119,7 +119,7 @@ class PasteNode(BaseNode):
     def _paste_foreground(self, foreground: np.ndarray, fg_msg: Dict[str, Any]):
         """Paste foreground onto background at specified position."""
         position_source = self.config.get('position_source', 'bbox')
-        resize_to_fit = self.config.get('resize_to_fit', 'true') == 'true'
+        resize_to_fit = self.get_config_bool('resize_to_fit', True)
         
         # Get position - check multiple places for bbox
         bbox = None
@@ -139,8 +139,8 @@ class PasteNode(BaseNode):
             x2 = int(bbox.get('x2', x1 + foreground.shape[1]))
             y2 = int(bbox.get('y2', y1 + foreground.shape[0]))
         else:
-            x1 = int(self.config.get('x', 0))
-            y1 = int(self.config.get('y', 0))
+            x1 = self.get_config_int('x', 0)
+            y1 = self.get_config_int('y', 0)
             x2 = x1 + foreground.shape[1]
             y2 = y1 + foreground.shape[0]
         

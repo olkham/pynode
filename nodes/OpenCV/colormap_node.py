@@ -188,11 +188,11 @@ class ColormapNode(BaseNode):
         
         # Get configuration
         colormap_name = self.config.get('colormap', 'jet')
-        alpha = float(self.config.get('alpha', 0.03))
-        auto_scale = self.config.get('auto_scale', 'false') == 'true'
-        min_value = float(self.config.get('min_value', 0))
-        max_value = float(self.config.get('max_value', 0))
-        invert = self.config.get('invert', 'false') == 'true'
+        alpha = self.get_config_float('alpha', 0.03)
+        auto_scale = self.get_config_bool('auto_scale', False)
+        min_value = self.get_config_float('min_value', 0)
+        max_value = self.get_config_float('max_value', 0)
+        invert = self.get_config_bool('invert', False)
         
         colormap = self.COLORMAPS.get(colormap_name, cv2.COLORMAP_JET)
         

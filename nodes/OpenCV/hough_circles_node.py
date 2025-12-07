@@ -127,13 +127,13 @@ class HoughCirclesNode(BaseNode):
             self.send(msg)
             return
         
-        dp = float(self.config.get('dp', 1.2))
-        min_dist = int(self.config.get('min_dist', 50))
-        param1 = int(self.config.get('param1', 100))
-        param2 = int(self.config.get('param2', 30))
-        min_radius = int(self.config.get('min_radius', 10))
-        max_radius = int(self.config.get('max_radius', 0))
-        draw = self.config.get('draw_circles', 'yes') == 'yes'
+        dp = self.get_config_float('dp', 1.2)
+        min_dist = self.get_config_int('min_dist', 50)
+        param1 = self.get_config_int('param1', 100)
+        param2 = self.get_config_int('param2', 30)
+        min_radius = self.get_config_int('min_radius', 10)
+        max_radius = self.get_config_int('max_radius', 0)
+        draw = self.get_config_bool('draw_circles', True)
         circle_color = self._parse_color(self.config.get('circle_color', '0,255,0'))
         
         # Convert to grayscale if needed

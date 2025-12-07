@@ -180,7 +180,7 @@ class ImageFormatNode(BaseNode):
         img_format = self.config.get('image_format', 'jpeg')
         
         if img_format == 'jpeg':
-            quality = int(self.config.get('jpeg_quality', 85))
+            quality = self.get_config_int('jpeg_quality', 85)
             encode_params = [cv2.IMWRITE_JPEG_QUALITY, quality]
             ret, buffer = cv2.imencode('.jpg', image, encode_params)
             ext = 'jpeg'

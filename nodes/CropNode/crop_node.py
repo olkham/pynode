@@ -120,10 +120,10 @@ class CropNode(BaseNode):
                         })
         else:
             # Use manual coordinates
-            x1 = int(self.config.get('x1', 0))
-            y1 = int(self.config.get('y1', 0))
-            x2 = int(self.config.get('x2', 100))
-            y2 = int(self.config.get('y2', 100))
+            x1 = self.get_config_int('x1', 0)
+            y1 = self.get_config_int('y1', 0)
+            x2 = self.get_config_int('x2', 100)
+            y2 = self.get_config_int('y2', 100)
             
             crop = self._crop_image(image, x1, y1, x2, y2)
             if crop is not None:

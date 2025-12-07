@@ -147,7 +147,7 @@ class RealsenseDepthNode(BaseNode):
         
         # Get configuration
         output_format = self.config.get('output_format', 'both')
-        depth_scale = float(self.config.get('depth_scale', 0.03))
+        depth_scale = self.get_config_float('depth_scale', 0.03)
         colormap_name = self.config.get('colormap', 'jet')
         colormap = self.COLORMAPS.get(colormap_name, cv2.COLORMAP_JET)
         

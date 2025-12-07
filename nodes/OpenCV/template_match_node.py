@@ -125,9 +125,9 @@ class TemplateMatchNode(BaseNode):
             return
         
         method_str = self.config.get('method', 'ccoeff_normed')
-        threshold = float(self.config.get('threshold', 0.8))
-        multi_match = self.config.get('multi_match', 'no') == 'yes'
-        draw = self.config.get('draw_matches', 'yes') == 'yes'
+        threshold = self.get_config_float('threshold', 0.8)
+        multi_match = self.get_config_bool('multi_match', False)
+        draw = self.get_config_bool('draw_matches', True)
         match_color = self._parse_color(self.config.get('match_color', '0,255,0'))
         
         # Map method string to OpenCV constant

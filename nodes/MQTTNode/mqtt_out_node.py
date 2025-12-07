@@ -133,7 +133,7 @@ class MqttOutNode(BaseNode):
             return
         
         broker = self.config.get('broker', 'localhost')
-        port = int(self.config.get('port', '1883'))
+        port = self.get_config_int('port', 1883)
         client_id = self.config.get('clientId', '') or f"pynode_out_{self.id[:8]}"
         username = self.config.get('username', '')
         password = self.config.get('password', '')
@@ -192,8 +192,8 @@ class MqttOutNode(BaseNode):
             self.report_error("Topic is empty. Configure a topic in node properties.")
             return
         
-        qos = int(self.config.get('qos', '0'))
-        retain = self.config.get('retain', 'false') == 'true'
+        qos = self.get_config_int('qos', 0)
+        retain = self.get_config_bool('retain', False)
         
         # Get payload
         payload = msg.get('payload', '')

@@ -68,13 +68,13 @@ class FilterNode(BaseNode):
                 self.last_value = payload
         elif mode == 'drop_first':
             # Drop first N messages
-            count = int(self.config.get('count', 1))
+            count = self.get_config_int('count', 1)
             self.message_count += 1
             if self.message_count > count:
                 should_send = True
         elif mode == 'keep_first':
             # Keep only first N messages
-            count = int(self.config.get('count', 1))
+            count = self.get_config_int('count', 1)
             self.message_count += 1
             if self.message_count <= count:
                 should_send = True

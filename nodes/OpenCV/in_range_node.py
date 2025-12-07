@@ -119,14 +119,14 @@ class InRangeNode(BaseNode):
         
         # Get range values
         lower = np.array([
-            int(self.config.get('channel1_min', 0)),
-            int(self.config.get('channel2_min', 0)),
-            int(self.config.get('channel3_min', 0))
+            self.get_config_int('channel1_min', 0),
+            self.get_config_int('channel2_min', 0),
+            self.get_config_int('channel3_min', 0)
         ])
         upper = np.array([
-            int(self.config.get('channel1_max', 255)),
-            int(self.config.get('channel2_max', 255)),
-            int(self.config.get('channel3_max', 255))
+            self.get_config_int('channel1_max', 255),
+            self.get_config_int('channel2_max', 255),
+            self.get_config_int('channel3_max', 255)
         ])
         
         output_mode = self.config.get('output_mode', 'both')

@@ -118,11 +118,11 @@ class EdgeDetectorNode(BaseNode):
             return
         
         method = self.config.get('method', 'canny')
-        threshold1 = int(self.config.get('threshold1', 100))
-        threshold2 = int(self.config.get('threshold2', 200))
-        aperture = int(self.config.get('aperture_size', 3))
+        threshold1 = self.get_config_int('threshold1', 100)
+        threshold2 = self.get_config_int('threshold2', 200)
+        aperture = self.get_config_int('aperture_size', 3)
         direction = self.config.get('sobel_direction', 'both')
-        l2_gradient = self.config.get('l2_gradient', 'no') == 'yes'
+        l2_gradient = self.get_config_bool('l2_gradient', False)
         
         # Ensure aperture is valid (3, 5, or 7)
         if aperture not in [3, 5, 7]:

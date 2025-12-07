@@ -104,9 +104,9 @@ class ResizeNode(BaseNode):
             return
         
         mode = self.config.get('mode', 'scale')
-        target_width = int(self.config.get('width', 640))
-        target_height = int(self.config.get('height', 480))
-        scale = float(self.config.get('scale', 0.5))
+        target_width = self.get_config_int('width', 640)
+        target_height = self.get_config_int('height', 480)
+        scale = self.get_config_float('scale', 0.5)
         interp_str = self.config.get('interpolation', 'linear')
         
         # Map interpolation string to OpenCV constant

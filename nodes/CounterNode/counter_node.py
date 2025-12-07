@@ -59,20 +59,14 @@ class CounterNode(BaseNode):
     
     def _reset_to_initial(self):
         """Reset counter to initial value from config."""
-        try:
-            self.count = int(self.config.get('initial_value', 0))
-        except (ValueError, TypeError):
-            self.count = 0
+        self.count = self.get_config_int('initial_value', 0)
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """
         Increment counter and pass through with count information.
         """
         # Get increment value
-        try:
-            increment = int(self.config.get('increment', 1))
-        except (ValueError, TypeError):
-            increment = 1
+        increment = self.get_config_int('increment', 1)
         
         # Increment counter
         self.count += increment

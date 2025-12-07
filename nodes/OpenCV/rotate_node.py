@@ -117,8 +117,8 @@ class RotateNode(BaseNode):
         elif mode == 'flip_both':
             result = cv2.flip(img, -1)
         elif mode == 'angle':
-            angle = float(self.config.get('angle', 45))
-            expand = self.config.get('expand', 'yes') == 'yes'
+            angle = self.get_config_float('angle', 45)
+            expand = self.get_config_bool('expand', True)
             fill_color = self._parse_color(self.config.get('fill_color', '0,0,0'))
             
             h, w = img.shape[:2]

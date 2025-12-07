@@ -223,13 +223,13 @@ class DrawPredictionsNode(BaseNode):
             return
         
         # Get configuration
-        line_width = int(self.config.get('line_width', '2'))
-        font_scale = float(self.config.get('font_scale', '0.5'))
-        text_thickness = int(self.config.get('text_thickness', '1'))
+        line_width = self.get_config_int('line_width', 2)
+        font_scale = self.get_config_float('font_scale', 0.5)
+        text_thickness = self.get_config_int('text_thickness', 1)
         text_color_name = self.config.get('text_color', 'white')
         text_color = self.text_colors.get(text_color_name, (255, 255, 255))
-        show_confidence = self.config.get('show_confidence', 'true') == 'true'
-        show_class = self.config.get('show_class', 'true') == 'true'
+        show_confidence = self.get_config_bool('show_confidence', True)
+        show_class = self.get_config_bool('show_class', True)
         
         # Draw each detection
         for i, det in enumerate(detections):

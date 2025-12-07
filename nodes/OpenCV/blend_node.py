@@ -87,9 +87,9 @@ class BlendNode(BaseNode):
         if self._image1 is None or self._image2 is None:
             return
         
-        alpha = float(self.config.get('alpha', 0.5))
-        beta = float(self.config.get('beta', 0.5))
-        gamma = float(self.config.get('gamma', 0))
+        alpha = self.get_config_float('alpha', 0.5)
+        beta = self.get_config_float('beta', 0.5)
+        gamma = self.get_config_float('gamma', 0)
         
         # Ensure images are same size
         if self._image1.shape[:2] != self._image2.shape[:2]:

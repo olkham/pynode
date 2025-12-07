@@ -94,8 +94,8 @@ class PerspectiveNode(BaseNode):
             return
         
         mode = self.config.get('mode', 'from_msg')
-        output_w = int(self.config.get('output_width', 400))
-        output_h = int(self.config.get('output_height', 300))
+        output_w = self.get_config_int('output_width', 400)
+        output_h = self.get_config_int('output_height', 300)
         
         # Get source points
         if mode == 'from_msg':

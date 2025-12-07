@@ -56,7 +56,7 @@ class RateProbeNode(BaseNode):
         Sends rate information as the payload.
         """
         current_time = time.time()
-        window_size = float(self.config.get('window_size', 1.0))
+        window_size = self.get_config_float('window_size', 1.0)
         
         # Add current timestamp
         self._timestamps.append(current_time)
@@ -88,7 +88,7 @@ class RateProbeNode(BaseNode):
     def get_rate(self) -> float:
         """Get the current message rate."""
         current_time = time.time()
-        window_size = float(self.config.get('window_size', 1.0))
+        window_size = self.get_config_float('window_size', 1.0)
         
         # Clean up old timestamps
         cutoff = current_time - window_size

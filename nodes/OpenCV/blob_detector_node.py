@@ -126,11 +126,11 @@ class BlobDetectorNode(BaseNode):
         
         # Area filter
         params.filterByArea = True
-        params.minArea = float(self.config.get('min_area', 100))
-        params.maxArea = float(self.config.get('max_area', 50000))
+        params.minArea = self.get_config_float('min_area', 100)
+        params.maxArea = self.get_config_float('max_area', 50000)
         
         # Circularity filter
-        min_circularity = float(self.config.get('min_circularity', 0.1))
+        min_circularity = self.get_config_float('min_circularity', 0.1)
         if min_circularity > 0:
             params.filterByCircularity = True
             params.minCircularity = min_circularity
@@ -139,7 +139,7 @@ class BlobDetectorNode(BaseNode):
             params.filterByCircularity = False
         
         # Convexity filter
-        min_convexity = float(self.config.get('min_convexity', 0.5))
+        min_convexity = self.get_config_float('min_convexity', 0.5)
         if min_convexity > 0:
             params.filterByConvexity = True
             params.minConvexity = min_convexity
@@ -148,7 +148,7 @@ class BlobDetectorNode(BaseNode):
             params.filterByConvexity = False
         
         # Inertia filter
-        min_inertia = float(self.config.get('min_inertia', 0.1))
+        min_inertia = self.get_config_float('min_inertia', 0.1)
         if min_inertia > 0:
             params.filterByInertia = True
             params.minInertiaRatio = min_inertia
@@ -188,7 +188,7 @@ class BlobDetectorNode(BaseNode):
             })
         
         # Draw keypoints if requested
-        draw = self.config.get('draw_keypoints', 'yes') == 'yes'
+        draw = self.get_config_bool('draw_keypoints', True)
         if draw:
             output = cv2.drawKeypoints(img, keypoints, np.array([]),
                                        (0, 0, 255),

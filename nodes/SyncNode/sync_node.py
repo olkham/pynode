@@ -133,7 +133,7 @@ class SyncNode(BaseNode):
                 msg_index = len(self._buffer)
             
             # Check buffer size limit
-            max_size = int(self.config.get('max_buffer_size', '1000'))
+            max_size = self.get_config_int('max_buffer_size', 1000)
             if max_size > 0 and len(self._buffer) >= max_size:
                 self.report_error(f"Buffer full ({max_size} messages), dropping oldest message")
                 # Remove oldest message
@@ -143,7 +143,7 @@ class SyncNode(BaseNode):
                         del self._buffer[oldest_index]
             
             # Check if duplicate indices are allowed
-            allow_duplicates = self.config.get('allow_duplicates', 'false') == 'true'
+            allow_duplicates = self.get_config_bool('allow_duplicates', False)
             
             if msg_index in self._buffer:
                 if allow_duplicates:
@@ -216,7 +216,7 @@ class SyncNode(BaseNode):
                 self.send(array_msg)
             
             # Clear buffer if configured
-            if self.config.get('clear_on_release', 'true') == 'true':
+            if self.get_config_bool('clear_on_release', True):
                 self._buffer.clear()
                 self._arrival_order.clear()
             

@@ -95,8 +95,8 @@ class MorphologyNode(BaseNode):
         
         operation = self.config.get('operation', 'dilate')
         kernel_shape = self.config.get('kernel_shape', 'rect')
-        kernel_size = int(self.config.get('kernel_size', 5))
-        iterations = int(self.config.get('iterations', 1))
+        kernel_size = self.get_config_int('kernel_size', 5)
+        iterations = self.get_config_int('iterations', 1)
         
         # Create structuring element
         shape_map = {

@@ -134,12 +134,12 @@ class HoughLinesNode(BaseNode):
             return
         
         method = self.config.get('method', 'probabilistic')
-        rho = float(self.config.get('rho', 1))
-        theta = float(self.config.get('theta_degrees', 1)) * np.pi / 180
-        threshold = int(self.config.get('threshold', 100))
-        min_length = int(self.config.get('min_length', 50))
-        max_gap = int(self.config.get('max_gap', 10))
-        draw = self.config.get('draw_lines', 'yes') == 'yes'
+        rho = self.get_config_float('rho', 1)
+        theta = self.get_config_float('theta_degrees', 1) * np.pi / 180
+        threshold = self.get_config_int('threshold', 100)
+        min_length = self.get_config_int('min_length', 50)
+        max_gap = self.get_config_int('max_gap', 10)
+        draw = self.get_config_bool('draw_lines', True)
         line_color = self._parse_color(self.config.get('line_color', '0,0,255'))
         
         # Convert to grayscale if needed

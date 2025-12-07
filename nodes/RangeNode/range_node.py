@@ -70,11 +70,11 @@ class RangeNode(BaseNode):
             payload = msg.get('payload')
             value = float(payload)
             
-            min_in = float(self.config.get('min_in', 0))
-            max_in = float(self.config.get('max_in', 100))
-            min_out = float(self.config.get('min_out', 0))
-            max_out = float(self.config.get('max_out', 1))
-            clamp = self.config.get('clamp', True)
+            min_in = self.get_config_float('min_in', 0)
+            max_in = self.get_config_float('max_in', 100)
+            min_out = self.get_config_float('min_out', 0)
+            max_out = self.get_config_float('max_out', 1)
+            clamp = self.get_config_bool('clamp', True)
             
             # Map value
             if max_in == min_in:

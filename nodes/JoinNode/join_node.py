@@ -81,11 +81,11 @@ class JoinNode(BaseNode):
         if mode == 'auto':
             should_send = True
         elif mode == 'count':
-            count = int(self.config.get('count', 2))
+            count = self.get_config_int('count', 2)
             if len(self.message_buffer) >= count:
                 should_send = True
         elif mode == 'time':
-            timeout = float(self.config.get('timeout', 1.0))
+            timeout = self.get_config_float('timeout', 1.0)
             if time.time() - self.first_message_time >= timeout:
                 should_send = True
         

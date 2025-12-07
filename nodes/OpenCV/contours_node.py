@@ -118,8 +118,8 @@ class ContoursNode(BaseNode):
         # Get parameters
         mode_str = self.config.get('mode', 'external')
         approx_str = self.config.get('approximation', 'simple')
-        min_area = float(self.config.get('min_area', 100))
-        max_area = float(self.config.get('max_area', 0))
+        min_area = self.get_config_float('min_area', 100)
+        max_area = self.get_config_float('max_area', 0)
         
         # Map mode string to OpenCV constant
         mode_map = {
@@ -191,8 +191,8 @@ class ContoursNode(BaseNode):
             })
         
         # Draw contours if requested
-        draw_contours = self.config.get('draw_contours', 'yes') == 'yes'
-        draw_bboxes = self.config.get('draw_bboxes', 'no') == 'yes'
+        draw_contours = self.get_config_bool('draw_contours', True)
+        draw_bboxes = self.get_config_bool('draw_bboxes', False)
         
         # Ensure we have a color image to draw on
         if len(img.shape) == 2:

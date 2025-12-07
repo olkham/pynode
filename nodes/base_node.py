@@ -44,7 +44,7 @@ class BaseNode:
             'name': 'drop_messages',
             'label': 'Drop Messages When Busy',
             'type': 'checkbox',
-            'default': False
+            'default': True
         }
     ]
     
@@ -73,9 +73,11 @@ class BaseNode:
         self._message_queue = queue.Queue(maxsize=1000)  # Limit queue size to prevent memory issues
         self._worker_thread = None
         self._stop_worker_flag = False
+        self._processing = False  # True when actively processing a message
         
         # Initialize drop_while_busy flag from config (defaults to True)
         self.drop_while_busy = True
+        self.drop_count = 0
         
         # Error handling
         self._workflow_engine = None  # Will be set by workflow engine
@@ -169,29 +171,35 @@ class BaseNode:
             
             for target_node, target_input in connections:
                 if target_node.enabled:
-                    # Always deep copy message for each recipient to prevent cross-talk
-                    # msg_to_send = _deep_copy_message(msg)
-                    msg_to_send = copy.deepcopy(msg)
-                    
                     # Check if target node prefers direct processing (no outputs = sink node)
                     if target_node.output_count == 0 and hasattr(target_node, 'on_input_direct'):
-                        # Direct processing for sink nodes (no queuing overhead)
+                        # Deep copy for direct processing to prevent cross-talk
+                        msg_to_send = copy.deepcopy(msg)
                         try:
                             target_node.on_input_direct(msg_to_send, target_input)
                         except Exception as e:
-                            print(f"Error in direct processing for node {target_node.id}: {e}")
+                            target_node.report_error(f"Error in direct processing: {e}")
                     else:
+                        # Check if target wants to drop messages when busy (before expensive copy)
+                        # Drop if node is processing OR has queued messages
+                        if target_node.drop_while_busy and (target_node._processing or not target_node._message_queue.empty()):
+                            # Drop message instead of queuing
+                            target_node.drop_count += 1
+                            continue
+                        
+                        # Deep copy message for each recipient to prevent cross-talk
+                        msg_to_send = copy.deepcopy(msg)
+                        
+                        # Add this node's drop count to message for monitoring
+                        # (how many messages THIS node dropped before sending this one)
+                        msg_to_send['drop_count'] = self.drop_count
+                        
                         # Queue message for target node (non-blocking)
                         try:
-                            # Check if target wants to drop messages when busy
-                            if target_node.drop_while_busy and not target_node._message_queue.empty():
-                                # Drop message instead of queuing
-                                continue
-                            
                             target_node._message_queue.put_nowait((msg_to_send, target_input))
                         except queue.Full:
                             # Queue full - drop message or handle overflow
-                            print(f"Warning: Message queue full for node {target_node.id}, dropping message")
+                            target_node.report_error("Message queue full, dropping message")
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """
@@ -228,11 +236,13 @@ class BaseNode:
                 idle_count = 0  # Reset on successful message
                 
                 # Process the message
+                self._processing = True
                 try:
                     self.on_input(msg, input_index)
                 except Exception as e:
-                    print(f"Error processing message in node {self.id}: {e}")
+                    self.report_error(f"Error processing message: {e}")
                 finally:
+                    self._processing = False
                     self._message_queue.task_done()
                     
             except queue.Empty:
@@ -240,7 +250,7 @@ class BaseNode:
                 idle_count += 1
                 continue
             except Exception as e:
-                print(f"Worker thread error in node {self.id}: {e}")
+                self.report_error(f"Worker thread error: {e}")
     
     def on_start(self):
         """
@@ -270,11 +280,47 @@ class BaseNode:
         self.config.update(config)
         # Update drop_while_busy flag from config
         # Handle both boolean and string values for compatibility
-        val = self.config.get('drop_messages', True)
-        if isinstance(val, str):
-            self.drop_while_busy = val.lower() == 'true'
-        else:
-            self.drop_while_busy = bool(val)
+        self.drop_while_busy = self.get_config_bool('drop_messages', True)
+    
+    def get_config_bool(self, key: str, default: bool = False) -> bool:
+        """
+        Get a boolean configuration value, with support for string representations of booleans.
+        
+        Args:
+            key: The configuration key
+            default: Default value if the key is not present
+        
+        Returns:
+            Boolean value of the configuration setting
+        """
+        val = self.config.get(key, default)
+        return val.lower() in ('true', '1', 'yes') if isinstance(val, str) else bool(val)
+    
+    def get_config_int(self, key: str, default: int = 0) -> int:
+        """
+        Get an integer configuration value.
+        
+        Args:
+            key: The configuration key
+            default: Default value if the key is not present
+        
+        Returns:
+            Integer value of the configuration setting
+        """
+        return int(self.config.get(key, default))
+
+    def get_config_float(self, key: str, default: float = 0.0) -> float:
+        """
+        Get a float configuration value.
+        
+        Args:
+            key: The configuration key
+            default: Default value if the key is not present
+        
+        Returns:
+            Float value of the configuration setting
+        """
+        return float(self.config.get(key, default))
     
     # Image processing helper methods
     @staticmethod

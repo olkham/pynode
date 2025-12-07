@@ -49,7 +49,7 @@ class BatchNode(BaseNode):
         """Collect messages into batches."""
         self.buffer.append(msg.copy())
         
-        batch_size = int(self.config.get('batch_size', 10))
+        batch_size = self.get_config_int('batch_size', 10)
         
         if len(self.buffer) >= batch_size:
             # Send batch
@@ -62,7 +62,7 @@ class BatchNode(BaseNode):
             self.send(out_msg)
             
             # Handle overlap
-            overlap = int(self.config.get('overlap', 0))
+            overlap = self.get_config_int('overlap', 0)
             if overlap > 0 and overlap < batch_size:
                 self.buffer = self.buffer[batch_size - overlap:]
             else:

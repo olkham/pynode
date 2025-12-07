@@ -122,7 +122,7 @@ class MqttInNode(BaseNode):
         if rc == 0:
             self._connected = True
             topic = self.config.get('topic', 'test/topic')
-            qos = int(self.config.get('qos', '0'))
+            qos = self.get_config_int('qos', 0)
             client.subscribe(topic, qos)
         else:
             self.report_error(f"Connection failed with code {rc}")
@@ -142,7 +142,7 @@ class MqttInNode(BaseNode):
             return
         
         broker = self.config.get('broker', 'localhost')
-        port = int(self.config.get('port', '1883'))
+        port = self.get_config_int('port', 1883)
         client_id = self.config.get('clientId', '') or f"pynode_in_{self.id[:8]}"
         username = self.config.get('username', '')
         password = self.config.get('password', '')

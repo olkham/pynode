@@ -102,10 +102,10 @@ class HistogramNode(BaseNode):
             return
         
         operation = self.config.get('operation', 'equalize')
-        clip_limit = float(self.config.get('clip_limit', 2.0))
-        tile_size = int(self.config.get('tile_size', 8))
-        alpha = int(self.config.get('normalize_alpha', 0))
-        beta = int(self.config.get('normalize_beta', 255))
+        clip_limit = self.get_config_float('clip_limit', 2.0)
+        tile_size = self.get_config_int('tile_size', 8)
+        alpha = self.get_config_int('normalize_alpha', 0)
+        beta = self.get_config_int('normalize_beta', 255)
         
         # Convert to grayscale for processing if color
         if len(img.shape) == 3:

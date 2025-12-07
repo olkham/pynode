@@ -145,7 +145,7 @@ class FileSystemNode(BaseNode):
             full_path = os.path.join(directory, full_filename)
             
             # Create directory if needed
-            create_subdirs = self.config.get('create_subdirs', 'true') == 'true'
+            create_subdirs = self.get_config_bool('create_subdirs', True)
             if create_subdirs:
                 os.makedirs(directory, exist_ok=True)
             elif not os.path.exists(directory):
@@ -153,7 +153,7 @@ class FileSystemNode(BaseNode):
                 return
             
             # Check if file exists and handle overwrite setting
-            overwrite = self.config.get('overwrite', 'false') == 'true'
+            overwrite = self.get_config_bool('overwrite', False)
             if os.path.exists(full_path) and not overwrite:
                 output_msg = self.create_message(
                     payload={
@@ -212,7 +212,7 @@ class FileSystemNode(BaseNode):
         elif mode == 'counter':
             # Increment counter
             self._counter += 1
-            digits = int(self.config.get('counter_digits', '4'))
+            digits = self.get_config_int('counter_digits', 4)
             counter_str = str(self._counter).zfill(digits)
             
             # Replace {counter} placeholder if present, or append

@@ -46,7 +46,7 @@ class FunctionNode(BaseNode):
     def configure(self, config: Dict[str, Any]):
         """Configure the node and update output_count based on outputs setting."""
         super().configure(config)
-        self.output_count = int(self.config.get('outputs', 1))
+        self.output_count = self.get_config_int('outputs', 1)
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """

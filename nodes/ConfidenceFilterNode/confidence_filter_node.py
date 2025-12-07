@@ -94,9 +94,9 @@ class ConfidenceFilterNode(BaseNode):
             try:
                 threshold = float(msg['threshold'])
             except (TypeError, ValueError):
-                threshold = float(self.config.get('threshold', 0.5))
+                threshold = self.get_config_float('threshold', 0.5)
         else:
-            threshold = float(self.config.get('threshold', 0.5))
+            threshold = self.get_config_float('threshold', 0.5)
         
         detection_path = self.config.get('detection_path', 'payload.detection')
         confidence_field = self.config.get('confidence_field', 'confidence')

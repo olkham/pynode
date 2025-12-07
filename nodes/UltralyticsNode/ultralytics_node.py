@@ -196,10 +196,10 @@ class UltralyticsNode(BaseNode):
         
         try:
             # Get inference parameters
-            confidence = float(self.config.get('confidence', '0.25'))
-            iou = float(self.config.get('iou', '0.45'))
-            max_det = int(self.config.get('max_det', '300'))
-            draw_results = self.config.get('draw_results', 'true') == 'true'
+            confidence = self.get_config_float('confidence', 0.25)
+            iou = self.get_config_float('iou', 0.45)
+            max_det = self.get_config_int('max_det', 300)
+            draw_results = self.get_config_bool('draw_results', True)
             
             # Perform inference on specified device
             device = self.config.get('device', 'cpu')

@@ -112,9 +112,9 @@ class FrameSourceNode(BaseNode):
         
         source_type = self.config.get('source_type', 'webcam')
         source = self.config.get('source', 0)
-        fps = int(self.config.get('fps', 10))
-        width = int(self.config.get('width', 640))
-        height = int(self.config.get('height', 480))
+        fps = self.get_config_int('fps', 10)
+        width = self.get_config_int('width', 640)
+        height = self.get_config_int('height', 480)
         
         try:
             # Open the camera
@@ -160,7 +160,7 @@ class FrameSourceNode(BaseNode):
     def _capture_loop(self, fps):
         """Capture frames in a loop and send them as messages."""
         frame_interval = 1.0 / fps
-        encode_jpeg = self.config.get('encode_jpeg', True)
+        encode_jpeg = self.config.get('encode_jpeg', False)
         
         while self.running and self.camera and self.camera.isOpened():
             start_time = time.time()
@@ -187,7 +187,7 @@ class FrameSourceNode(BaseNode):
                 # Prepare the payload
                 if encode_jpeg:
                     # Encode frame as JPEG with quality setting
-                    jpeg_quality = int(self.config.get('jpeg_quality', 75))
+                    jpeg_quality = self.get_config_int('jpeg_quality', 75)
                     encode_params = [cv2.IMWRITE_JPEG_QUALITY, jpeg_quality]
                     ret, buffer = cv2.imencode('.jpg', frame, encode_params)
                     if ret:

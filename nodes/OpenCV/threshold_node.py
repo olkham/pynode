@@ -117,11 +117,11 @@ class ThresholdNode(BaseNode):
             return
         
         method = self.config.get('method', 'binary')
-        thresh_val = int(self.config.get('threshold', 127))
-        max_val = int(self.config.get('max_value', 255))
-        block_size = int(self.config.get('block_size', 11))
-        c_value = int(self.config.get('c_value', 2))
-        convert_gray = self.config.get('convert_gray', 'yes') == 'yes'
+        thresh_val = self.get_config_int('threshold', 127)
+        max_val = self.get_config_int('max_value', 255)
+        block_size = self.get_config_int('block_size', 11)
+        c_value = self.get_config_int('c_value', 2)
+        convert_gray = self.get_config_bool('convert_gray', True)
         
         # Ensure block_size is odd
         if block_size % 2 == 0:

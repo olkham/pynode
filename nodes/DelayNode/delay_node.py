@@ -111,7 +111,7 @@ class DelayNode(BaseNode):
         
         if mode == 'delay':
             # Delay each message by time
-            timeout = float(self.config.get('timeout', 1))
+            timeout = self.get_config_float('timeout', 1)
             timer = threading.Timer(timeout, self.send, args=(msg,))
             timer.daemon = True
             timer.start()
@@ -127,7 +127,7 @@ class DelayNode(BaseNode):
         Delay messages by a number of messages.
         Each message is released after N more messages have arrived.
         """
-        delay_count = int(self.config.get('delay_count', 1))
+        delay_count = self.get_config_int('delay_count', 1)
         
         # Add message to buffer
         self._message_buffer.append(msg)
@@ -141,8 +141,8 @@ class DelayNode(BaseNode):
         """
         Rate limit messages - only send at specified rate.
         """
-        rate = int(self.config.get('rate', 1))
-        rate_time = float(self.config.get('rate_time', 1))
+        rate = self.get_config_int('rate', 1)
+        rate_time = self.get_config_float('rate_time', 1)
         rate_drop = self.config.get('rate_drop', 'drop')
         
         # Calculate interval: time / count
@@ -183,8 +183,8 @@ class DelayNode(BaseNode):
             
             # Schedule next message if queue not empty
             if self.queued_messages:
-                rate = int(self.config.get('rate', 1))
-                rate_time = float(self.config.get('rate_time', 1))
+                rate = self.get_config_int('rate', 1)
+                rate_time = self.get_config_float('rate_time', 1)
                 interval = rate_time / rate
                 
                 timer = threading.Timer(interval, self._process_queued)

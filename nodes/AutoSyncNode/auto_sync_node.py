@@ -56,7 +56,7 @@ class AutoSyncNode(BaseNode):
         """Configure node and update input count."""
         super().configure(config)
         
-        new_input_count = int(self.config.get('input_count', 2))
+        new_input_count = self.get_config_int('input_count', 2)
         if new_input_count != self.input_count:
             self.input_count = new_input_count
             self._buffers = {i: None for i in range(self.input_count)}

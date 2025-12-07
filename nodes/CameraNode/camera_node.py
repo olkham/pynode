@@ -82,10 +82,10 @@ class CameraNode(BaseNode):
         """Start the camera capture when workflow starts."""
         super().on_start()  # Start base node worker thread
         
-        camera_index = int(self.config.get('camera_index', 0))
-        fps = int(self.config.get('fps', 10))
-        width = int(self.config.get('width', 640))
-        height = int(self.config.get('height', 480))
+        camera_index = self.get_config_int('camera_index', 0)
+        fps = self.get_config_int('fps', 10)
+        width = self.get_config_int('width', 640)
+        height = self.get_config_int('height', 480)
         
         try:
             # Open the camera
@@ -144,7 +144,7 @@ class CameraNode(BaseNode):
                 # Prepare the payload
                 if encode_jpeg:
                     # Encode frame as JPEG with quality setting
-                    jpeg_quality = int(self.config.get('jpeg_quality', 75))
+                    jpeg_quality = self.get_config_int('jpeg_quality', 75)
                     encode_params = [cv2.IMWRITE_JPEG_QUALITY, jpeg_quality]
                     ret, buffer = cv2.imencode('.jpg', frame, encode_params)
                     if ret:

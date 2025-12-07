@@ -95,7 +95,7 @@ class MDNSBroadcastNode(BaseNode):
             node_id = self.id  # Use node instance ID if not specified
         
         try:
-            service_port = int(self.config.get('service_port', '5000'))
+            service_port = self.get_config_int('service_port', 5000)
         except ValueError:
             self.report_error("Invalid service port number")
             return
@@ -181,7 +181,7 @@ class MDNSBroadcastNode(BaseNode):
         super().on_start()
         
         # Auto-start if configured
-        if self.config.get('auto_start', 'true') == 'true':
+        if self.get_config_bool('auto_start', True):
             self.start_broadcast()
     
     def on_stop(self):

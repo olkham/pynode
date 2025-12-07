@@ -99,10 +99,10 @@ class BlurNode(BaseNode):
             return
         
         method = self.config.get('method', 'gaussian')
-        ksize = int(self.config.get('kernel_size', 5))
-        sigma = float(self.config.get('sigma', 0))
-        sigma_color = float(self.config.get('sigma_color', 75))
-        sigma_space = float(self.config.get('sigma_space', 75))
+        ksize = self.get_config_int('kernel_size', 5)
+        sigma = self.get_config_float('sigma', 0)
+        sigma_color = self.get_config_float('sigma_color', 75)
+        sigma_space = self.get_config_float('sigma_space', 75)
         
         # Ensure kernel size is odd for methods that require it
         if ksize % 2 == 0:
