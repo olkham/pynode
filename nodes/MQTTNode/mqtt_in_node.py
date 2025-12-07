@@ -94,8 +94,6 @@ class MqttInNode(BaseNode):
         super().__init__(node_id, name)
         self.client = None
         self._connected = False
-        
-        self.configure(self.DEFAULT_CONFIG)
     
     def on_message(self, client, userdata, message):
         """Callback when message is received."""

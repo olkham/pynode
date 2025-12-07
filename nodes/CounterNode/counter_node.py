@@ -53,7 +53,6 @@ class CounterNode(BaseNode):
     
     def __init__(self, node_id=None, name="counter"):
         super().__init__(node_id, name)
-        self.configure(self.DEFAULT_CONFIG)
         self.count = 0
         self._reset_to_initial()
     

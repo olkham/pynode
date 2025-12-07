@@ -5,7 +5,7 @@ OpenCV Histogram Node - computes and optionally equalizes image histograms.
 import cv2
 import numpy as np
 from typing import Any, Dict
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, process_image
 
 
 class HistogramNode(BaseNode):
@@ -88,19 +88,10 @@ class HistogramNode(BaseNode):
     
     def __init__(self, node_id=None, name="histogram"):
         super().__init__(node_id, name)
-        self.configure(self.DEFAULT_CONFIG)
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    @process_image()
+    def on_input(self, image: np.ndarray, msg: Dict[str, Any], input_index: int = 0):
         """Process image histogram."""
-        if 'payload' not in msg:
-            self.send(msg)
-            return
-        
-        img, format_type = self.decode_image(msg['payload'])
-        if img is None:
-            self.send(msg)
-            return
-        
         operation = self.config.get('operation', 'equalize')
         clip_limit = self.get_config_float('clip_limit', 2.0)
         tile_size = self.get_config_int('tile_size', 8)
@@ -108,23 +99,22 @@ class HistogramNode(BaseNode):
         beta = self.get_config_int('normalize_beta', 255)
         
         # Convert to grayscale for processing if color
-        if len(img.shape) == 3:
+        if len(image.shape) == 3:
             is_color = True
             # Convert to LAB for better color handling
-            lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
+            lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
             l_channel = lab[:, :, 0]
         else:
             is_color = False
-            l_channel = img
+            l_channel = image
         
         # Compute histogram
         hist = cv2.calcHist([l_channel], [0], None, [256], [0, 256])
-        msg['histogram'] = hist.flatten().tolist()
+        extra_fields = {'histogram': hist.flatten().tolist()}
         
         if operation == 'compute':
             # Just compute, don't modify image
-            self.send(msg)
-            return
+            return image, extra_fields
         
         if operation == 'equalize':
             result = cv2.equalizeHist(l_channel)
@@ -144,7 +134,4 @@ class HistogramNode(BaseNode):
         else:
             output = result
         
-        if 'payload' not in msg or not isinstance(msg['payload'], dict):
-            msg['payload'] = {}
-        msg['payload']['image'] = self.encode_image(output, format_type)
-        self.send(msg)
+        return output, extra_fields

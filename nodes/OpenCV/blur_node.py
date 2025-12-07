@@ -5,7 +5,7 @@ OpenCV Blur Node - applies various blur/smoothing filters to images.
 import cv2
 import numpy as np
 from typing import Any, Dict
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, process_image
 
 
 class BlurNode(BaseNode):
@@ -85,19 +85,10 @@ class BlurNode(BaseNode):
     
     def __init__(self, node_id=None, name="blur"):
         super().__init__(node_id, name)
-        self.configure(self.DEFAULT_CONFIG)
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    @process_image()
+    def on_input(self, image: np.ndarray, msg: Dict[str, Any], input_index: int = 0):
         """Apply blur to the input image."""
-        if 'payload' not in msg:
-            self.send(msg)
-            return
-        
-        img, format_type = self.decode_image(msg['payload'])
-        if img is None:
-            self.send(msg)
-            return
-        
         method = self.config.get('method', 'gaussian')
         ksize = self.get_config_int('kernel_size', 5)
         sigma = self.get_config_float('sigma', 0)
@@ -109,31 +100,24 @@ class BlurNode(BaseNode):
             ksize += 1
         
         if method == 'gaussian':
-            result = cv2.GaussianBlur(img, (ksize, ksize), sigma)
+            result = cv2.GaussianBlur(image, (ksize, ksize), sigma)
         elif method == 'median':
-            result = cv2.medianBlur(img, ksize)
+            result = cv2.medianBlur(image, ksize)
         elif method == 'bilateral':
-            result = cv2.bilateralFilter(img, ksize, sigma_color, sigma_space)
+            result = cv2.bilateralFilter(image, ksize, sigma_color, sigma_space)
         elif method == 'box':
-            result = cv2.blur(img, (ksize, ksize))
+            result = cv2.blur(image, (ksize, ksize))
         elif method == 'stack':
-            result = cv2.stackBlur(img, (ksize, ksize))
+            result = cv2.stackBlur(image, (ksize, ksize))
         else:
-            result = img
+            result = image
         
         # Preserve bbox if present (for crop workflows)
-        bbox = None
+        extra_fields = {}
         if isinstance(msg.get('payload'), dict):
             bbox = msg['payload'].get('bbox')
+            if bbox is not None:
+                # Keep bbox in payload and add to msg level for PasteNode
+                extra_fields['bbox'] = {'x1': bbox[0], 'y1': bbox[1], 'x2': bbox[2], 'y2': bbox[3]}
         
-        if 'payload' not in msg or not isinstance(msg['payload'], dict):
-            msg['payload'] = {}
-        msg['payload']['image'] = self.encode_image(result, format_type)
-        
-        # Restore bbox if it was present
-        if bbox is not None:
-            msg['payload']['bbox'] = bbox
-            # Also set at message level for PasteNode
-            msg['bbox'] = {'x1': bbox[0], 'y1': bbox[1], 'x2': bbox[2], 'y2': bbox[3]}
-        
-        self.send(msg)
+        return result, extra_fields

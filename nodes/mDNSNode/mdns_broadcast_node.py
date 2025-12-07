@@ -77,9 +77,8 @@ class MDNSBroadcastNode(BaseNode):
         super().__init__(node_id, name)
         self.broadcaster = None
         self.broadcast_info = {}
-        self.configure(self.DEFAULT_CONFIG)
     
-    
+
     def start_broadcast(self):
         """Start mDNS broadcasting"""
         if not MDNS_AVAILABLE:

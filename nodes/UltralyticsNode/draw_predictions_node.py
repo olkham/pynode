@@ -5,9 +5,12 @@ Takes predictions from UltralyticsNode and original image, outputs annotated ima
 
 import base64
 import cv2
+import logging
 import numpy as np
 from typing import Any, Dict
 from nodes.base_node import BaseNode
+
+logger = logging.getLogger(__name__)
 
 
 class DrawPredictionsNode(BaseNode):
@@ -176,7 +179,7 @@ class DrawPredictionsNode(BaseNode):
         """Toggle drawing on/off."""
         self.drawing_enabled = not self.drawing_enabled
         status = "enabled" if self.drawing_enabled else "disabled"
-        print(f"Draw Predictions ({self.id}): Drawing {status}")
+        logger.info(f"Draw Predictions ({self.id}): Drawing {status}")
     
     def to_dict(self) -> Dict[str, Any]:
         """Serialize node to dictionary for API/storage, including drawing state."""

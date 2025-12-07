@@ -72,7 +72,6 @@ class LabelFilterNode(BaseNode):
     
     def __init__(self, node_id=None, name="label filter"):
         super().__init__(node_id, name)
-        self.configure(self.DEFAULT_CONFIG)
 
     def _get_nested_value(self, obj: Dict, path: str) -> Any:
         """Get a nested value from a dictionary using dot notation."""

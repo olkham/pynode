@@ -110,7 +110,6 @@ class HoughLinesNode(BaseNode):
     
     def __init__(self, node_id=None, name="hough lines"):
         super().__init__(node_id, name)
-        self.configure(self.DEFAULT_CONFIG)
     
     def _parse_color(self, color_str):
         """Parse color string to BGR tuple."""

@@ -5,7 +5,7 @@ OpenCV Edge Detection Node - detects edges using various algorithms.
 import cv2
 import numpy as np
 from typing import Any, Dict
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, process_image
 
 
 class EdgeDetectorNode(BaseNode):
@@ -104,19 +104,10 @@ class EdgeDetectorNode(BaseNode):
     
     def __init__(self, node_id=None, name="edge detector"):
         super().__init__(node_id, name)
-        self.configure(self.DEFAULT_CONFIG)
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    @process_image()
+    def on_input(self, image: np.ndarray, msg: Dict[str, Any], input_index: int = 0):
         """Detect edges in the input image."""
-        if 'payload' not in msg:
-            self.send(msg)
-            return
-        
-        img, format_type = self.decode_image(msg['payload'])
-        if img is None:
-            self.send(msg)
-            return
-        
         method = self.config.get('method', 'canny')
         threshold1 = self.get_config_int('threshold1', 100)
         threshold2 = self.get_config_int('threshold2', 200)
@@ -129,10 +120,10 @@ class EdgeDetectorNode(BaseNode):
             aperture = 3
         
         # Convert to grayscale if needed
-        if len(img.shape) == 3:
-            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        if len(image.shape) == 3:
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         else:
-            gray = img
+            gray = image
         
         if method == 'canny':
             result = cv2.Canny(gray, threshold1, threshold2, 
@@ -163,7 +154,4 @@ class EdgeDetectorNode(BaseNode):
         else:
             result = gray
         
-        if 'payload' not in msg or not isinstance(msg['payload'], dict):
-            msg['payload'] = {}
-        msg['payload']['image'] = self.encode_image(result, format_type)
-        self.send(msg)
+        return result

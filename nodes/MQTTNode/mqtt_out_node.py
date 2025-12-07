@@ -104,8 +104,6 @@ class MqttOutNode(BaseNode):
         super().__init__(node_id, name)
         self.client = None
         self._connected = False
-        
-        self.configure(self.DEFAULT_CONFIG)
     
     def on_connect(self, client, userdata, flags, rc):
         """Callback when connected to broker."""

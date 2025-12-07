@@ -44,7 +44,6 @@ class BitwiseNode(BaseNode):
     
     def __init__(self, node_id=None, name="bitwise"):
         super().__init__(node_id, name)
-        self.configure(self.DEFAULT_CONFIG)
         self._image1 = None
         self._image2 = None
         self._format_type = None

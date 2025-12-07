@@ -69,7 +69,6 @@ class PerspectiveNode(BaseNode):
     
     def __init__(self, node_id=None, name="perspective"):
         super().__init__(node_id, name)
-        self.configure(self.DEFAULT_CONFIG)
     
     def _parse_points(self, points_str):
         """Parse points string to numpy array."""

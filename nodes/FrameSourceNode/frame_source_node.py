@@ -104,7 +104,6 @@ class FrameSourceNode(BaseNode):
         self.capture_thread = None
         self.running = False
         self.frame_count = 0
-        self.configure(self.DEFAULT_CONFIG)
     
     def on_start(self):
         """Start the camera capture when workflow starts."""

@@ -90,7 +90,6 @@ class DelayNode(BaseNode):
     
     def __init__(self, node_id=None, name="delay"):
         super().__init__(node_id, name)
-        self.configure(self.DEFAULT_CONFIG)
         self.last_send_time = 0
         self.queued_messages = []
         self.processing_queue = False

@@ -55,7 +55,6 @@ class ImageViewerNode(BaseNode):
         self.current_frame = None
         self.frame_timestamp = 0
         self.last_sent_timestamp = 0
-        self.configure(self.DEFAULT_CONFIG)
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """

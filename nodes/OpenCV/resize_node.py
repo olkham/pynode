@@ -5,7 +5,7 @@ OpenCV Resize Node - resizes images.
 import cv2
 import numpy as np
 from typing import Any, Dict
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, process_image
 
 
 class ResizeNode(BaseNode):
@@ -90,19 +90,10 @@ class ResizeNode(BaseNode):
     
     def __init__(self, node_id=None, name="resize"):
         super().__init__(node_id, name)
-        self.configure(self.DEFAULT_CONFIG)
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    @process_image()
+    def on_input(self, image: np.ndarray, msg: Dict[str, Any], input_index: int = 0):
         """Resize the input image."""
-        if 'payload' not in msg:
-            self.send(msg)
-            return
-        
-        img, format_type = self.decode_image(msg['payload'])
-        if img is None:
-            self.send(msg)
-            return
-        
         mode = self.config.get('mode', 'scale')
         target_width = self.get_config_int('width', 640)
         target_height = self.get_config_int('height', 480)
@@ -119,7 +110,7 @@ class ResizeNode(BaseNode):
         }
         interpolation = interp_map.get(interp_str, cv2.INTER_LINEAR)
         
-        h, w = img.shape[:2]
+        h, w = image.shape[:2]
         
         if mode == 'absolute':
             new_width = target_width
@@ -145,7 +136,7 @@ class ResizeNode(BaseNode):
         new_width = max(1, new_width)
         new_height = max(1, new_height)
         
-        result = cv2.resize(img, (new_width, new_height), interpolation=interpolation)
+        result = cv2.resize(image, (new_width, new_height), interpolation=interpolation)
         
         # For fill mode, crop to target size
         if mode == 'fill':
@@ -154,9 +145,9 @@ class ResizeNode(BaseNode):
             result = result[y_offset:y_offset + target_height, 
                            x_offset:x_offset + target_width]
         
-        if 'payload' not in msg or not isinstance(msg['payload'], dict):
-            msg['payload'] = {}
-        msg['payload']['image'] = self.encode_image(result, format_type)
-        msg['original_size'] = {'width': w, 'height': h}
-        msg['new_size'] = {'width': result.shape[1], 'height': result.shape[0]}
-        self.send(msg)
+        extra_fields = {
+            'original_size': {'width': w, 'height': h},
+            'new_size': {'width': result.shape[1], 'height': result.shape[0]}
+        }
+        
+        return result, extra_fields

@@ -42,7 +42,6 @@ class BatchNode(BaseNode):
     
     def __init__(self, node_id=None, name="batch"):
         super().__init__(node_id, name)
-        self.configure(self.DEFAULT_CONFIG)
         self.buffer = []
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):

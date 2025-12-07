@@ -5,7 +5,7 @@ OpenCV Morphology Node - applies morphological operations to images.
 import cv2
 import numpy as np
 from typing import Any, Dict
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, process_image
 
 
 class MorphologyNode(BaseNode):
@@ -80,19 +80,10 @@ class MorphologyNode(BaseNode):
     
     def __init__(self, node_id=None, name="morphology"):
         super().__init__(node_id, name)
-        self.configure(self.DEFAULT_CONFIG)
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    @process_image()
+    def on_input(self, image: np.ndarray, msg: Dict[str, Any], input_index: int = 0):
         """Apply morphological operation to the input image."""
-        if 'payload' not in msg:
-            self.send(msg)
-            return
-        
-        img, format_type = self.decode_image(msg['payload'])
-        if img is None:
-            self.send(msg)
-            return
-        
         operation = self.config.get('operation', 'dilate')
         kernel_shape = self.config.get('kernel_shape', 'rect')
         kernel_size = self.get_config_int('kernel_size', 5)
@@ -109,23 +100,20 @@ class MorphologyNode(BaseNode):
         
         # Apply operation
         if operation == 'erode':
-            result = cv2.erode(img, kernel, iterations=iterations)
+            result = cv2.erode(image, kernel, iterations=iterations)
         elif operation == 'dilate':
-            result = cv2.dilate(img, kernel, iterations=iterations)
+            result = cv2.dilate(image, kernel, iterations=iterations)
         elif operation == 'open':
-            result = cv2.morphologyEx(img, cv2.MORPH_OPEN, kernel, iterations=iterations)
+            result = cv2.morphologyEx(image, cv2.MORPH_OPEN, kernel, iterations=iterations)
         elif operation == 'close':
-            result = cv2.morphologyEx(img, cv2.MORPH_CLOSE, kernel, iterations=iterations)
+            result = cv2.morphologyEx(image, cv2.MORPH_CLOSE, kernel, iterations=iterations)
         elif operation == 'gradient':
-            result = cv2.morphologyEx(img, cv2.MORPH_GRADIENT, kernel, iterations=iterations)
+            result = cv2.morphologyEx(image, cv2.MORPH_GRADIENT, kernel, iterations=iterations)
         elif operation == 'tophat':
-            result = cv2.morphologyEx(img, cv2.MORPH_TOPHAT, kernel, iterations=iterations)
+            result = cv2.morphologyEx(image, cv2.MORPH_TOPHAT, kernel, iterations=iterations)
         elif operation == 'blackhat':
-            result = cv2.morphologyEx(img, cv2.MORPH_BLACKHAT, kernel, iterations=iterations)
+            result = cv2.morphologyEx(image, cv2.MORPH_BLACKHAT, kernel, iterations=iterations)
         else:
-            result = img
+            result = image
         
-        if 'payload' not in msg or not isinstance(msg['payload'], dict):
-            msg['payload'] = {}
-        msg['payload']['image'] = self.encode_image(result, format_type)
-        self.send(msg)
+        return result

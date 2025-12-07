@@ -8,7 +8,8 @@ import queue
 import threading
 import base64
 import copy
-from typing import Dict, List, Any, Optional, Tuple
+from functools import wraps
+from typing import Dict, List, Any, Optional, Tuple, Callable
 
 # Optional image processing dependencies
 try:
@@ -21,10 +22,124 @@ except ImportError:
     _HAS_CV2 = False
 
 
+def process_image(payload_path: str = 'payload', output_path: Optional[str] = None):
+    """
+    Decorator for image processing node methods.
+    Automatically handles image decoding/encoding and error handling.
+    
+    This decorator:
+    1. Extracts the image from msg using payload_path
+    2. Decodes it to a numpy array
+    3. Calls the decorated function with (self, image, msg, input_index)
+    4. Encodes the result back to original format
+    5. Places result at output_path (or payload_path.image if not specified)
+    6. Sends the message
+    
+    The decorated function should return:
+    - numpy array: The processed image
+    - tuple (numpy array, dict): Image and additional msg fields to merge
+    - None: Skip sending (function handles send itself)
+    
+    Args:
+        payload_path: Dot-notation path to image in msg (default: 'payload')
+        output_path: Dot-notation path for output image (default: payload_path + '.image' or 'payload.image')
+    
+    Example:
+        @process_image(payload_path='payload')
+        def process(self, image, msg, input_index):
+            # image is already decoded as numpy array
+            result = cv2.GaussianBlur(image, (5, 5), 0)
+            return result  # Will be auto-encoded and sent
+            
+        @process_image(payload_path='payload')
+        def process(self, image, msg, input_index):
+            result = cv2.GaussianBlur(image, (5, 5), 0)
+            return result, {'blur_applied': True}  # Adds extra field to msg
+    """
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        def wrapper(self, msg: Dict[str, Any], input_index: int = 0):
+            # Check for payload
+            if 'payload' not in msg:
+                self.send(msg)
+                return
+            
+            # Get the image data from the specified path
+            image_data = msg
+            path_parts = payload_path.split('.')
+            for part in path_parts:
+                if isinstance(image_data, dict) and part in image_data:
+                    image_data = image_data[part]
+                else:
+                    # Path not found, pass through
+                    self.send(msg)
+                    return
+            
+            # Decode image
+            image, format_type = self.decode_image(image_data)
+            if image is None:
+                self.send(msg)
+                return
+            
+            # Call the processing function
+            try:
+                result = func(self, image, msg, input_index)
+            except Exception as e:
+                self.report_error(f"Image processing error: {e}")
+                return
+            
+            # Handle different return types
+            if result is None:
+                # Function handled send itself
+                return
+            
+            extra_fields = {}
+            if isinstance(result, tuple):
+                result_image, extra_fields = result
+            else:
+                result_image = result
+            
+            # Encode and place in output path
+            if result_image is not None and isinstance(result_image, np.ndarray):
+                encoded = self.encode_image(result_image, format_type)
+                
+                # Determine output path
+                out_path = output_path
+                if out_path is None:
+                    # Default: if payload_path is 'payload', use 'payload.image'
+                    # Otherwise use payload_path + '.image'
+                    if payload_path == 'payload':
+                        out_path = 'payload.image'
+                    else:
+                        out_path = payload_path
+                
+                # Navigate to output location and set value
+                out_parts = out_path.split('.')
+                target = msg
+                for part in out_parts[:-1]:
+                    if part not in target or not isinstance(target[part], dict):
+                        target[part] = {}
+                    target = target[part]
+                target[out_parts[-1]] = encoded
+            
+            # Merge extra fields into msg
+            if extra_fields:
+                msg.update(extra_fields)
+            
+            self.send(msg)
+        
+        return wrapper
+    return decorator
+
+
 class BaseNode:
     """
     Base class for all nodes in the workflow system.
     Messages follow Node-RED structure with 'payload' and 'topic' fields.
+    
+    Subclasses can define a DEFAULT_CONFIG class attribute which will be
+    automatically applied during initialization. This eliminates the need
+    to manually call self.configure(self.DEFAULT_CONFIG) in __init__.
     """
     
     # Visual properties (can be overridden by subclasses)
@@ -36,6 +151,10 @@ class BaseNode:
     text_color = '#d4d4d4'
     input_count = 1  # Number of input ports (0 for input-only nodes)
     output_count = 1  # Number of output ports (0 for output-only nodes)
+    
+    # Default configuration - subclasses can override this
+    # Will be auto-applied during __init__
+    DEFAULT_CONFIG: Dict[str, Any] = {}
     
     # Property schema for the properties panel
     # Format: [{'name': 'propName', 'label': 'Display Label', 'type': 'text|textarea|select|button', 'options': [...], 'action': 'methodName'}]
@@ -65,6 +184,10 @@ class BaseNode:
         
         # Configuration for the node
         self.config: Dict[str, Any] = {}
+        
+        # Auto-apply DEFAULT_CONFIG if defined by subclass
+        if self.DEFAULT_CONFIG:
+            self.configure(self.DEFAULT_CONFIG)
         
         # Node state
         self.enabled = True
@@ -323,8 +446,7 @@ class BaseNode:
         return float(self.config.get(key, default))
     
     # Image processing helper methods
-    @staticmethod
-    def decode_image(payload: Any) -> Tuple[Any, Optional[str]]:
+    def decode_image(self, payload: Any) -> Tuple[Any, Optional[str]]:
         """
         Decode image from various formats into a numpy array.
         Returns (image, format_type) tuple where format_type indicates the input format.
@@ -362,6 +484,7 @@ class BaseNode:
                     # Direct numpy array in dict
                     if isinstance(data, np.ndarray):
                         return data, 'bgr_numpy_dict'
+                    self.report_error("Expected numpy array in bgr/numpy dict format")
                     return None, None
                     
                 elif img_format == 'jpeg' and encoding == 'base64':
@@ -376,6 +499,7 @@ class BaseNode:
                     image = np.array(data, dtype=np.uint8)
                     return image, 'bgr_raw_dict'
                 
+                self.report_error(f"Unknown image dict format: {img_format}/{encoding}")
                 return None, None
             
             # Direct base64 string
@@ -389,13 +513,14 @@ class BaseNode:
                 image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
                 return image, 'base64_string'
             
+            self.report_error(f"Unsupported image payload type: {type(payload).__name__}")
             return None, None
             
         except Exception as e:
+            self.report_error(f"Failed to decode image: {e}")
             return None, None
     
-    @staticmethod
-    def encode_image(image: Any, format_type: str) -> Any:
+    def encode_image(self, image: Any, format_type: str) -> Any:
         """
         Encode numpy array image back to the original format.
         
@@ -411,6 +536,7 @@ class BaseNode:
         
         try:
             if not isinstance(image, np.ndarray):
+                self.report_error("Cannot encode: input is not a numpy array")
                 return None
             
             if format_type == 'numpy_array':
@@ -439,6 +565,7 @@ class BaseNode:
                         'width': image.shape[1],
                         'height': image.shape[0]
                     }
+                self.report_error("Failed to encode image as JPEG base64 dict")
                 return None
                 
             elif format_type == 'bgr_raw_dict':
@@ -456,11 +583,14 @@ class BaseNode:
                 ret, buffer = cv2.imencode('.jpg', image)
                 if ret:
                     return base64.b64encode(buffer).decode('utf-8')
+                self.report_error("Failed to encode image as base64 string")
                 return None
             
+            self.report_error(f"Unknown image format type: {format_type}")
             return None
             
         except Exception as e:
+            self.report_error(f"Failed to encode image: {e}")
             return None
     
     def to_dict(self) -> Dict[str, Any]:

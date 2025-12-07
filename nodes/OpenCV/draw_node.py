@@ -5,7 +5,7 @@ OpenCV Draw Node - draws shapes and annotations on images.
 import cv2
 import numpy as np
 from typing import Any, Dict, List
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, process_image
 
 
 class DrawNode(BaseNode):
@@ -186,19 +186,11 @@ class DrawNode(BaseNode):
         
         return img
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    @process_image()
+    def on_input(self, image: np.ndarray, msg: Dict[str, Any], input_index: int = 0):
         """Draw shapes on the input image."""
-        if 'payload' not in msg:
-            self.send(msg)
-            return
-        
-        img, format_type = self.decode_image(msg['payload'])
-        if img is None:
-            self.send(msg)
-            return
-        
         # Make a copy to draw on
-        result = img.copy()
+        result = image.copy()
         
         shape = self.config.get('shape', 'rectangle')
         
@@ -223,7 +215,4 @@ class DrawNode(BaseNode):
             }
             result = self._draw_shape(result, shape_info)
         
-        if 'payload' not in msg or not isinstance(msg['payload'], dict):
-            msg['payload'] = {}
-        msg['payload']['image'] = self.encode_image(result, format_type)
-        self.send(msg)
+        return result

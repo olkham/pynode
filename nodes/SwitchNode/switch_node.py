@@ -56,7 +56,6 @@ class SwitchNode(BaseNode):
     
     def __init__(self, node_id=None, name="switch"):
         super().__init__(node_id, name)
-        self.configure(self.DEFAULT_CONFIG)
         self._update_output_count()
     
     def configure(self, config: Dict[str, Any]):

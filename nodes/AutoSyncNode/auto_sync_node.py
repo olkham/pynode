@@ -49,8 +49,6 @@ class AutoSyncNode(BaseNode):
     def __init__(self, node_id=None, name="auto sync"):
         super().__init__(node_id, name)
         self._buffers: Dict[int, Optional[Dict[str, Any]]] = {}
-        
-        self.configure(self.DEFAULT_CONFIG)
     
     def configure(self, config: Dict[str, Any]):
         """Configure node and update input count."""

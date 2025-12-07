@@ -104,7 +104,6 @@ class InRangeNode(BaseNode):
     
     def __init__(self, node_id=None, name="in range"):
         super().__init__(node_id, name)
-        self.configure(self.DEFAULT_CONFIG)
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """Apply color range filter to the input image."""

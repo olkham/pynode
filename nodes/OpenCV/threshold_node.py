@@ -6,7 +6,7 @@ Converts grayscale images to binary using various thresholding methods.
 import cv2
 import numpy as np
 from typing import Any, Dict
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, process_image
 
 
 class ThresholdNode(BaseNode):
@@ -102,20 +102,10 @@ class ThresholdNode(BaseNode):
     
     def __init__(self, node_id=None, name="threshold"):
         super().__init__(node_id, name)
-        self.configure(self.DEFAULT_CONFIG)
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    @process_image()
+    def on_input(self, image: np.ndarray, msg: Dict[str, Any], input_index: int = 0):
         """Apply thresholding to the input image."""
-        if 'payload' not in msg:
-            self.send(msg)
-            return
-        
-        # Decode image from any supported format
-        img, format_type = self.decode_image(msg['payload'])
-        if img is None:
-            self.send(msg)
-            return
-        
         method = self.config.get('method', 'binary')
         thresh_val = self.get_config_int('threshold', 127)
         max_val = self.get_config_int('max_value', 255)
@@ -128,14 +118,13 @@ class ThresholdNode(BaseNode):
             block_size += 1
         
         # Convert to grayscale if needed
-        if len(img.shape) == 3 and convert_gray:
-            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        elif len(img.shape) == 2:
-            gray = img
+        if len(image.shape) == 3 and convert_gray:
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        elif len(image.shape) == 2:
+            gray = image
         else:
             # Can't process, pass through
-            self.send(msg)
-            return
+            return image
         
         # Apply thresholding based on method
         if method == 'binary':
@@ -159,11 +148,4 @@ class ThresholdNode(BaseNode):
         else:
             result = gray
         
-        # Convert grayscale result to BGR for encoding
-        result_bgr = cv2.cvtColor(result, cv2.COLOR_GRAY2BGR)
-        
-        # Encode back to original format
-        if 'payload' not in msg or not isinstance(msg['payload'], dict):
-            msg['payload'] = {}
-        msg['payload']['image'] = self.encode_image(result, format_type)
-        self.send(msg)
+        return result

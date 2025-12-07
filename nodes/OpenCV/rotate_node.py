@@ -5,7 +5,7 @@ OpenCV Rotate Node - rotates images.
 import cv2
 import numpy as np
 from typing import Any, Dict
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, process_image
 
 
 class RotateNode(BaseNode):
@@ -79,7 +79,6 @@ class RotateNode(BaseNode):
     
     def __init__(self, node_id=None, name="rotate"):
         super().__init__(node_id, name)
-        self.configure(self.DEFAULT_CONFIG)
     
     def _parse_color(self, color_str):
         """Parse color string to BGR tuple."""
@@ -91,37 +90,29 @@ class RotateNode(BaseNode):
         except:
             return (0, 0, 0)
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    @process_image()
+    def on_input(self, image: np.ndarray, msg: Dict[str, Any], input_index: int = 0):
         """Rotate the input image."""
-        if 'payload' not in msg:
-            self.send(msg)
-            return
-        
-        img, format_type = self.decode_image(msg['payload'])
-        if img is None:
-            self.send(msg)
-            return
-        
         mode = self.config.get('mode', '90cw')
         
         if mode == '90cw':
-            result = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
+            result = cv2.rotate(image, cv2.ROTATE_90_CLOCKWISE)
         elif mode == '90ccw':
-            result = cv2.rotate(img, cv2.ROTATE_90_COUNTERCLOCKWISE)
+            result = cv2.rotate(image, cv2.ROTATE_90_COUNTERCLOCKWISE)
         elif mode == '180':
-            result = cv2.rotate(img, cv2.ROTATE_180)
+            result = cv2.rotate(image, cv2.ROTATE_180)
         elif mode == 'flip_h':
-            result = cv2.flip(img, 1)
+            result = cv2.flip(image, 1)
         elif mode == 'flip_v':
-            result = cv2.flip(img, 0)
+            result = cv2.flip(image, 0)
         elif mode == 'flip_both':
-            result = cv2.flip(img, -1)
+            result = cv2.flip(image, -1)
         elif mode == 'angle':
             angle = self.get_config_float('angle', 45)
             expand = self.get_config_bool('expand', True)
             fill_color = self._parse_color(self.config.get('fill_color', '0,0,0'))
             
-            h, w = img.shape[:2]
+            h, w = image.shape[:2]
             center = (w // 2, h // 2)
             
             # Get rotation matrix
@@ -138,15 +129,12 @@ class RotateNode(BaseNode):
                 M[0, 2] += (new_w - w) / 2
                 M[1, 2] += (new_h - h) / 2
                 
-                result = cv2.warpAffine(img, M, (new_w, new_h), 
+                result = cv2.warpAffine(image, M, (new_w, new_h), 
                                         borderValue=fill_color)
             else:
-                result = cv2.warpAffine(img, M, (w, h), 
+                result = cv2.warpAffine(image, M, (w, h), 
                                         borderValue=fill_color)
         else:
-            result = img
+            result = image
         
-        if 'payload' not in msg or not isinstance(msg['payload'], dict):
-            msg['payload'] = {}
-        msg['payload']['image'] = self.encode_image(result, format_type)
-        self.send(msg)
+        return result

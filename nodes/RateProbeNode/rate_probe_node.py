@@ -44,7 +44,6 @@ class RateProbeNode(BaseNode):
     
     def __init__(self, node_id=None, name="rate probe"):
         super().__init__(node_id, name)
-        self.configure(self.DEFAULT_CONFIG)
         # Store timestamps of recent messages
         self._timestamps = deque()
         self._current_rate = 0.0

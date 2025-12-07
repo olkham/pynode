@@ -78,7 +78,6 @@ class PasteNode(BaseNode):
     
     def __init__(self, node_id=None, name="paste"):
         super().__init__(node_id, name)
-        self.configure(self.DEFAULT_CONFIG)
         self._background: Optional[np.ndarray] = None
         self._background_msg: Optional[Dict] = None
         self._format_type: Optional[str] = None

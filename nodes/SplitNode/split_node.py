@@ -49,7 +49,6 @@ class SplitNode(BaseNode):
     
     def __init__(self, node_id=None, name="split"):
         super().__init__(node_id, name)
-        self.configure(self.DEFAULT_CONFIG)
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """Split incoming message into multiple messages."""

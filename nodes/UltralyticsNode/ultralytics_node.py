@@ -5,10 +5,13 @@ Receives image data from camera nodes and outputs inference results.
 
 import base64
 import cv2
+import logging
 import numpy as np
 from typing import Any, Dict, List
 from nodes.base_node import BaseNode
 import torch
+
+logger = logging.getLogger(__name__)
 
 
 class UltralyticsNode(BaseNode):
@@ -50,7 +53,7 @@ class UltralyticsNode(BaseNode):
                     label = f"CUDA:{i} - {props.name} ({memory_gb:.1f}GB)"
                     devices.append({'value': f'cuda:{i}', 'label': label})
         except Exception as e:
-            print(f"Error detecting CUDA devices: {e}")
+            logger.warning(f"Error detecting CUDA devices: {e}")
         
         return devices
     

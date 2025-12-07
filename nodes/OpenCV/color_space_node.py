@@ -5,7 +5,7 @@ OpenCV Color Space Converter Node - converts between color spaces.
 import cv2
 import numpy as np
 from typing import Any, Dict
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, process_image
 
 
 class ColorSpaceNode(BaseNode):
@@ -64,26 +64,16 @@ class ColorSpaceNode(BaseNode):
     
     def __init__(self, node_id=None, name="color space"):
         super().__init__(node_id, name)
-        self.configure(self.DEFAULT_CONFIG)
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    @process_image()
+    def on_input(self, image: np.ndarray, msg: Dict[str, Any], input_index: int = 0):
         """Convert image color space."""
-        if 'payload' not in msg:
-            self.send(msg)
-            return
-        
-        img, format_type = self.decode_image(msg['payload'])
-        if img is None:
-            self.send(msg)
-            return
-        
         input_space = self.config.get('input_space', 'bgr')
         output_space = self.config.get('output_space', 'gray')
         
         # No conversion needed if same
         if input_space == output_space:
-            self.send(msg)
-            return
+            return image
         
         # Define conversion codes
         conversions = {
@@ -114,19 +104,16 @@ class ColorSpaceNode(BaseNode):
         conversion_key = (input_space, output_space)
         
         if conversion_key in conversions:
-            result = cv2.cvtColor(img, conversions[conversion_key])
+            result = cv2.cvtColor(image, conversions[conversion_key])
         else:
             # Try two-step conversion via BGR
             if input_space != 'bgr' and (input_space, 'bgr') in conversions:
-                temp = cv2.cvtColor(img, conversions[(input_space, 'bgr')])
+                temp = cv2.cvtColor(image, conversions[(input_space, 'bgr')])
                 if ('bgr', output_space) in conversions:
                     result = cv2.cvtColor(temp, conversions[('bgr', output_space)])
                 else:
                     result = temp
             else:
-                result = img
+                result = image
         
-        if 'payload' not in msg or not isinstance(msg['payload'], dict):
-            msg['payload'] = {}
-        msg['payload']['image'] = self.encode_image(result, format_type)
-        self.send(msg)
+        return result

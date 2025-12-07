@@ -33,6 +33,69 @@ for engine in [working_engine, deployed_engine]:
     for node_class in nodes.get_all_node_types():
         engine.register_node_type(node_class)
 
+# Cache for node types (built once at startup or on first request)
+_node_types_cache = None
+
+def _build_node_types_cache():
+    """Build the node types cache from registered node types."""
+    global _node_types_cache
+    
+    from nodes.base_node import BaseNode
+    base_properties = getattr(BaseNode, 'properties', [])
+    
+    node_types = []
+    for name, node_class in working_engine.node_types.items():
+        # Skip ErrorNode - it's a system node that shouldn't be manually added
+        if name == 'ErrorNode':
+            continue
+            
+        display_name = getattr(node_class, 'display_name', name)
+        icon = getattr(node_class, 'icon', '◆')
+        category = getattr(node_class, 'category', 'custom')
+        color = getattr(node_class, 'color', '#2d2d30')
+        border_color = getattr(node_class, 'border_color', '#555')
+        text_color = getattr(node_class, 'text_color', '#d4d4d4')
+        input_count = getattr(node_class, 'input_count', 1)
+        output_count = getattr(node_class, 'output_count', 1)
+        
+        # Handle callable properties (get_properties classmethod)
+        if hasattr(node_class, 'get_properties') and callable(node_class.get_properties):
+            node_properties = node_class.get_properties()
+        else:
+            node_properties = getattr(node_class, 'properties', [])
+        
+        # Get property names from node-specific properties to avoid duplicates
+        node_prop_names = {prop.get('name') for prop in node_properties if isinstance(prop, dict)}
+        
+        # Add base properties that aren't overridden by node-specific properties
+        merged_properties = [prop for prop in base_properties if prop.get('name') not in node_prop_names]
+        # Add all node-specific properties
+        merged_properties.extend(node_properties)
+        
+        ui_component = getattr(node_class, 'ui_component', None)
+        ui_component_config = getattr(node_class, 'ui_component_config', {})
+        
+        node_types.append({
+            'type': name,
+            'name': display_name,
+            'icon': icon,
+            'category': category,
+            'color': color,
+            'borderColor': border_color,
+            'textColor': text_color,
+            'inputCount': input_count,
+            'outputCount': output_count,
+            'properties': merged_properties,
+            'uiComponent': ui_component,
+            'uiComponentConfig': ui_component_config
+        })
+    
+    _node_types_cache = node_types
+    return _node_types_cache
+
+# Build cache at startup
+_build_node_types_cache()
+
 # Queue for debug messages (for SSE)
 debug_message_queues = {}
 debug_broadcast_thread = None
@@ -210,57 +273,10 @@ def index():
 @app.route('/api/node-types', methods=['GET'])
 def get_node_types():
     """Get all available node types (excluding system nodes like ErrorNode)."""
-    node_types = []
-    for name, node_class in working_engine.node_types.items():
-        # Skip ErrorNode - it's a system node that shouldn't be manually added
-        if name == 'ErrorNode':
-            continue
-            
-        display_name = getattr(node_class, 'display_name', name)
-        icon = getattr(node_class, 'icon', '◆')
-        category = getattr(node_class, 'category', 'custom')
-        color = getattr(node_class, 'color', '#2d2d30')
-        border_color = getattr(node_class, 'border_color', '#555')
-        text_color = getattr(node_class, 'text_color', '#d4d4d4')
-        input_count = getattr(node_class, 'input_count', 1)
-        output_count = getattr(node_class, 'output_count', 1)
-        
-        # Merge base properties with node-specific properties
-        from nodes.base_node import BaseNode
-        base_properties = getattr(BaseNode, 'properties', [])
-        
-        # Handle callable properties (get_properties classmethod)
-        if hasattr(node_class, 'get_properties') and callable(node_class.get_properties):
-            node_properties = node_class.get_properties()
-        else:
-            node_properties = getattr(node_class, 'properties', [])
-        
-        # Get property names from node-specific properties to avoid duplicates
-        node_prop_names = {prop.get('name') for prop in node_properties if isinstance(prop, dict)}
-        
-        # Add base properties that aren't overridden by node-specific properties
-        merged_properties = [prop for prop in base_properties if prop.get('name') not in node_prop_names]
-        # Add all node-specific properties
-        merged_properties.extend(node_properties)
-        
-        ui_component = getattr(node_class, 'ui_component', None)
-        ui_component_config = getattr(node_class, 'ui_component_config', {})
-        
-        node_types.append({
-            'type': name,
-            'name': display_name,
-            'icon': icon,
-            'category': category,
-            'color': color,
-            'borderColor': border_color,
-            'textColor': text_color,
-            'inputCount': input_count,
-            'outputCount': output_count,
-            'properties': merged_properties,
-            'uiComponent': ui_component,
-            'uiComponentConfig': ui_component_config
-        })
-    return jsonify(node_types)
+    global _node_types_cache
+    if _node_types_cache is None:
+        _build_node_types_cache()
+    return jsonify(_node_types_cache)
 
 
 @app.route('/api/nodes', methods=['GET'])

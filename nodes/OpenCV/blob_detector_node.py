@@ -107,7 +107,6 @@ class BlobDetectorNode(BaseNode):
     
     def __init__(self, node_id=None, name="blob detector"):
         super().__init__(node_id, name)
-        self.configure(self.DEFAULT_CONFIG)
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """Detect blobs in the input image."""

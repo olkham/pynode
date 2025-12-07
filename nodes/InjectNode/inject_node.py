@@ -63,7 +63,6 @@ class InjectNode(BaseNode):
     
     def __init__(self, node_id=None, name="inject"):
         super().__init__(node_id, name)
-        self.configure(self.DEFAULT_CONFIG)
         self._timer_thread = None
         self._stop_timer = False
         self._once_timer = None

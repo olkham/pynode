@@ -5,7 +5,10 @@ Auto-generated - do not edit manually.
 
 import importlib
 import inspect
+import logging
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 # Auto-discover node types
 _node_classes = []
@@ -42,10 +45,10 @@ def _try_import_from_init(folder_name):
     except ImportError as e:
         # Suppress missing dependency errors silently for cleaner output
         if "No module named" not in str(e):
-            print(f"Warning: Error importing {folder_name}: {e}")
+            logger.warning(f"Error importing {folder_name}: {e}")
         return []
     except Exception as e:
-        print(f"Warning: Error importing {folder_name}: {e}")
+        logger.warning(f"Error importing {folder_name}: {e}")
         return []
 
 

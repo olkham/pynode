@@ -111,8 +111,6 @@ class FileSystemNode(BaseNode):
     
     def __init__(self, node_id=None, name="file system"):
         super().__init__(node_id, name)
-        self.configure(self.DEFAULT_CONFIG)
-        
         self._counter = 0
         self._last_written = None
     

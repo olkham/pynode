@@ -149,7 +149,6 @@ class ColormapNode(BaseNode):
     
     def __init__(self, node_id=None, name="colormap"):
         super().__init__(node_id, name)
-        self.configure(self.DEFAULT_CONFIG)
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """Apply colormap to input image/depth data."""

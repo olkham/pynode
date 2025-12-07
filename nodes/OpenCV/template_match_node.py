@@ -88,7 +88,6 @@ class TemplateMatchNode(BaseNode):
     
     def __init__(self, node_id=None, name="template match"):
         super().__init__(node_id, name)
-        self.configure(self.DEFAULT_CONFIG)
         self._template = None
     
     def _parse_color(self, color_str):

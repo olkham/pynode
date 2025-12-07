@@ -82,7 +82,6 @@ class CropNode(BaseNode):
     
     def __init__(self, node_id=None, name="crop"):
         super().__init__(node_id, name)
-        self.configure(self.DEFAULT_CONFIG)
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """Process incoming image and crop based on bounding boxes."""

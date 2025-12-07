@@ -103,7 +103,6 @@ class SyncNode(BaseNode):
     
     def __init__(self, node_id=None, name="sync"):
         super().__init__(node_id, name)
-        self.configure(self.DEFAULT_CONFIG)
         # Buffer to store messages: {index: msg}
         self._buffer: Dict[Any, Dict[str, Any]] = {}
         # Track arrival order for non-sorted output

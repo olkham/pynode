@@ -216,7 +216,6 @@ class EquirectangularNode(BaseNode):
     
     def __init__(self, node_id=None, name="equirectangular"):
         super().__init__(node_id, name)
-        self.configure(self.DEFAULT_CONFIG)
         
         # Coordinate mapping cache
         self._map_cache = {}
