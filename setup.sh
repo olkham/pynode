@@ -54,15 +54,22 @@ echo ""
 echo "Setup complete! Virtual environment is activated."
 echo ""
 
-# Ask if user wants to install node dependencies
-read -p "Would you like to install node dependencies? (y/n): " -n 1 -r
-echo ""
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    echo "Installing node dependencies..."
-    ./install_nodes.sh
+# Check if running in non-interactive mode (e.g., Docker build)
+if [ -t 0 ]; then
+    # Interactive mode - ask user
+    read -p "Would you like to install node dependencies? (y/n): " -n 1 -r
+    echo ""
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        echo "Installing node dependencies..."
+        ./install_nodes.sh
+    else
+        echo "Skipping node dependencies installation."
+        echo "You can install them later by running: ./install_nodes.sh"
+    fi
 else
-    echo "Skipping node dependencies installation."
-    echo "You can install them later by running: ./install_nodes.sh"
+    # Non-interactive mode - auto-install
+    echo "Non-interactive mode detected. Installing node dependencies..."
+    ./install_nodes.sh
 fi
 
 echo ""
