@@ -48,25 +48,29 @@ class CropNode(BaseNode):
             'name': 'x1',
             'label': 'X1 (left)',
             'type': 'number',
-            'default': DEFAULT_CONFIG['x1']
+            'default': DEFAULT_CONFIG['x1'],
+            'showIf': {'bbox_source': 'manual'}
         },
         {
             'name': 'y1',
             'label': 'Y1 (top)',
             'type': 'number',
-            'default': DEFAULT_CONFIG['y1']
+            'default': DEFAULT_CONFIG['y1'],
+            'showIf': {'bbox_source': 'manual'}
         },
         {
             'name': 'x2',
             'label': 'X2 (right)',
             'type': 'number',
-            'default': DEFAULT_CONFIG['x2']
+            'default': DEFAULT_CONFIG['x2'],
+            'showIf': {'bbox_source': 'manual'}
         },
         {
             'name': 'y2',
             'label': 'Y2 (bottom)',
             'type': 'number',
-            'default': DEFAULT_CONFIG['y2']
+            'default': DEFAULT_CONFIG['y2'],
+            'showIf': {'bbox_source': 'manual'}
         },
         {
             'name': 'output_mode',
@@ -136,26 +140,59 @@ class CropNode(BaseNode):
             self.report_error("No valid crops produced")
             return
         
-        # Always output a list of crops as the payload
-        encoded_crops = []
-        for crop_data in crops:
+        output_mode = self.config.get('output_mode', 'separate')
+        
+        # For manual mode with single crop, output as single object not array
+        if bbox_source == 'manual' and len(crops) == 1:
+            crop_data = crops[0]
             encoded = self._encode_image(crop_data['image'], input_format)
             if encoded:
-                crop_info = {
+                # Single crop output
+                msg['payload'] = {
                     'image': encoded,
                     'bbox': crop_data['bbox'],
                     'index': crop_data['index']
                 }
-                if 'detection' in crop_data:
-                    crop_info['detection'] = crop_data['detection']
-                encoded_crops.append(crop_info)
+                msg['topic'] = msg.get('topic', 'crop')
+                self.send(msg)
+        elif output_mode == 'separate':
+            # Send each crop as a separate message
+            for crop_data in crops:
+                encoded = self._encode_image(crop_data['image'], input_format)
+                if encoded:
+                    msg_copy = msg.copy()
+                    crop_info = {
+                        'image': encoded,
+                        'bbox': crop_data['bbox'],
+                        'index': crop_data['index']
+                    }
+                    if 'detection' in crop_data:
+                        crop_info['detection'] = crop_data['detection']
+                    
+                    msg_copy['payload'] = crop_info
+                    msg_copy['topic'] = msg.get('topic', 'crop')
+                    msg_copy['crop_count'] = len(crops)
+                    msg_copy['parts'] = {'index': crop_data['index'], 'count': len(crops), 'id': msg.get('_msgid')}
+                    self.send(msg_copy)
+        else:
+            # Output all crops in one message as array
+            encoded_crops = []
+            for crop_data in crops:
+                encoded = self._encode_image(crop_data['image'], input_format)
+                if encoded:
+                    crop_info = {
+                        'image': encoded,
+                        'bbox': crop_data['bbox'],
+                        'index': crop_data['index']
+                    }
+                    if 'detection' in crop_data:
+                        crop_info['detection'] = crop_data['detection']
+                    encoded_crops.append(crop_info)
 
-        # Preserve original message properties (like frame_count) and update payload
-        # Note: send() handles deep copying, so we modify msg directly
-        msg['payload'] = encoded_crops
-        msg['topic'] = msg.get('topic', 'crops')
-        msg['crop_count'] = len(encoded_crops)
-        self.send(msg)
+            msg['payload'] = encoded_crops
+            msg['topic'] = msg.get('topic', 'crops')
+            msg['crop_count'] = len(encoded_crops)
+            self.send(msg)
     
     def _decode_image(self, payload: Dict[str, Any]):
         """Decode image from payload using BaseNode helper. Returns (image, format_type) tuple."""
