@@ -229,6 +229,7 @@ class UltralyticsNode(BaseNode):
                             'class_name': result.names[int(box.cls[0])],
                             'confidence': float(box.conf[0]),
                             'bbox': box.xyxy[0].cpu().numpy().tolist(),  # [x1, y1, x2, y2]
+                            'bbox_format': 'xyxy'
                         }
                         detections.append(detection)
             
@@ -256,6 +257,7 @@ class UltralyticsNode(BaseNode):
             if include_predictions or True:
                 payload_out['detections'] = detections
                 payload_out['detection_count'] = len(detections)
+                payload_out['bbox_format'] = 'xyxy'  # Document the bbox format at payload level
             
             # Preserve original message properties (like frame_count) and update payload
             # Note: send() handles deep copying, so we modify msg directly
