@@ -122,6 +122,8 @@ export function renderProperties(nodeData) {
                 html += renderRulesEditor(nodeData.id, prop.name, nodeData.config[prop.name] || []);
             } else if (prop.type === 'injectProps') {
                 html += renderInjectPropsEditor(nodeData.id, prop.name, nodeData.config[prop.name] || []);
+            } else if (prop.type === 'changeRules') {
+                html += renderChangeRulesEditor(nodeData.id, prop.name, nodeData.config[prop.name] || []);
             }
             
             if (prop.help) {
@@ -455,6 +457,245 @@ export function updateInjectProp(nodeId, propName, propIndex, field, value) {
         
         // Re-render if type changed to update value input
         if (field === 'valueType') {
+            renderProperties(nodeData);
+        }
+        
+        markNodeModified(nodeId);
+        setModified(true);
+    }
+}
+
+// Change rules editor for change node (Node-RED style)
+function renderChangeRulesEditor(nodeId, propName, rules) {
+    let html = '<div class="change-rules-editor">';
+    
+    rules.forEach((rule, index) => {
+        html += renderChangeRuleItem(nodeId, propName, rule, index);
+    });
+    
+    html += `
+        <button class="btn btn-secondary btn-sm" onclick="window.addChangeRule('${nodeId}', '${propName}')">+ Add Rule</button>
+    </div>`;
+    
+    return html;
+}
+
+function renderChangeRuleItem(nodeId, propName, rule, index) {
+    const ruleType = rule.type || 'set';
+    const path = rule.path || 'msg.payload';
+    const value = rule.value !== undefined ? rule.value : '';
+    const valueType = rule.valueType || 'str';
+    const search = rule.search || '';
+    const replace = rule.replace || '';
+    const searchType = rule.searchType || 'str';
+    const replaceType = rule.replaceType || 'str';
+    
+    let html = `
+        <div class="change-rule-item" data-rule-index="${index}">
+            <div class="change-rule-header">
+                <select class="change-rule-type" onchange="window.updateChangeRule('${nodeId}', '${propName}', ${index}, 'type', this.value)">
+                    ${getChangeRuleTypeOptions(ruleType)}
+                </select>
+                <button class="btn-icon-sm" onclick="window.removeChangeRule('${nodeId}', '${propName}', ${index})" title="Delete rule">✕</button>
+            </div>
+            <div class="change-rule-config">
+    `;
+    
+    if (ruleType === 'set') {
+        html += `
+            <div class="change-rule-row">
+                <input type="text" class="change-rule-path" placeholder="msg.payload" 
+                       value="${path}"
+                       onchange="window.updateChangeRule('${nodeId}', '${propName}', ${index}, 'path', this.value)">
+                <span class="change-rule-to">to</span>
+                <select class="change-rule-value-type" onchange="window.updateChangeRule('${nodeId}', '${propName}', ${index}, 'valueType', this.value)">
+                    ${getChangeValueTypeOptions(valueType)}
+                </select>
+                ${renderChangeValueInput(nodeId, propName, index, value, valueType)}
+            </div>
+        `;
+    } else if (ruleType === 'change') {
+        html += `
+            <div class="change-rule-row">
+                <span class="change-rule-label">in</span>
+                <input type="text" class="change-rule-path" placeholder="msg.payload" 
+                       value="${path}"
+                       onchange="window.updateChangeRule('${nodeId}', '${propName}', ${index}, 'path', this.value)">
+            </div>
+            <div class="change-rule-row">
+                <span class="change-rule-label">search</span>
+                <select class="change-rule-search-type" onchange="window.updateChangeRule('${nodeId}', '${propName}', ${index}, 'searchType', this.value)">
+                    ${getChangeSearchTypeOptions(searchType)}
+                </select>
+                <input type="text" class="change-rule-search" placeholder="search" 
+                       value="${escapeHtml(search)}"
+                       onchange="window.updateChangeRule('${nodeId}', '${propName}', ${index}, 'search', this.value)">
+            </div>
+            <div class="change-rule-row">
+                <span class="change-rule-label">replace</span>
+                <select class="change-rule-replace-type" onchange="window.updateChangeRule('${nodeId}', '${propName}', ${index}, 'replaceType', this.value)">
+                    ${getChangeReplaceTypeOptions(replaceType)}
+                </select>
+                <input type="text" class="change-rule-replace" placeholder="replace" 
+                       value="${escapeHtml(replace)}"
+                       onchange="window.updateChangeRule('${nodeId}', '${propName}', ${index}, 'replace', this.value)">
+            </div>
+        `;
+    } else if (ruleType === 'delete') {
+        html += `
+            <div class="change-rule-row">
+                <input type="text" class="change-rule-path" placeholder="msg.payload" 
+                       value="${path}"
+                       onchange="window.updateChangeRule('${nodeId}', '${propName}', ${index}, 'path', this.value)">
+            </div>
+        `;
+    } else if (ruleType === 'move') {
+        const toPath = rule.toPath || '';
+        html += `
+            <div class="change-rule-row">
+                <input type="text" class="change-rule-path" placeholder="msg.payload" 
+                       value="${path}"
+                       onchange="window.updateChangeRule('${nodeId}', '${propName}', ${index}, 'path', this.value)">
+                <span class="change-rule-to">to</span>
+                <input type="text" class="change-rule-to-path" placeholder="msg.newPayload" 
+                       value="${toPath}"
+                       onchange="window.updateChangeRule('${nodeId}', '${propName}', ${index}, 'toPath', this.value)">
+            </div>
+        `;
+    }
+    
+    html += `
+            </div>
+        </div>
+    `;
+    
+    return html;
+}
+
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function getChangeRuleTypeOptions(selected) {
+    const types = [
+        { value: 'set', label: 'Set' },
+        { value: 'change', label: 'Change' },
+        { value: 'delete', label: 'Delete' },
+        { value: 'move', label: 'Move' }
+    ];
+    
+    return types.map(type => 
+        `<option value="${type.value}" ${type.value === selected ? 'selected' : ''}>${type.label}</option>`
+    ).join('');
+}
+
+function getChangeValueTypeOptions(selected) {
+    const types = [
+        { value: 'str', label: 'string' },
+        { value: 'num', label: 'number' },
+        { value: 'bool', label: 'boolean' },
+        { value: 'json', label: 'JSON' },
+        { value: 'path', label: 'msg. path' },
+        { value: 'date', label: 'timestamp' },
+        { value: 'env', label: 'env var' }
+    ];
+    
+    return types.map(type => 
+        `<option value="${type.value}" ${type.value === selected ? 'selected' : ''}>${type.label}</option>`
+    ).join('');
+}
+
+function getChangeSearchTypeOptions(selected) {
+    const types = [
+        { value: 'str', label: 'string' },
+        { value: 'regex', label: 'regex' }
+    ];
+    
+    return types.map(type => 
+        `<option value="${type.value}" ${type.value === selected ? 'selected' : ''}>${type.label}</option>`
+    ).join('');
+}
+
+function getChangeReplaceTypeOptions(selected) {
+    const types = [
+        { value: 'str', label: 'string' },
+        { value: 'path', label: 'msg. path' }
+    ];
+    
+    return types.map(type => 
+        `<option value="${type.value}" ${type.value === selected ? 'selected' : ''}>${type.label}</option>`
+    ).join('');
+}
+
+function renderChangeValueInput(nodeId, propName, index, value, valueType) {
+    const escaped = escapeHtml(value);
+    
+    if (valueType === 'bool') {
+        const boolVal = value === true || value === 'true';
+        return `<select class="change-rule-value" onchange="window.updateChangeRule('${nodeId}', '${propName}', ${index}, 'value', this.value === 'true')">
+            <option value="true" ${boolVal ? 'selected' : ''}>true</option>
+            <option value="false" ${!boolVal ? 'selected' : ''}>false</option>
+        </select>`;
+    } else if (valueType === 'date') {
+        return '<input type="text" class="change-rule-value" disabled placeholder="timestamp">';
+    } else if (valueType === 'json') {
+        return `<input type="text" class="change-rule-value change-rule-json" placeholder='{"key":"value"}' value="${escaped}" onchange="window.updateChangeRule('${nodeId}', '${propName}', ${index}, 'value', this.value)">`;
+    } else if (valueType === 'path') {
+        return `<input type="text" class="change-rule-value" placeholder="payload.data" value="${escaped}" onchange="window.updateChangeRule('${nodeId}', '${propName}', ${index}, 'value', this.value)">`;
+    } else {
+        const placeholder = valueType === 'num' ? '0' : valueType === 'env' ? 'ENV_VAR' : '';
+        return `<input type="text" class="change-rule-value" placeholder="${placeholder}" value="${escaped}" onchange="window.updateChangeRule('${nodeId}', '${propName}', ${index}, 'value', this.value)">`;
+    }
+}
+
+export function addChangeRule(nodeId, propName) {
+    const nodeData = state.nodes.get(nodeId);
+    const rules = nodeData.config[propName] || [];
+    
+    rules.push({
+        type: 'set',
+        path: 'msg.payload',
+        value: '',
+        valueType: 'str'
+    });
+    
+    nodeData.config[propName] = rules;
+    
+    markNodeModified(nodeId);
+    setModified(true);
+    renderProperties(nodeData);
+}
+
+export function removeChangeRule(nodeId, propName, ruleIndex) {
+    const nodeData = state.nodes.get(nodeId);
+    const rules = nodeData.config[propName] || [];
+    
+    if (rules.length > 0) {
+        rules.splice(ruleIndex, 1);
+        nodeData.config[propName] = rules;
+        
+        markNodeModified(nodeId);
+        setModified(true);
+        renderProperties(nodeData);
+    }
+}
+
+export function updateChangeRule(nodeId, propName, ruleIndex, field, value) {
+    const nodeData = state.nodes.get(nodeId);
+    const rules = nodeData.config[propName] || [];
+    
+    if (rules[ruleIndex]) {
+        rules[ruleIndex][field] = value;
+        nodeData.config[propName] = rules;
+        
+        // Re-render if type changed to update inputs
+        if (field === 'type' || field === 'valueType') {
             renderProperties(nodeData);
         }
         

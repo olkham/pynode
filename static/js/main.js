@@ -3,7 +3,7 @@ import { loadNodeTypes } from './palette.js';
 import { setupEventListeners } from './events.js';
 import { loadWorkflow } from './workflow.js';
 import { startDebugPolling } from './debug.js';
-import { updateNodeProperty, updateNodeConfig, triggerNodeAction, toggleNodeState, toggleGate, toggleNodeEnabled, addRule, removeRule, updateRule, addInjectProp, removeInjectProp, updateInjectProp } from './properties.js';
+import { updateNodeProperty, updateNodeConfig, triggerNodeAction, toggleNodeState, toggleGate, toggleNodeEnabled, addRule, removeRule, updateRule, addInjectProp, removeInjectProp, updateInjectProp, addChangeRule, removeChangeRule, updateChangeRule } from './properties.js';
 
 // Expose functions to window for inline event handlers
 window.updateNodeProperty = updateNodeProperty;
@@ -18,6 +18,9 @@ window.updateRule = updateRule;
 window.addInjectProp = addInjectProp;
 window.removeInjectProp = removeInjectProp;
 window.updateInjectProp = updateInjectProp;
+window.addChangeRule = addChangeRule;
+window.removeChangeRule = removeChangeRule;
+window.updateChangeRule = updateChangeRule;
 
 // Initialize application
 document.addEventListener('DOMContentLoaded', async () => {
