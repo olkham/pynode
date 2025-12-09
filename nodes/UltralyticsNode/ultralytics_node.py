@@ -143,7 +143,7 @@ class UltralyticsNode(BaseNode):
             return
             
         try:
-            from ultralytics import YOLO
+            from ultralytics import YOLO # type: ignore
             model_name = self.config.get('model', 'yolov8n.pt')
             device = self.config.get('device', 'cpu')
             self.model = YOLO(model_name)
