@@ -1,6 +1,6 @@
 // Event handlers
 import { state } from './state.js';
-import { createNode, deleteNode, deleteNodeAndReconnect } from './nodes.js';
+import { createNode, deleteNode, deleteNodeAndReconnect, snapNodeToGrid } from './nodes.js';
 import { deselectNode, deselectAllNodes, selectNode } from './selection.js';
 import { deployWorkflow, deployWorkflowFull, clearWorkflow, exportWorkflow, importWorkflow } from './workflow.js';
 import { clearDebug } from './debug.js';
@@ -462,6 +462,13 @@ function handleCanvasDrop(e) {
     const y = e.clientY - rect.top - offsetY;
     
     const newNodeId = createNode(nodeType, x, y);
+
+    // Snap the new node so input port 0 aligns to the grid.
+    if (newNodeId) {
+        setTimeout(() => {
+            snapNodeToGrid(newNodeId);
+        }, 0);
+    }
     
     // If dropped on a connection, insert the node into it
     if (connectionToInsertInto && newNodeId) {

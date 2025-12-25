@@ -378,7 +378,7 @@ body {
     transition: background 0.2s;
     display: flex;
     align-items: stretch;
-    height: 30px;
+    min-height: 30px;
     overflow: visible;
     position: relative;
 }
@@ -405,12 +405,17 @@ body {
 
 .palette-node-name {
     flex: 1;
+    min-width: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 0 10px;
+    padding: 4px 10px;
     line-height: 1.2;
     font-weight: 500;
+    text-align: center;
+    white-space: normal;
+    word-break: break-word;
+    overflow-wrap: anywhere;
 }
 
 .palette-node-ports {
@@ -454,6 +459,8 @@ body {
         linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
         linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
     background-size: 20px 20px;
+    background-attachment: local;
+    background-position: 0 0;
     user-select: none;
     -webkit-user-select: none;
     -moz-user-select: none;
@@ -681,7 +688,7 @@ body {
 
 .node-content {
     display: flex;
-    align-items: center;
+    align-items: stretch;
     min-height: 30px;
     flex: 1;
     border-radius: 6px;
@@ -707,11 +714,23 @@ body {
     font-size: 13px;
     font-weight: 500;
     flex: 1;
+    min-width: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 0 10px;
+    padding: 4px 10px;
     text-align: center;
+    line-height: 1.2;
+    white-space: normal;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+}
+
+/* Keep controls vertically centered even though .node-content stretches */
+.node-content .inject-btn,
+.node-content .gate-switch,
+.node-content .rate-display {
+    align-self: center;
 }
 
 .node-delete {
