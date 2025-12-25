@@ -52,13 +52,18 @@
         <!-- Main content -->
         <div class="main-content">
             <!-- Node Palette -->
-            <aside class="palette">
-                <h3>Node Palette</h3>
-                <div class="palette-search-container">
-                    <input type="text" id="palette-search" class="palette-search" placeholder="Filter nodes..." />
+            <aside class="palette" id="left-palette">
+                <div class="palette-scroll">
+                    <h3>Node Palette</h3>
+                    <div class="palette-search-container">
+                        <input type="text" id="palette-search" class="palette-search" placeholder="Filter nodes..." />
+                    </div>
+                    <div id="node-palette" class="node-list">
+                        <!-- Nodes will be loaded here -->
+                    </div>
                 </div>
-                <div id="node-palette" class="node-list">
-                    <!-- Nodes will be loaded here -->
+                <div class="panel-grab panel-grab-left" id="left-palette-grab" title="Drag to resize">
+                    <button class="panel-toggle-btn" id="left-palette-toggle" type="button" aria-label="Toggle palette"></button>
                 </div>
             </aside>
 
@@ -111,7 +116,7 @@
                             <button class="filter-toggle-btn active" id="filter-errors" data-filter="errors">
                                 Errors
                             </button>
-                            <button class="filter-toggle-btn active" id="collapse-similar" data-filter="collapse">
+                            <button class="filter-toggle-btn" id="collapse-similar" data-filter="collapse">
                                 Collapse
                             </button>
                         </div>
@@ -126,6 +131,9 @@
                             <p class="placeholder">Select a node to see information</p>
                         </div>
                     </div>
+                </div>
+                <div class="panel-grab panel-grab-right" id="right-sidebar-grab" title="Drag to resize">
+                    <button class="panel-toggle-btn" id="right-sidebar-toggle" type="button" aria-label="Toggle sidebar"></button>
                 </div>
             </aside>
         </div>

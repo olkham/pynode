@@ -150,6 +150,9 @@ export function setupEventListeners() {
     
     // Properties panel resize
     setupPropertiesResize();
+
+    // Left palette + right sidebar resize/toggle handles
+    setupSidePanelGrabs();
     
     // Canvas click to deselect or select connections
     nodesContainer.addEventListener('click', (e) => {
@@ -273,6 +276,132 @@ export function setupEventListeners() {
     });
     
     setupSelectionBox();
+}
+
+function setupSidePanelGrabs() {
+    const leftPanel = document.getElementById('left-palette');
+    const leftGrab = document.getElementById('left-palette-grab');
+    const rightPanel = document.getElementById('right-sidebar');
+    const rightGrab = document.getElementById('right-sidebar-grab');
+
+    setupOneSidePanelGrab({
+        panel: leftPanel,
+        grab: leftGrab,
+        side: 'left',
+        minWidth: 180,
+        maxWidth: 600,
+        collapsedWidth: 18,
+        storageKey: 'pynode.leftPalette'
+    });
+
+    setupOneSidePanelGrab({
+        panel: rightPanel,
+        grab: rightGrab,
+        side: 'right',
+        minWidth: 240,
+        maxWidth: 700,
+        collapsedWidth: 18,
+        storageKey: 'pynode.rightSidebar'
+    });
+}
+
+function setupOneSidePanelGrab({ panel, grab, side, minWidth, maxWidth, collapsedWidth, storageKey }) {
+    if (!panel || !grab) return;
+
+    const toggleBtn = grab.querySelector('.panel-toggle-btn');
+
+    const widthKey = `${storageKey}.width`;
+    const collapsedKey = `${storageKey}.collapsed`;
+
+    const applyCollapsed = (collapsed) => {
+        if (collapsed) {
+            panel.classList.add('collapsed');
+            panel.style.width = `${collapsedWidth}px`;
+        } else {
+            panel.classList.remove('collapsed');
+            const savedWidth = parseInt(localStorage.getItem(widthKey) || '', 10);
+            if (!Number.isNaN(savedWidth)) {
+                panel.style.width = `${savedWidth}px`;
+            }
+        }
+        localStorage.setItem(collapsedKey, collapsed ? '1' : '0');
+        updateToggleIcon();
+    };
+
+    const updateToggleIcon = () => {
+        if (!toggleBtn) return;
+        const isCollapsed = panel.classList.contains('collapsed');
+        if (side === 'left') {
+            // Left panel: expanded shows '<' (collapse left), collapsed shows '>' (expand right)
+            toggleBtn.textContent = isCollapsed ? '>' : '<';
+        } else {
+            // Right panel: expanded shows '>' (collapse right), collapsed shows '<' (expand left)
+            toggleBtn.textContent = isCollapsed ? '<' : '>';
+        }
+    };
+
+    // Initial state
+    const savedCollapsed = localStorage.getItem(collapsedKey) === '1';
+    const savedWidth = parseInt(localStorage.getItem(widthKey) || '', 10);
+    if (!Number.isNaN(savedWidth)) {
+        panel.style.width = `${savedWidth}px`;
+    }
+    applyCollapsed(savedCollapsed);
+
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            applyCollapsed(!panel.classList.contains('collapsed'));
+        });
+    }
+
+    let isResizing = false;
+    let didDrag = false;
+    let startX = 0;
+    let startWidth = 0;
+
+    const beginResize = (e) => {
+        if (toggleBtn && e.target === toggleBtn) return;
+
+        // If currently collapsed and user starts dragging, expand first.
+        if (panel.classList.contains('collapsed')) {
+            applyCollapsed(false);
+        }
+
+        isResizing = true;
+        didDrag = false;
+        startX = e.clientX;
+        startWidth = panel.offsetWidth;
+        document.body.style.cursor = 'ew-resize';
+        e.preventDefault();
+        e.stopPropagation();
+    };
+
+    const onMove = (e) => {
+        if (!isResizing) return;
+
+        const rawDelta = side === 'left' ? (e.clientX - startX) : (startX - e.clientX);
+        if (Math.abs(rawDelta) > 3) didDrag = true;
+
+        const nextWidth = Math.max(minWidth, Math.min(maxWidth, startWidth + rawDelta));
+        panel.style.width = `${nextWidth}px`;
+    };
+
+    const endResize = () => {
+        if (!isResizing) return;
+        isResizing = false;
+        document.body.style.cursor = '';
+
+        if (didDrag) {
+            const w = panel.offsetWidth;
+            localStorage.setItem(widthKey, String(w));
+        }
+    };
+
+    grab.addEventListener('mousedown', beginResize);
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', endResize);
 }
 
 function togglePropertiesPanel() {
