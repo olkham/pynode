@@ -171,8 +171,24 @@ export function renderConnection(connection) {
     // Arrowhead is always at the target port (x2, y2)
     // Control points are adjusted for a smooth curve, but never move the end point
     const dx = x2 - x1;
-    let minCurve = 40;
-    let control = Math.max(Math.abs(dx) * 0.5, minCurve);
+    
+    // Gradual transition: minCurve increases as the connection goes backwards
+    // Forward (dx > 0): minCurve = 30
+    // Backwards (dx < 0): minCurve grows larger as dx becomes more negative
+    let minCurve = 30;
+    if (dx < 0) {
+        // Gradually increase minCurve based on how far back it goes
+        // At dx = -100, minCurve ≈ 55; at dx = -200, minCurve ≈ 80
+        minCurve = 30 + Math.abs(dx) * 0.5;
+        minCurve = Math.min(minCurve, 100); // Cap at 100
+    }
+
+    const dy = y2 - y1;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    // minCurve = Math.min(minCurve, distance / 2 - 10);
+
+    let control = Math.max(Math.abs(dx) * 0.3, minCurve);
+    // let control = 0;
     // Control points: always horizontally offset from source/target
     const cx1 = x1 + control;
     const cx2 = x2 - control;
