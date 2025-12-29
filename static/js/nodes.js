@@ -4,6 +4,88 @@ import { state, generateNodeId, markNodeModified, markNodeAdded, markNodeDeleted
 import { updateConnections, nodeHasConnections, getConnectionAtPoint, highlightConnectionForInsert, clearConnectionHighlight, getHoveredConnection, insertNodeIntoConnection } from './connections.js';
 import { selectNode } from './selection.js';
 
+const GRID_SIZE = 20;
+
+function clampToCanvasBounds(x, y) {
+    // Keep nodes within the drawable canvas area (best-effort).
+    const min = 0;
+    const maxX = 5000;
+    const maxY = 5000;
+    return {
+        x: Math.min(Math.max(x, min), maxX),
+        y: Math.min(Math.max(y, min), maxY)
+    };
+}
+
+function getInputPort0CenterInCanvasCoords(nodeEl) {
+    const nodesContainer = document.getElementById('nodes-container');
+    if (!nodesContainer) return null;
+
+    const portEl = nodeEl.querySelector('.port.input[data-index="0"]') || nodeEl.querySelector('.port.input');
+    if (!portEl) return null;
+
+    const portRect = portEl.getBoundingClientRect();
+    const containerRect = nodesContainer.getBoundingClientRect();
+
+    return {
+        x: portRect.left + portRect.width / 2 - containerRect.left,
+        y: portRect.top + portRect.height / 2 - containerRect.top
+    };
+}
+
+export function snapNodeToGrid(nodeId, gridSize = GRID_SIZE) {
+    const nodeData = state.nodes.get(nodeId);
+    const nodeEl = document.getElementById(`node-${nodeId}`);
+    if (!nodeData || !nodeEl) return false;
+
+    const portCenter = getInputPort0CenterInCanvasCoords(nodeEl);
+    if (!portCenter) return false;
+
+    const snappedX = Math.round(portCenter.x / gridSize) * gridSize;
+    const snappedY = Math.round(portCenter.y / gridSize) * gridSize;
+    const deltaX = snappedX - portCenter.x;
+    const deltaY = snappedY - portCenter.y;
+
+    if (deltaX === 0 && deltaY === 0) return true;
+
+    const next = clampToCanvasBounds(nodeData.x + deltaX, nodeData.y + deltaY);
+    nodeData.x = next.x;
+    nodeData.y = next.y;
+    nodeEl.style.left = `${nodeData.x}px`;
+    nodeEl.style.top = `${nodeData.y}px`;
+    updateConnections();
+    return true;
+}
+
+function snapSelectedNodesToGrid(anchorNodeId, gridSize = GRID_SIZE) {
+    const anchorEl = document.getElementById(`node-${anchorNodeId}`);
+    if (!anchorEl) return;
+
+    const anchorPortCenter = getInputPort0CenterInCanvasCoords(anchorEl);
+    if (!anchorPortCenter) return;
+
+    const snappedX = Math.round(anchorPortCenter.x / gridSize) * gridSize;
+    const snappedY = Math.round(anchorPortCenter.y / gridSize) * gridSize;
+    const deltaX = snappedX - anchorPortCenter.x;
+    const deltaY = snappedY - anchorPortCenter.y;
+
+    if (deltaX === 0 && deltaY === 0) return;
+
+    state.selectedNodes.forEach(selectedId => {
+        const selectedNodeData = state.nodes.get(selectedId);
+        const selectedNodeEl = document.getElementById(`node-${selectedId}`);
+        if (!selectedNodeData || !selectedNodeEl) return;
+
+        const next = clampToCanvasBounds(selectedNodeData.x + deltaX, selectedNodeData.y + deltaY);
+        selectedNodeData.x = next.x;
+        selectedNodeData.y = next.y;
+        selectedNodeEl.style.left = `${selectedNodeData.x}px`;
+        selectedNodeEl.style.top = `${selectedNodeData.y}px`;
+    });
+
+    updateConnections();
+}
+
 /**
  * Generate a unique name for a node by checking existing node names
  */
@@ -235,6 +317,7 @@ function attachNodeEventHandlers(nodeEl, nodeData) {
     let startX, startY;
     let hasMoved = false;
     let isUnconnectedNode = false;
+    let snapAnchorPortOffset = null;
     
     nodeEl.addEventListener('mousedown', (e) => {
         if (e.target.classList.contains('port')) return;
@@ -246,6 +329,18 @@ function attachNodeEventHandlers(nodeEl, nodeData) {
         hasMoved = false;
         startX = e.clientX - nodeData.x;
         startY = e.clientY - nodeData.y;
+
+        // Cache the offset from node top-left to input port 0 center (in canvas/container coords).
+        // This lets us snap without forcing repeated DOM reads for the port each frame.
+        const portCenter = getInputPort0CenterInCanvasCoords(nodeEl);
+        if (portCenter) {
+            snapAnchorPortOffset = {
+                x: portCenter.x - nodeData.x,
+                y: portCenter.y - nodeData.y
+            };
+        } else {
+            snapAnchorPortOffset = null;
+        }
         
         // Check if this node has no connections (for hover-insert highlighting)
         isUnconnectedNode = !nodeHasConnections(nodeData.id);
@@ -288,22 +383,45 @@ function attachNodeEventHandlers(nodeEl, nodeData) {
             });
         }
         
-        const deltaX = (e.clientX - startX) - nodeData.x;
-        const deltaY = (e.clientY - startY) - nodeData.y;
+        // Desired anchor node position from pointer
+        let nextAnchorX = e.clientX - startX;
+        let nextAnchorY = e.clientY - startY;
+
+        // Snap so the anchor input port 0 center lands on the nearest grid intersection.
+        if (snapAnchorPortOffset) {
+            const desiredPortX = nextAnchorX + snapAnchorPortOffset.x;
+            const desiredPortY = nextAnchorY + snapAnchorPortOffset.y;
+            const snappedPortX = Math.round(desiredPortX / GRID_SIZE) * GRID_SIZE;
+            const snappedPortY = Math.round(desiredPortY / GRID_SIZE) * GRID_SIZE;
+            nextAnchorX = snappedPortX - snapAnchorPortOffset.x;
+            nextAnchorY = snappedPortY - snapAnchorPortOffset.y;
+        } else {
+            // Fallback: no input port 0, snap the node top-left.
+            nextAnchorX = Math.round(nextAnchorX / GRID_SIZE) * GRID_SIZE;
+            nextAnchorY = Math.round(nextAnchorY / GRID_SIZE) * GRID_SIZE;
+        }
+
+        const clampedAnchor = clampToCanvasBounds(nextAnchorX, nextAnchorY);
+        nextAnchorX = clampedAnchor.x;
+        nextAnchorY = clampedAnchor.y;
+
+        const deltaX = nextAnchorX - nodeData.x;
+        const deltaY = nextAnchorY - nodeData.y;
         
         state.selectedNodes.forEach(selectedId => {
             const selectedNodeData = state.nodes.get(selectedId);
             const selectedNodeEl = document.getElementById(`node-${selectedId}`);
             if (selectedNodeData && selectedNodeEl) {
-                selectedNodeData.x += deltaX;
-                selectedNodeData.y += deltaY;
+                const next = clampToCanvasBounds(selectedNodeData.x + deltaX, selectedNodeData.y + deltaY);
+                selectedNodeData.x = next.x;
+                selectedNodeData.y = next.y;
                 selectedNodeEl.style.left = `${selectedNodeData.x}px`;
                 selectedNodeEl.style.top = `${selectedNodeData.y}px`;
             }
         });
-        
-        nodeData.x = e.clientX - startX;
-        nodeData.y = e.clientY - startY;
+
+        nodeData.x = nextAnchorX;
+        nodeData.y = nextAnchorY;
         
         updateConnections();
         
@@ -337,10 +455,16 @@ function attachNodeEventHandlers(nodeEl, nodeData) {
             if (isUnconnectedNode && connectionToInsertInto) {
                 insertNodeIntoConnection(nodeData.id, connectionToInsertInto);
             }
+
+            // Snap the moved selection so anchor input port 0 aligns to the grid.
+            if (hasMoved) {
+                snapSelectedNodesToGrid(nodeData.id);
+            }
         }
         isDragging = false;
         hasMoved = false;
         isUnconnectedNode = false;
+        snapAnchorPortOffset = null;
     });
     
     // Port connection handling - support multiple output ports

@@ -273,11 +273,29 @@ body {
 
 /* Node Palette */
 .palette {
-    width: 200px;
+    width: 250px;
     background: #252526;
     border-right: 1px solid #3e3e42;
+    overflow: visible;
+    padding: 0;
+    position: relative;
+    z-index: 200;
+}
+
+.palette-scroll {
+    height: 100%;
     overflow-y: auto;
     padding: 15px;
+}
+
+.palette.collapsed {
+    width: 18px;
+    padding: 0;
+    overflow: visible;
+}
+
+.palette.collapsed > :not(.panel-grab) {
+    display: none;
 }
 
 .palette h3 {
@@ -360,7 +378,7 @@ body {
     transition: background 0.2s;
     display: flex;
     align-items: stretch;
-    height: 30px;
+    min-height: 30px;
     overflow: visible;
     position: relative;
 }
@@ -387,12 +405,17 @@ body {
 
 .palette-node-name {
     flex: 1;
+    min-width: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 0 10px;
+    padding: 4px 10px;
     line-height: 1.2;
     font-weight: 500;
+    text-align: center;
+    white-space: normal;
+    word-break: break-word;
+    overflow-wrap: anywhere;
 }
 
 .palette-node-ports {
@@ -436,6 +459,8 @@ body {
         linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
         linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
     background-size: 20px 20px;
+    background-attachment: local;
+    background-position: 0 0;
     user-select: none;
     -webkit-user-select: none;
     -moz-user-select: none;
@@ -663,7 +688,7 @@ body {
 
 .node-content {
     display: flex;
-    align-items: center;
+    align-items: stretch;
     min-height: 30px;
     flex: 1;
     border-radius: 6px;
@@ -689,11 +714,23 @@ body {
     font-size: 13px;
     font-weight: 500;
     flex: 1;
+    min-width: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 0 10px;
+    padding: 4px 10px;
     text-align: center;
+    line-height: 1.2;
+    white-space: normal;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+}
+
+/* Keep controls vertically centered even though .node-content stretches */
+.node-content .inject-btn,
+.node-content .gate-switch,
+.node-content .rate-display {
+    align-self: center;
 }
 
 .node-delete {
@@ -1690,6 +1727,117 @@ body {
     display: flex;
     flex-direction: row;
     flex-shrink: 0;
+    position: relative;
+}
+
+.right-sidebar.collapsed {
+    width: 18px;
+    overflow: visible;
+}
+
+.right-sidebar.collapsed > :not(.panel-grab) {
+    display: none;
+}
+
+/* Side panel grab handles (resize + toggle) */
+.panel-grab {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 8px;
+    height: 44px;
+    background: #3e3e42;
+    border: 1px solid #555;
+    border-radius: 6px;
+    cursor: ew-resize;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease, border-color 0.15s ease;
+    overflow: visible;
+    isolation: isolate;
+}
+
+/* Invisible hover bridge so moving from bar -> button doesn't drop :hover */
+.panel-grab::after {
+    content: "";
+    position: absolute;
+    top: -6px;
+    bottom: -6px;
+    left: 0;
+    right: 0;
+    background: transparent;
+    z-index: 0;
+}
+
+.panel-grab-left::after {
+    right: -40px;
+}
+
+.panel-grab-right::after {
+    left: -40px;
+}
+
+.panel-grab:hover {
+    background: #0e639c;
+    border-color: #1177bb;
+}
+
+.panel-grab-left {
+    left: 100%;
+}
+
+.panel-grab-right {
+    right: 100%;
+}
+
+.panel-toggle-btn {
+    position: absolute;
+    top: 50%;
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    border: 1px solid rgba(0, 0, 0, 0.35);
+    background: rgba(0, 0, 0, 0.25);
+    color: #fff;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-50%) translateX(0);
+    transition: opacity 0.12s ease, transform 0.12s ease, background 0.12s ease;
+    z-index: 2;
+}
+
+.panel-grab:hover .panel-toggle-btn {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Slide the toggle out from behind the grab point */
+.panel-grab-left .panel-toggle-btn {
+    left: 50%;
+}
+
+.panel-grab-right .panel-toggle-btn {
+    right: 50%;
+}
+
+.panel-grab-left:hover .panel-toggle-btn {
+    transform: translateY(-50%) translateX(14px);
+}
+
+.panel-grab-right:hover .panel-toggle-btn {
+    transform: translateY(-50%) translateX(-14px);
+}
+
+.panel-toggle-btn:hover {
+    background: rgba(0, 0, 0, 0.4);
 }
 
 .sidebar-tabs {

@@ -33,25 +33,29 @@ class SupervisionTrackerNode(BaseNode):
             'options': [
                 {'value': 'bytetrack', 'label': 'ByteTrack'},
                 # Future support for other trackers if needed
-            ]
+            ],
+            'default': DEFAULT_CONFIG['tracker_type'],
         },
         {
             'name': 'track_thresh',
             'label': 'Tracking Threshold',
             'type': 'text',
-            'placeholder': '0.25'
+            'placeholder': DEFAULT_CONFIG['track_thresh'],
+            'default': DEFAULT_CONFIG['track_thresh'],
         },
         {
             'name': 'track_buffer',
             'label': 'Track Buffer (frames)',
             'type': 'text',
-            'placeholder': '30'
+            'placeholder': DEFAULT_CONFIG['track_buffer'],
+            'default': DEFAULT_CONFIG['track_buffer'],
         },
         {
             'name': 'match_thresh',
             'label': 'Match Threshold (IoU)',
             'type': 'text',
-            'placeholder': '0.8'
+            'placeholder': DEFAULT_CONFIG['match_thresh'],
+            'default': DEFAULT_CONFIG['match_thresh'],
         },
         {
             'name': 'draw_tracks',
@@ -60,7 +64,8 @@ class SupervisionTrackerNode(BaseNode):
             'options': [
                 {'value': 'true', 'label': 'Yes'},
                 {'value': 'false', 'label': 'No'}
-            ]
+            ],
+            'default': DEFAULT_CONFIG['draw_tracks'],
         }
     ]
     
