@@ -974,6 +974,30 @@ body {
     font-size: 13px;
 }
 
+/* File property with browse button */
+.property-file-container {
+    display: flex;
+    gap: 4px;
+}
+
+.property-file-container .property-file-path {
+    flex: 1;
+}
+
+.property-file-btn {
+    padding: 6px 10px;
+    background: #0e639c;
+    border: none;
+    border-radius: 3px;
+    color: white;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.property-file-btn:hover {
+    background: #1177bb;
+}
+
 /* Debug Panel */
 .debug-panel {
     display: flex;
