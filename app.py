@@ -644,6 +644,35 @@ def get_workflow_stats():
     return jsonify(deployed_engine.get_workflow_stats())
 
 
+@app.route('/api/upload/model', methods=['POST'])
+def upload_model():
+    """Upload a model file for inference nodes."""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'error': 'No file provided'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'No file selected'}), 400
+        
+        # Create models directory if it doesn't exist
+        models_dir = os.path.join(os.path.dirname(__file__), 'models')
+        os.makedirs(models_dir, exist_ok=True)
+        
+        # Save the file
+        filename = file.filename
+        model_path = os.path.join(models_dir, filename)
+        file.save(model_path)
+        
+        return jsonify({
+            'success': True,
+            'model_path': model_path,
+            'filename': filename
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/api/nodes/<node_id>/<action>', methods=['POST'])
 def trigger_node_action(node_id, action):
     """Trigger a button action on a node in deployed workflow."""

@@ -240,8 +240,9 @@ export function renderNode(nodeData) {
         const width = nodeData.config?.width || 320;
         const height = nodeData.config?.height || 240;
         imageViewerHtml = `
-            <div class="image-viewer-container" style="width: ${width}px; height: ${height}px;">
+            <div class="image-viewer-container" id="viewer-container-${nodeData.id}" style="width: ${width}px; height: ${height}px;">
                 <img id="viewer-${nodeData.id}" class="image-viewer-frame" alt="No frame" />
+                <div class="image-viewer-resize-handle" data-node="${nodeData.id}"></div>
             </div>
         `;
     }
@@ -506,6 +507,61 @@ function attachNodeEventHandlers(nodeEl, nodeData) {
             }
         }
     });
+    
+    // Image viewer resize handler
+    if (nodeData.type === 'ImageViewerNode') {
+        const resizeHandle = nodeEl.querySelector('.image-viewer-resize-handle');
+        const viewerContainer = nodeEl.querySelector('.image-viewer-container');
+        
+        if (resizeHandle && viewerContainer) {
+            let isResizing = false;
+            let startWidth, startHeight, startX, startY;
+            
+            resizeHandle.addEventListener('mousedown', (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                
+                isResizing = true;
+                startWidth = viewerContainer.offsetWidth;
+                startHeight = viewerContainer.offsetHeight;
+                startX = e.clientX;
+                startY = e.clientY;
+                
+                document.body.style.cursor = 'nwse-resize';
+            });
+            
+            const handleResize = (e) => {
+                if (!isResizing) return;
+                
+                const deltaX = e.clientX - startX;
+                const deltaY = e.clientY - startY;
+                
+                const newWidth = Math.max(160, startWidth + deltaX);
+                const newHeight = Math.max(120, startHeight + deltaY);
+                
+                viewerContainer.style.width = `${newWidth}px`;
+                viewerContainer.style.height = `${newHeight}px`;
+                
+                // Update config for persistence
+                nodeData.config.width = newWidth;
+                nodeData.config.height = newHeight;
+                
+                // Mark as modified
+                markNodeModified(nodeData.id);
+                setModified(true);
+            };
+            
+            const stopResize = () => {
+                if (isResizing) {
+                    isResizing = false;
+                    document.body.style.cursor = '';
+                }
+            };
+            
+            document.addEventListener('mousemove', handleResize);
+            document.addEventListener('mouseup', stopResize);
+        }
+    }
 }
 
 export function deleteNode(nodeId) {

@@ -2,11 +2,11 @@
 
 # Create virtual environment
 echo "Creating virtual environment..."
-python3 -m venv .venv
+python3 -m venv appenv
 
 # Activate virtual environment
 echo "Activating virtual environment..."
-source .venv/bin/activate
+source appenv/bin/activate
 
 # Upgrade pip
 echo "Upgrading pip..."
@@ -73,4 +73,4 @@ else
 fi
 
 echo ""
-echo "To activate the environment in the future, run: source .venv/bin/activate"
+echo "To activate the environment in the future, run: source appenv/bin/activate"

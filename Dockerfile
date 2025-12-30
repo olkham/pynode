@@ -32,4 +32,4 @@ RUN bash -c "source /app/setup.sh < /dev/null"
 EXPOSE 5000
 
 # Run the application in production mode
-CMD ["/app/.venv/bin/python", "main.py", "--production", "--host", "0.0.0.0", "--port", "5000"]
+CMD ["/app/appenv/bin/python", "main.py", "--production", "--host", "0.0.0.0", "--port", "5000"]

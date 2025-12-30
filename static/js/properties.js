@@ -118,6 +118,21 @@ export function renderProperties(nodeData) {
                 html += `
                     <button class="btn btn-primary" onclick="window.triggerNodeAction('${nodeData.id}', '${prop.action}')">${prop.label}</button>
                 `;
+            } else if (prop.type === 'file') {
+                const value = nodeData.config[prop.name] !== undefined ? nodeData.config[prop.name] : (prop.default || '');
+                const accept = prop.accept || '';
+                html += `
+                    <label class="property-label">${prop.label}</label>
+                    <div class="property-file-container">
+                        <input type="text" class="property-input property-file-path" 
+                               value="${value}"
+                               placeholder="Select or enter model path..."
+                               onchange="window.updateNodeConfig('${nodeData.id}', '${prop.name}', this.value)">
+                        <button class="btn btn-secondary property-file-btn" onclick="window.selectFile('${nodeData.id}', '${prop.name}', '${accept}')">
+                            <i class="fas fa-folder-open"></i>
+                        </button>
+                    </div>
+                `;
             } else if (prop.type === 'rules') {
                 html += renderRulesEditor(nodeData.id, prop.name, nodeData.config[prop.name] || []);
             } else if (prop.type === 'injectProps') {
@@ -233,6 +248,61 @@ export async function toggleNodeState(nodeId, enabled, options = {}) {
 // Backwards compatibility aliases
 export const toggleGate = toggleNodeState;
 export const toggleNodeEnabled = toggleNodeState;
+
+/**
+ * Opens a file dialog to select a model file and updates the node config.
+ * @param {string} nodeId - The node ID
+ * @param {string} propName - The property name to update
+ * @param {string} accept - Comma-separated list of accepted file extensions
+ */
+export function selectFile(nodeId, propName, accept) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    if (accept) {
+        input.accept = accept;
+    }
+    
+    input.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        try {
+            // Upload the file to the server
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('nodeId', nodeId);
+            
+            const response = await fetch(`${API_BASE}/upload/model`, {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Upload failed: ${response.statusText}`);
+            }
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                // Update the node config with the uploaded file path
+                updateNodeConfig(nodeId, propName, result.model_path);
+                
+                // Update the input field display
+                const nodeData = state.nodes.get(nodeId);
+                renderProperties(nodeData);
+                
+                showToast(`Model uploaded: ${file.name}`);
+            } else {
+                showToast(`Upload failed: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            console.error('Failed to upload file:', error);
+            showToast(`Failed to upload file: ${error.message}`, 'error');
+        }
+    };
+    
+    input.click();
+}
 
 // Rules editor for switch node
 function renderRulesEditor(nodeId, propName, rules) {

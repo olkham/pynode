@@ -2,7 +2,7 @@
 setlocal EnableDelayedExpansion
 
 :: Check if virtual environment exists
-if not exist ".venv" (
+if not exist "appenv" (
     echo Error: Virtual environment not found. Please run setup.bat first.
     exit /b 1
 )
@@ -10,7 +10,7 @@ if not exist ".venv" (
 :: Activate virtual environment if not already activated
 if "%VIRTUAL_ENV%"=="" (
     echo Activating virtual environment...
-    call .venv\Scripts\activate.bat
+    call appenv\Scripts\activate.bat
 ) else (
     echo Virtual environment already activated.
 )

@@ -1,5 +1,6 @@
 # Docker ignore file
 .venv/
+appenv/
 __pycache__/
 *.pyc
 *.pyo

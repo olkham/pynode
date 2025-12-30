@@ -573,6 +573,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+    position: relative;
 }
 
 .image-viewer-frame {
@@ -580,6 +581,24 @@ body {
     max-height: 100%;
     object-fit: contain;
     display: block;
+}
+
+.image-viewer-resize-handle {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 16px;
+    height: 16px;
+    cursor: nwse-resize;
+    background: linear-gradient(135deg, transparent 0%, transparent 50%, #666 50%, #666 100%);
+    border-bottom-right-radius: 3px;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+}
+
+.image-viewer-resize-handle:hover {
+    opacity: 1;
+    background: linear-gradient(135deg, transparent 0%, transparent 50%, #888 50%, #888 100%);
 }
 
 /* Inject button for InjectNode */

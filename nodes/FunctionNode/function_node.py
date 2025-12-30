@@ -33,7 +33,7 @@ class FunctionNode(BaseNode):
             'name': 'outputs',
             'label': 'Outputs',
             'type': 'number',
-            'default': DEFAULT_CONFIG['outputs'],
+            'default': 1,
             'min': 1,
             'max': 10
         }

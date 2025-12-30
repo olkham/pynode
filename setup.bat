@@ -14,11 +14,11 @@ if errorlevel 1 (
 )
 
 echo Creating virtual environment...
-python -m venv .venv
+python -m venv appenv
 
 echo.
 echo Activating virtual environment...
-call .venv\Scripts\activate.bat
+call appenv\Scripts\activate.bat
 
 echo.
 echo Installing requirements...
@@ -41,7 +41,7 @@ echo Setup completed successfully!
 echo ========================================
 echo.
 echo To activate the environment in the future, run:
-echo   .venv\Scripts\activate.bat
+echo   appenv\Scripts\activate.bat
 echo.
 echo To start the PyNode server, run:
 echo   python main.py

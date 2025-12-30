@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Check if virtual environment exists
-if [ ! -d ".venv" ]; then
+if [ ! -d "appenv" ]; then
     echo "Error: Virtual environment not found. Please run setup.sh first."
     exit 1
 fi
@@ -9,7 +9,7 @@ fi
 # Activate virtual environment if not already activated
 if [[ "$VIRTUAL_ENV" == "" ]]; then
     echo "Activating virtual environment..."
-    source .venv/bin/activate
+    source appenv/bin/activate
 else
     echo "Virtual environment already activated."
 fi

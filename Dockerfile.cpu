@@ -20,16 +20,16 @@ WORKDIR /app
 COPY . /app/
 
 # Create virtual environment
-RUN python3 -m venv .venv
+RUN python3 -m venv appenv
 
 # Activate venv and install dependencies
-RUN . .venv/bin/activate && \
+RUN . appenv/bin/activate && \
     pip install --upgrade pip && \
     pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu && \
     pip install -r requirements.txt
 
 # Install node dependencies
-RUN . .venv/bin/activate && \
+RUN . appenv/bin/activate && \
     for node_dir in nodes/*/; do \
         if [ -f "$node_dir/requirements.txt" ]; then \
             pip install -r "$node_dir/requirements.txt"; \
@@ -40,4 +40,4 @@ RUN . .venv/bin/activate && \
 EXPOSE 5000
 
 # Run the application in production mode
-CMD ["/app/.venv/bin/python", "main.py", "--production", "--host", "0.0.0.0", "--port", "5000"]
+CMD ["/app/appenv/bin/python", "main.py", "--production", "--host", "0.0.0.0", "--port", "5000"]
