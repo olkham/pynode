@@ -1,20 +1,17 @@
 """
 MQTT Out node - publishes messages to MQTT topics.
+Uses shared MQTT service for connection management.
 """
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from nodes.base_node import BaseNode
-
-try:
-    import paho.mqtt.client as mqtt
-    MQTT_AVAILABLE = True
-except ImportError:
-    MQTT_AVAILABLE = False
+from nodes.MQTTNode.mqtt_service import mqtt_manager, MQTTService
 
 
 class MqttOutNode(BaseNode):
     """
     MQTT Out node - publishes messages to MQTT topics.
+    Uses a shared MQTT service for the broker connection.
     """
     display_name = 'MQTT Out'
     icon = '📤'
@@ -26,37 +23,26 @@ class MqttOutNode(BaseNode):
     output_count = 0
     
     DEFAULT_CONFIG = {
-        'broker': 'localhost',
-        'port': '1883',
+        'serviceId': '',
         'topic': 'test/topic',
         'qos': '0',
-        'retain': 'false',
-        'clientId': '',
-        'username': '',
-        'password': ''
+        'retain': 'false'
     }
     
     properties = [
         {
-            'name': 'broker',
-            'label': 'Broker',
-            'type': 'text',
-            'default': DEFAULT_CONFIG['broker'],
-            'help': 'MQTT broker address'
-        },
-        {
-            'name': 'port',
-            'label': 'Port',
-            'type': 'text',
-            'default': DEFAULT_CONFIG['port'],
-            'help': 'MQTT broker port'
+            'name': 'serviceId',
+            'label': 'MQTT Broker',
+            'type': 'mqtt-service',
+            'default': DEFAULT_CONFIG['serviceId'],
+            'help': 'Select or create an MQTT broker connection'
         },
         {
             'name': 'topic',
             'label': 'Topic',
             'type': 'text',
             'default': DEFAULT_CONFIG['topic'],
-            'help': 'MQTT topic to publish to'
+            'help': 'MQTT topic to publish to (can be overridden by msg.topic)'
         },
         {
             'name': 'qos',
@@ -78,91 +64,42 @@ class MqttOutNode(BaseNode):
                 {'value': 'true', 'label': 'True'}
             ],
             'default': DEFAULT_CONFIG['retain']
-        },
-        {
-            'name': 'clientId',
-            'label': 'Client ID',
-            'type': 'text',
-            'default': DEFAULT_CONFIG['clientId'],
-            'help': 'Leave blank for auto-generated'
-        },
-        {
-            'name': 'username',
-            'label': 'Username',
-            'type': 'text',
-            'default': ''
-        },
-        {
-            'name': 'password',
-            'label': 'Password',
-            'type': 'text',
-            'default': ''
         }
     ]
     
     def __init__(self, node_id: str = None, name: str = ""):
         super().__init__(node_id, name)
-        self.client = None
-        self._connected = False
-    
-    def on_connect(self, client, userdata, flags, rc):
-        """Callback when connected to broker."""
-        if rc == 0:
-            self._connected = True
-        else:
-            self.report_error(f"Connection failed with code {rc}")
-    
-    def on_disconnect(self, client, userdata, rc):
-        """Callback when disconnected from broker."""
-        self._connected = False
-        if rc != 0:
-            self.report_error("Unexpected disconnection from broker")
-    
-    def on_publish(self, client, userdata, mid):
-        """Callback when message is published."""
-        pass  # Could add logging here if needed
+        self._service: Optional[MQTTService] = None
     
     def on_start(self):
-        """Connect to MQTT broker when workflow starts."""
-        super().on_start()  # Start base node worker thread
+        """Register with MQTT service when workflow starts."""
+        super().on_start()
         
-        if not MQTT_AVAILABLE:
-            self.report_error("paho-mqtt not installed. Install with: pip install paho-mqtt")
+        service_id = self.config.get('serviceId', '')
+        if not service_id:
+            self.report_error("No MQTT broker selected. Configure a broker in node properties.")
             return
         
-        broker = self.config.get('broker', 'localhost')
-        port = self.get_config_int('port', 1883)
-        client_id = self.config.get('clientId', '') or f"pynode_out_{self.id[:8]}"
-        username = self.config.get('username', '')
-        password = self.config.get('password', '')
+        self._service = mqtt_manager.get_service(service_id)
+        if not self._service:
+            self.report_error(f"MQTT broker '{service_id}' not found. Please reconfigure.")
+            return
         
-        try:
-            self.client = mqtt.Client(client_id=client_id)
-            self.client.on_connect = self.on_connect
-            self.client.on_disconnect = self.on_disconnect
-            self.client.on_publish = self.on_publish
-            
-            if username:
-                self.client.username_pw_set(username, password)
-            
-            # Use blocking connect with timeout
-            self.client.connect(broker, port, 60)
-            self.client.loop_start()
-            self._connected = True
-            
-        except Exception as e:
-            self.report_error(f"Failed to connect to {broker}:{port} - {e}")
+        # Register with the service
+        self._service.register_node(self.id, self.report_error)
+        
+        # Connect if not already connected
+        if not self._service.connected:
+            self._service.connect()
     
     def on_stop(self):
-        """Disconnect from MQTT broker when workflow stops."""
-        super().on_stop()  # Stop base node worker thread
+        """Unregister from service when workflow stops."""
+        super().on_stop()
         
-        if self.client:
-            try:
-                self.client.loop_stop()
-                self.client.disconnect()
-            except Exception as e:
-                self.report_error(f"Error disconnecting: {e}")
+        if self._service:
+            self._service.unregister_node(self.id)
+        
+        self._service = None
     
     def on_close(self):
         """Cleanup when node is removed."""
@@ -172,10 +109,11 @@ class MqttOutNode(BaseNode):
         """
         Process incoming message and publish to MQTT.
         """
-        if not MQTT_AVAILABLE:
+        if not self._service:
+            self.report_error("No MQTT broker configured")
             return
         
-        if not self.client or not self._connected:
+        if not self._service.connected:
             self.report_error("Not connected to broker")
             return
         
@@ -192,21 +130,7 @@ class MqttOutNode(BaseNode):
         
         qos = self.get_config_int('qos', 0)
         retain = self.get_config_bool('retain', False)
-        
-        # Get payload
         payload = msg.get('payload', '')
         
-        # Serialize payload based on type
-        if isinstance(payload, (dict, list)):
-            # Convert structured data to JSON
-            import json
-            payload = json.dumps(payload)
-        elif not isinstance(payload, (str, bytes)):
-            payload = str(payload)
-        
-        try:
-            result = self.client.publish(topic, payload, qos=qos, retain=retain)
-            if result.rc != mqtt.MQTT_ERR_SUCCESS:
-                self.report_error(f"Publish failed to {topic} with code {result.rc}")
-        except Exception as e:
-            self.report_error(f"Error publishing to '{topic}': {e}")
+        if not self._service.publish(topic, payload, qos, retain):
+            self.report_error(f"Failed to publish to '{topic}'")

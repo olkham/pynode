@@ -644,6 +644,127 @@ def get_workflow_stats():
     return jsonify(deployed_engine.get_workflow_stats())
 
 
+# ==============================================================================
+# MQTT Service Management API
+# ==============================================================================
+
+@app.route('/api/services/mqtt', methods=['GET'])
+def list_mqtt_services():
+    """List all MQTT services."""
+    try:
+        from nodes.MQTTNode.mqtt_service import mqtt_manager
+        services = mqtt_manager.list_services()
+        return jsonify({'success': True, 'services': services})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/services/mqtt', methods=['POST'])
+def create_mqtt_service():
+    """Create a new MQTT service."""
+    try:
+        from nodes.MQTTNode.mqtt_service import mqtt_manager
+        data = request.json
+        
+        # Validate required fields
+        if not data.get('name'):
+            return jsonify({'success': False, 'error': 'Service name is required'}), 400
+        if not data.get('broker'):
+            return jsonify({'success': False, 'error': 'Broker address is required'}), 400
+        
+        service = mqtt_manager.create_service(data)
+        return jsonify({
+            'success': True,
+            'service': {
+                'id': service.id,
+                'name': service.name,
+                'broker': service.broker,
+                'port': service.port
+            }
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/services/mqtt/<service_id>', methods=['GET'])
+def get_mqtt_service(service_id):
+    """Get a specific MQTT service by ID."""
+    try:
+        from nodes.MQTTNode.mqtt_service import mqtt_manager
+        service = mqtt_manager.get_service(service_id)
+        if not service:
+            return jsonify({'success': False, 'error': 'Service not found'}), 404
+        
+        return jsonify({
+            'success': True,
+            'service': service.to_dict()
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/services/mqtt/<service_id>', methods=['PUT'])
+def update_mqtt_service(service_id):
+    """Update an existing MQTT service."""
+    try:
+        from nodes.MQTTNode.mqtt_service import mqtt_manager
+        data = request.json
+        
+        service = mqtt_manager.update_service(service_id, data)
+        if not service:
+            return jsonify({'success': False, 'error': 'Service not found'}), 404
+        
+        return jsonify({
+            'success': True,
+            'service': service.to_dict()
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/services/mqtt/<service_id>', methods=['DELETE'])
+def delete_mqtt_service(service_id):
+    """Delete an MQTT service."""
+    try:
+        from nodes.MQTTNode.mqtt_service import mqtt_manager
+        
+        if not mqtt_manager.delete_service(service_id):
+            return jsonify({
+                'success': False, 
+                'error': 'Service not found or still in use'
+            }), 400
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/services/mqtt/<service_id>/test', methods=['POST'])
+def test_mqtt_service(service_id):
+    """Test connection to an MQTT service."""
+    try:
+        from nodes.MQTTNode.mqtt_service import mqtt_manager
+        
+        service = mqtt_manager.get_service(service_id)
+        if not service:
+            return jsonify({'success': False, 'error': 'Service not found'}), 404
+        
+        # Try to connect
+        connected = service.connect()
+        
+        return jsonify({
+            'success': True,
+            'connected': connected,
+            'status': 'connected' if connected else 'failed'
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ==============================================================================
+# Model Upload API
+# ==============================================================================
+
 @app.route('/api/upload/model', methods=['POST'])
 def upload_model():
     """Upload a model file for inference nodes."""

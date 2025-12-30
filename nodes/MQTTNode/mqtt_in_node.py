@@ -1,21 +1,18 @@
 """
 MQTT In node - subscribes to MQTT topics and receives messages.
+Uses shared MQTT service for connection management.
 """
 
-import threading
-from typing import Any, Dict
+import json
+from typing import Any, Dict, Optional
 from nodes.base_node import BaseNode
-
-try:
-    import paho.mqtt.client as mqtt
-    MQTT_AVAILABLE = True
-except ImportError:
-    MQTT_AVAILABLE = False
+from nodes.MQTTNode.mqtt_service import mqtt_manager, MQTTService
 
 
 class MqttInNode(BaseNode):
     """
     MQTT In node - subscribes to MQTT topics and receives messages.
+    Uses a shared MQTT service for the broker connection.
     """
     display_name = 'MQTT In'
     icon = '📥'
@@ -27,29 +24,18 @@ class MqttInNode(BaseNode):
     output_count = 1
     
     DEFAULT_CONFIG = {
-        'broker': 'localhost',
-        'port': '1883',
+        'serviceId': '',
         'topic': 'test/topic',
-        'qos': '0',
-        'clientId': '',
-        'username': '',
-        'password': ''
+        'qos': '0'
     }
     
     properties = [
         {
-            'name': 'broker',
-            'label': 'Broker',
-            'type': 'text',
-            'default': DEFAULT_CONFIG['broker'],
-            'help': 'MQTT broker address'
-        },
-        {
-            'name': 'port',
-            'label': 'Port',
-            'type': 'text',
-            'default': DEFAULT_CONFIG['port'],
-            'help': 'MQTT broker port'
+            'name': 'serviceId',
+            'label': 'MQTT Broker',
+            'type': 'mqtt-service',
+            'default': DEFAULT_CONFIG['serviceId'],
+            'help': 'Select or create an MQTT broker connection'
         },
         {
             'name': 'topic',
@@ -68,110 +54,69 @@ class MqttInNode(BaseNode):
                 {'value': '2', 'label': '2 - Exactly once'}
             ],
             'default': DEFAULT_CONFIG['qos']
-        },
-        {
-            'name': 'clientId',
-            'label': 'Client ID',
-            'type': 'text',
-            'default': DEFAULT_CONFIG['clientId'],
-            'help': 'Leave blank for auto-generated'
-        },
-        {
-            'name': 'username',
-            'label': 'Username',
-            'type': 'text',
-            'default': ''
-        },
-        {
-            'name': 'password',
-            'label': 'Password',
-            'type': 'text',
-            'default': ''
         }
     ]
     
     def __init__(self, node_id: str = None, name: str = ""):
         super().__init__(node_id, name)
-        self.client = None
-        self._connected = False
+        self._service: Optional[MQTTService] = None
+        self._subscribed_topic: Optional[str] = None
     
-    def on_message(self, client, userdata, message):
-        """Callback when message is received."""
+    def _on_message(self, topic: str, payload: bytes):
+        """Callback when message is received from the service."""
         try:
-            payload = message.payload.decode('utf-8')
-            # Try to parse as JSON for structured data
-            import json
+            decoded = payload.decode('utf-8')
+            # Try to parse as JSON
             try:
-                payload = json.loads(payload)
+                decoded = json.loads(decoded)
             except (json.JSONDecodeError, ValueError):
-                # Not JSON, keep as string
                 pass
+            payload_data = decoded
         except:
-            payload = message.payload
+            payload_data = payload
         
         msg = self.create_message(
-            payload=payload,
-            topic=message.topic
+            payload=payload_data,
+            topic=topic
         )
         self.send(msg)
     
-    def on_connect(self, client, userdata, flags, rc):
-        """Callback when connected to broker."""
-        if rc == 0:
-            self._connected = True
-            topic = self.config.get('topic', 'test/topic')
-            qos = self.get_config_int('qos', 0)
-            client.subscribe(topic, qos)
-        else:
-            self.report_error(f"Connection failed with code {rc}")
-    
-    def on_disconnect(self, client, userdata, rc):
-        """Callback when disconnected from broker."""
-        self._connected = False
-        if rc != 0:
-            self.report_error("Unexpected disconnection from broker")
-    
     def on_start(self):
-        """Connect to MQTT broker when workflow starts."""
-        super().on_start()  # Start base node worker thread
+        """Subscribe to MQTT topic when workflow starts."""
+        super().on_start()
         
-        if not MQTT_AVAILABLE:
-            self.report_error("paho-mqtt not installed. Install with: pip install paho-mqtt")
+        service_id = self.config.get('serviceId', '')
+        if not service_id:
+            self.report_error("No MQTT broker selected. Configure a broker in node properties.")
             return
         
-        broker = self.config.get('broker', 'localhost')
-        port = self.get_config_int('port', 1883)
-        client_id = self.config.get('clientId', '') or f"pynode_in_{self.id[:8]}"
-        username = self.config.get('username', '')
-        password = self.config.get('password', '')
+        self._service = mqtt_manager.get_service(service_id)
+        if not self._service:
+            self.report_error(f"MQTT broker '{service_id}' not found. Please reconfigure.")
+            return
         
-        try:
-            self.client = mqtt.Client(client_id=client_id)
-            self.client.on_connect = self.on_connect
-            self.client.on_message = self.on_message
-            self.client.on_disconnect = self.on_disconnect
-            
-            if username:
-                self.client.username_pw_set(username, password)
-            
-            # Use blocking connect with timeout
-            self.client.connect(broker, port, 60)
-            self.client.loop_start()
-            self._connected = True
-            
-        except Exception as e:
-            self.report_error(f"Failed to connect to {broker}:{port} - {e}")
+        # Register with the service
+        self._service.register_node(self.id, self.report_error)
+        
+        # Connect if not already connected
+        if not self._service.connected:
+            self._service.connect()
+        
+        # Subscribe to topic
+        self._subscribed_topic = self.config.get('topic', 'test/topic')
+        qos = self.get_config_int('qos', 0)
+        self._service.subscribe(self.id, self._subscribed_topic, qos, self._on_message)
     
     def on_stop(self):
-        """Disconnect from MQTT broker when workflow stops."""
-        super().on_stop()  # Stop base node worker thread
+        """Unsubscribe and cleanup when workflow stops."""
+        super().on_stop()
         
-        if self.client:
-            try:
-                self.client.loop_stop()
-                self.client.disconnect()
-            except Exception as e:
-                self.report_error(f"Error disconnecting: {e}")
+        if self._service and self._subscribed_topic:
+            self._service.unsubscribe(self.id, self._subscribed_topic, self._on_message)
+            self._service.unregister_node(self.id)
+        
+        self._service = None
+        self._subscribed_topic = None
     
     def on_close(self):
         """Cleanup when node is removed."""

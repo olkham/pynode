@@ -133,6 +133,33 @@ export function renderProperties(nodeData) {
                         </button>
                     </div>
                 `;
+            } else if (prop.type === 'mqtt-service') {
+                // MQTT Service selector - like Node-RED config nodes
+                const currentServiceId = nodeData.config[prop.name] || '';
+                html += `
+                    <label class="property-label">${prop.label}</label>
+                    <div class="property-service-container">
+                        <select class="property-select property-service-select" 
+                                id="mqtt-service-${nodeData.id}"
+                                data-node-id="${nodeData.id}"
+                                data-prop-name="${prop.name}"
+                                onchange="window.onMqttServiceSelect('${nodeData.id}', '${prop.name}', this.value)">
+                            <option value="">-- Select broker --</option>
+                        </select>
+                        <button class="btn btn-secondary property-service-btn" 
+                                onclick="window.openMqttServiceEditor('${nodeData.id}', '${prop.name}')"
+                                title="Edit broker settings">
+                            ✏️
+                        </button>
+                        <button class="btn btn-primary property-service-btn" 
+                                onclick="window.openMqttServiceEditor('${nodeData.id}', '${prop.name}', true)"
+                                title="Add new broker">
+                            +
+                        </button>
+                    </div>
+                `;
+                // Load services after rendering
+                setTimeout(() => window.loadMqttServices(nodeData.id, prop.name, currentServiceId), 0);
             } else if (prop.type === 'rules') {
                 html += renderRulesEditor(nodeData.id, prop.name, nodeData.config[prop.name] || []);
             } else if (prop.type === 'injectProps') {
@@ -802,4 +829,273 @@ window.updatePropertyVisibility = function(nodeId) {
             console.error('Error parsing showIf condition:', e);
         }
     });
+};
+
+// ==============================================================================
+// MQTT Service Management Functions
+// ==============================================================================
+
+// Load available MQTT services into a select dropdown
+window.loadMqttServices = async function(nodeId, propName, currentServiceId) {
+    try {
+        const response = await fetch(`${API_BASE}/services/mqtt`);
+        const data = await response.json();
+        
+        if (!data.success) {
+            console.error('Failed to load MQTT services:', data.error);
+            return;
+        }
+        
+        const select = document.getElementById(`mqtt-service-${nodeId}`);
+        if (!select) return;
+        
+        // Clear existing options except the first placeholder
+        select.innerHTML = '<option value="">-- Select broker --</option>';
+        
+        // Add service options
+        data.services.forEach(service => {
+            const option = document.createElement('option');
+            option.value = service.id;
+            option.textContent = `${service.name} (${service.broker}:${service.port})`;
+            if (service.id === currentServiceId) {
+                option.selected = true;
+            }
+            select.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Error loading MQTT services:', error);
+    }
+};
+
+// Handle MQTT service selection change
+window.onMqttServiceSelect = function(nodeId, propName, serviceId) {
+    const nodeData = state.nodes.get(nodeId);
+    if (!nodeData) return;
+    
+    nodeData.config[propName] = serviceId;
+    markNodeModified(nodeId);
+    setModified(true);
+};
+
+// Open MQTT service editor modal
+window.openMqttServiceEditor = function(nodeId, propName, isNew = false) {
+    const nodeData = state.nodes.get(nodeId);
+    const currentServiceId = isNew ? null : (nodeData?.config[propName] || null);
+    
+    // Create modal HTML
+    const modalHtml = `
+        <div class="mqtt-service-modal" id="mqtt-service-modal">
+            <div class="mqtt-service-modal-content">
+                <div class="mqtt-service-modal-header">
+                    <h3>${isNew ? 'Add New MQTT Broker' : 'Edit MQTT Broker'}</h3>
+                    <button class="mqtt-service-modal-close" onclick="window.closeMqttServiceModal()">&times;</button>
+                </div>
+                <div class="mqtt-service-modal-body">
+                    <input type="hidden" id="mqtt-service-id" value="${currentServiceId || ''}">
+                    <div class="property-group">
+                        <label class="property-label">Name</label>
+                        <input type="text" class="property-input" id="mqtt-service-name" placeholder="My MQTT Broker">
+                    </div>
+                    <div class="property-group">
+                        <label class="property-label">Broker Address</label>
+                        <input type="text" class="property-input" id="mqtt-service-broker" placeholder="localhost" value="localhost">
+                    </div>
+                    <div class="property-group">
+                        <label class="property-label">Port</label>
+                        <input type="number" class="property-input" id="mqtt-service-port" placeholder="1883" value="1883">
+                    </div>
+                    <div class="property-group">
+                        <label class="property-label">Client ID (optional)</label>
+                        <input type="text" class="property-input" id="mqtt-service-clientId" placeholder="Auto-generated if empty">
+                    </div>
+                    <div class="property-group">
+                        <label class="property-label">Username (optional)</label>
+                        <input type="text" class="property-input" id="mqtt-service-username">
+                    </div>
+                    <div class="property-group">
+                        <label class="property-label">Password (optional)</label>
+                        <input type="password" class="property-input" id="mqtt-service-password">
+                    </div>
+                </div>
+                <div class="mqtt-service-modal-footer">
+                    <button class="btn btn-secondary" onclick="window.testMqttService()">Test Connection</button>
+                    <div class="mqtt-service-modal-actions">
+                        ${!isNew ? '<button class="btn btn-danger" onclick="window.deleteMqttService(\'' + nodeId + '\', \'' + propName + '\')">Delete</button>' : ''}
+                        <button class="btn btn-secondary" onclick="window.closeMqttServiceModal()">Cancel</button>
+                        <button class="btn btn-primary" onclick="window.saveMqttService('${nodeId}', '${propName}', ${isNew})">Save</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Add modal to page
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // If editing, load existing service data
+    if (!isNew && currentServiceId) {
+        window.loadMqttServiceData(currentServiceId);
+    }
+};
+
+// Load existing service data into the editor
+window.loadMqttServiceData = async function(serviceId) {
+    try {
+        const response = await fetch(`${API_BASE}/services/mqtt/${serviceId}`);
+        const data = await response.json();
+        
+        if (data.success && data.service) {
+            document.getElementById('mqtt-service-name').value = data.service.name || '';
+            document.getElementById('mqtt-service-broker').value = data.service.broker || 'localhost';
+            document.getElementById('mqtt-service-port').value = data.service.port || 1883;
+            document.getElementById('mqtt-service-clientId').value = data.service.clientId || '';
+            document.getElementById('mqtt-service-username').value = data.service.username || '';
+            document.getElementById('mqtt-service-password').value = data.service.password || '';
+        }
+    } catch (error) {
+        console.error('Error loading MQTT service:', error);
+    }
+};
+
+// Close the MQTT service modal
+window.closeMqttServiceModal = function() {
+    const modal = document.getElementById('mqtt-service-modal');
+    if (modal) {
+        modal.remove();
+    }
+};
+
+// Save MQTT service (create or update)
+window.saveMqttService = async function(nodeId, propName, isNew) {
+    const serviceId = document.getElementById('mqtt-service-id').value;
+    const serviceData = {
+        name: document.getElementById('mqtt-service-name').value,
+        broker: document.getElementById('mqtt-service-broker').value,
+        port: parseInt(document.getElementById('mqtt-service-port').value) || 1883,
+        clientId: document.getElementById('mqtt-service-clientId').value,
+        username: document.getElementById('mqtt-service-username').value,
+        password: document.getElementById('mqtt-service-password').value
+    };
+    
+    // Validate
+    if (!serviceData.name) {
+        alert('Please enter a name for the broker');
+        return;
+    }
+    if (!serviceData.broker) {
+        alert('Please enter a broker address');
+        return;
+    }
+    
+    try {
+        let response;
+        if (isNew || !serviceId) {
+            // Create new service
+            response = await fetch(`${API_BASE}/services/mqtt`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(serviceData)
+            });
+        } else {
+            // Update existing service
+            response = await fetch(`${API_BASE}/services/mqtt/${serviceId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(serviceData)
+            });
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Update node config with new/updated service ID
+            const nodeData = state.nodes.get(nodeId);
+            if (nodeData) {
+                nodeData.config[propName] = data.service.id;
+                markNodeModified(nodeId);
+                setModified(true);
+            }
+            
+            // Reload services dropdown
+            await window.loadMqttServices(nodeId, propName, data.service.id);
+            
+            // Close modal
+            window.closeMqttServiceModal();
+        } else {
+            alert('Failed to save: ' + (data.error || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Error saving MQTT service:', error);
+        alert('Error saving MQTT service');
+    }
+};
+
+// Test MQTT service connection
+window.testMqttService = async function() {
+    const serviceId = document.getElementById('mqtt-service-id').value;
+    
+    if (!serviceId) {
+        // For new services, we need to save first
+        alert('Please save the broker configuration first, then test the connection.');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE}/services/mqtt/${serviceId}/test`, {
+            method: 'POST'
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            if (data.connected) {
+                alert('✓ Connection successful!');
+            } else {
+                alert('✗ Connection failed. Please check your settings.');
+            }
+        } else {
+            alert('Test failed: ' + (data.error || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Error testing MQTT service:', error);
+        alert('Error testing connection');
+    }
+};
+
+// Delete MQTT service
+window.deleteMqttService = async function(nodeId, propName) {
+    const serviceId = document.getElementById('mqtt-service-id').value;
+    
+    if (!serviceId) return;
+    
+    if (!confirm('Are you sure you want to delete this broker configuration?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE}/services/mqtt/${serviceId}`, {
+            method: 'DELETE'
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            // Clear node config
+            const nodeData = state.nodes.get(nodeId);
+            if (nodeData) {
+                nodeData.config[propName] = '';
+                markNodeModified(nodeId);
+                setModified(true);
+            }
+            
+            // Reload services dropdown
+            await window.loadMqttServices(nodeId, propName, '');
+            
+            // Close modal
+            window.closeMqttServiceModal();
+        } else {
+            alert('Failed to delete: ' + (data.error || 'Service may still be in use'));
+        }
+    } catch (error) {
+        console.error('Error deleting MQTT service:', error);
+        alert('Error deleting MQTT service');
+    }
 };
