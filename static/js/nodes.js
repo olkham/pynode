@@ -17,11 +17,23 @@ function clampToCanvasBounds(x, y) {
     };
 }
 
-function getInputPort0CenterInCanvasCoords(nodeEl) {
+/**
+ * Get the center of the snap anchor port in canvas coordinates.
+ * For nodes with inputs: uses input port 0
+ * For output-only nodes: uses output port 0
+ */
+function getSnapAnchorPortCenter(nodeEl) {
     const nodesContainer = document.getElementById('nodes-container');
     if (!nodesContainer) return null;
 
-    const portEl = nodeEl.querySelector('.port.input[data-index="0"]') || nodeEl.querySelector('.port.input');
+    // Try input port 0 first
+    let portEl = nodeEl.querySelector('.port.input[data-index="0"]') || nodeEl.querySelector('.port.input');
+    
+    // If no input port, use output port 0 (for output-only nodes like Inject, Camera, etc.)
+    if (!portEl) {
+        portEl = nodeEl.querySelector('.port.output[data-index="0"]') || nodeEl.querySelector('.port.output');
+    }
+    
     if (!portEl) return null;
 
     const portRect = portEl.getBoundingClientRect();
@@ -38,7 +50,7 @@ export function snapNodeToGrid(nodeId, gridSize = GRID_SIZE) {
     const nodeEl = document.getElementById(`node-${nodeId}`);
     if (!nodeData || !nodeEl) return false;
 
-    const portCenter = getInputPort0CenterInCanvasCoords(nodeEl);
+    const portCenter = getSnapAnchorPortCenter(nodeEl);
     if (!portCenter) return false;
 
     const snappedX = Math.round(portCenter.x / gridSize) * gridSize;
@@ -61,7 +73,7 @@ function snapSelectedNodesToGrid(anchorNodeId, gridSize = GRID_SIZE) {
     const anchorEl = document.getElementById(`node-${anchorNodeId}`);
     if (!anchorEl) return;
 
-    const anchorPortCenter = getInputPort0CenterInCanvasCoords(anchorEl);
+    const anchorPortCenter = getSnapAnchorPortCenter(anchorEl);
     if (!anchorPortCenter) return;
 
     const snappedX = Math.round(anchorPortCenter.x / gridSize) * gridSize;
@@ -336,9 +348,11 @@ function attachNodeEventHandlers(nodeEl, nodeData) {
         startX = e.clientX - nodeData.x;
         startY = e.clientY - nodeData.y;
 
-        // Cache the offset from node top-left to input port 0 center (in canvas/container coords).
+        // Cache the offset from node top-left to snap anchor port center (in canvas/container coords).
+        // For nodes with inputs: uses input port 0
+        // For output-only nodes: uses output port 0
         // This lets us snap without forcing repeated DOM reads for the port each frame.
-        const portCenter = getInputPort0CenterInCanvasCoords(nodeEl);
+        const portCenter = getSnapAnchorPortCenter(nodeEl);
         if (portCenter) {
             snapAnchorPortOffset = {
                 x: portCenter.x - nodeData.x,
@@ -393,7 +407,7 @@ function attachNodeEventHandlers(nodeEl, nodeData) {
         let nextAnchorX = e.clientX - startX;
         let nextAnchorY = e.clientY - startY;
 
-        // Snap so the anchor input port 0 center lands on the nearest grid intersection.
+        // Snap so the anchor port center lands on the nearest grid intersection.
         if (snapAnchorPortOffset) {
             const desiredPortX = nextAnchorX + snapAnchorPortOffset.x;
             const desiredPortY = nextAnchorY + snapAnchorPortOffset.y;
