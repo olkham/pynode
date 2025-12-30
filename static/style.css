@@ -565,14 +565,29 @@ body {
 }
 
 .image-viewer-container {
-    margin-top: 8px;
+    margin-top: 0;
     background: #000;
     border: 1px solid #555;
-    border-radius: 4px;
+    border-radius: 0 0 6px 6px;
     overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: center;
+    position: relative;
+}
+
+/* Fix ImageViewerNode title bar height and input port position */
+.image-viewer-node .node-content {
+    flex: 0 0 30px;  /* Fixed height, don't grow */
+}
+
+.image-viewer-node .node-ports {
+    top: 0 !important;
+    transform: none !important;
+}
+
+.image-viewer-node .node-ports .port.input {
+    top: 10px;  /* Port center at 15px (10 + half of 10px port height) */
     position: relative;
 }
 

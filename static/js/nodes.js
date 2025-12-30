@@ -169,6 +169,11 @@ export function renderNode(nodeData) {
     nodeEl.style.top = `${nodeData.y}px`;
     nodeEl.style.zIndex = nodeZIndex++;
     
+    // Add special class for ImageViewerNode
+    if (nodeData.type === 'ImageViewerNode') {
+        nodeEl.classList.add('image-viewer-node');
+    }
+    
     // Add disabled class if node is disabled
     if (nodeData.enabled === false) {
         nodeEl.classList.add('disabled');
