@@ -152,3 +152,8 @@ Thumbs.db
 
 # PyTorch model files
 *.pt
+models/yolov8n_openvino_model/yolov8n.xml
+models/yolov8n_openvino_model/metadata.yaml
+todo
+models/yolov8n_openvino_model/yolov8n.bin
+todo
