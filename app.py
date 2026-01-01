@@ -74,6 +74,7 @@ def _build_node_types_cache():
         
         ui_component = getattr(node_class, 'ui_component', None)
         ui_component_config = getattr(node_class, 'ui_component_config', {})
+        info = getattr(node_class, 'info', '')
         
         node_types.append({
             'type': name,
@@ -87,7 +88,8 @@ def _build_node_types_cache():
             'outputCount': output_count,
             'properties': merged_properties,
             'uiComponent': ui_component,
-            'uiComponentConfig': ui_component_config
+            'uiComponentConfig': ui_component_config,
+            'info': info
         })
     
     _node_types_cache = node_types

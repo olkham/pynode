@@ -2064,3 +2064,66 @@ body {
     overflow-y: auto;
 }
 
+.info-content .placeholder {
+    color: #888;
+    font-style: italic;
+}
+
+.info-node-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #3e3e42;
+}
+
+.info-node-icon {
+    font-size: 20px;
+}
+
+.info-node-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+}
+
+.info-node-content {
+    font-size: 13px;
+    line-height: 1.5;
+    color: #ccc;
+}
+
+.info-node-content p {
+    margin: 0 0 10px 0;
+}
+
+.info-node-content ul, .info-node-content ol {
+    margin: 8px 0;
+    padding-left: 20px;
+}
+
+.info-node-content li {
+    margin: 4px 0;
+}
+
+.info-node-content code {
+    background: #1e1e1e;
+    padding: 2px 5px;
+    border-radius: 3px;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 12px;
+    color: #ce9178;
+}
+
+.info-node-content strong {
+    color: #fff;
+}
+
+.info-node-content h4 {
+    font-size: 13px;
+    font-weight: 600;
+    color: #4ec9b0;
+    margin: 12px 0 6px 0;
+}
+

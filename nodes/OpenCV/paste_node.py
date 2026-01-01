@@ -6,7 +6,33 @@ Used for compositing operations like replacing regions in an image.
 import cv2
 import numpy as np
 from typing import Any, Dict, Optional, Tuple
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
+
+
+# Build info content
+_info = Info()
+_info.add_text("Pastes a foreground image onto a background image at a specified position. Useful for compositing operations like replacing regions in an image.")
+
+_info.add_header("Inputs")
+_info.add_bullets(
+    ("Input 0 (top):", "Background image - the original full image to paste onto"),
+    ("Input 1 (bottom):", "Foreground image - the region to paste (e.g., a processed crop)")
+)
+
+_info.add_header("Output")
+_info.add_text("The combined image with the foreground pasted onto the background.")
+
+_info.add_header("Position Source")
+_info.add_bullets(
+    ("From msg.bbox:", "Automatically uses bounding box coordinates from upstream nodes like CropNode"),
+    ("Manual:", "Specify X and Y coordinates in the properties")
+)
+
+_info.add_header("Typical Usage")
+_info.add_text("Connect the original image to Input 0, and the processed crop (e.g., blurred face) to Input 1. The node will paste the crop back to its original position.")
+
+_info.add_header("Example Flow")
+_info.add_code("Camera → Crop → Blur → Paste").text("(with Camera also connected to Paste Input 0)").end()
 
 
 class PasteNode(BaseNode):
@@ -29,6 +55,8 @@ class PasteNode(BaseNode):
     text_color = '#FFFFFF'
     input_count = 2  # Input 0: background, Input 1: foreground
     output_count = 1
+    
+    info = str(_info)
     
     DEFAULT_CONFIG = {
         'position_source': 'bbox',
