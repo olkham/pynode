@@ -5,10 +5,33 @@ OpenCV Hough Circles Node - detects circles in images.
 import cv2
 import numpy as np
 from typing import Any, Dict
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
+
+_info = Info()
+_info.add_text("Detects circles in images using the Hough Circle Transform. Applies median blur internally to reduce noise.")
+_info.add_header("Inputs")
+_info.add_bullets(("Input 0:", "Image (color or grayscale)"))
+_info.add_header("Outputs")
+_info.add_bullets(
+    ("Output 0:", "Image with circles drawn (if enabled)"),
+    ("msg.circles:", "Array of detected circles with x, y, radius")
+)
+_info.add_header("Key Parameters")
+_info.add_bullets(
+    ("DP:", "Accumulator resolution ratio (1 = same as image, 2 = half)"),
+    ("Min Distance:", "Minimum distance between detected circle centers"),
+    ("Canny Threshold:", "Higher threshold for internal Canny edge detection"),
+    ("Accumulator Threshold:", "Lower = more circles detected (may include false positives)")
+)
+_info.add_header("Tips")
+_info.add_bullets(
+    ("No circles found?", "Try lowering Accumulator Threshold"),
+    ("Too many false positives?", "Increase Accumulator Threshold or Min Distance")
+)
 
 
 class HoughCirclesNode(BaseNode):
+    info = str(_info)
     """
     Hough Circles node - detects circles in images using Hough transform.
     """

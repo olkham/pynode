@@ -6,7 +6,31 @@ Handles aligned RGB and depth data with various output formats.
 import cv2
 import numpy as np
 from typing import Any, Dict
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
+
+_info = Info()
+_info.add_text("Processes Intel RealSense depth camera frames. Handles aligned RGB and depth data with various output format options.")
+_info.add_header("Inputs")
+_info.add_bullets(
+    ("Input 0:", "RealSense frame with aligned_color and aligned_depth data, or image with depth payload")
+)
+_info.add_header("Outputs")
+_info.add_bullets(
+    ("Output 0:", "Processed frame based on output format setting")
+)
+_info.add_header("Output Formats")
+_info.add_bullets(
+    ("RGB only:", "Color image only"),
+    ("Depth only:", "Raw 16-bit depth data"),
+    ("Depth colorized:", "Depth mapped to colormap"),
+    ("Side by side:", "RGB and colorized depth horizontally combined"),
+    ("Both:", "Separate RGB and depth in payload")
+)
+_info.add_header("Configuration")
+_info.add_bullets(
+    ("Depth Scale:", "Alpha value for depth visualization contrast (0.001-1.0)"),
+    ("Colormap:", "Color scheme for depth visualization (Jet, Turbo, Viridis, etc.)")
+)
 
 
 class RealsenseDepthNode(BaseNode):
@@ -15,6 +39,7 @@ class RealsenseDepthNode(BaseNode):
     Expects input with aligned_color and aligned_depth frame data.
     Outputs RGB, depth, colorized depth, or combined formats.
     """
+    info = str(_info)
     display_name = 'RealSense Depth'
     icon = '📷'
     category = 'opencv'

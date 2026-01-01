@@ -4,7 +4,30 @@ Join Node - combines multiple messages into one.
 
 import time
 from typing import Any, Dict, List
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
+
+_info = Info()
+_info.add_text("Combines multiple messages into a single output message. Similar to Node-RED's join node.")
+_info.add_header("Inputs")
+_info.add_bullets(
+    ("Input 0:", "Messages to be combined.")
+)
+_info.add_header("Outputs")
+_info.add_bullets(
+    ("Output 0:", "Combined message with aggregated payloads.")
+)
+_info.add_header("Join Modes")
+_info.add_bullets(
+    ("Automatic:", "Send combined result after each message."),
+    ("Count:", "Wait for N messages before combining."),
+    ("Timeout:", "Combine messages after a time delay.")
+)
+_info.add_header("Combine Types")
+_info.add_bullets(
+    ("Array:", "payload becomes [msg1.payload, msg2.payload, ...]"),
+    ("Object:", "Merge all message payloads into one object."),
+    ("String:", "Concatenate all payloads as strings.")
+)
 
 
 class JoinNode(BaseNode):
@@ -20,6 +43,7 @@ class JoinNode(BaseNode):
     text_color = '#000000'
     input_count = 1
     output_count = 1
+    info = str(_info)
     
     properties = [
         {

@@ -5,14 +5,31 @@ OpenCV Morphology Node - applies morphological operations to images.
 import cv2
 import numpy as np
 from typing import Any, Dict
-from nodes.base_node import BaseNode, process_image
+from nodes.base_node import BaseNode, process_image, Info
 
+_info = Info()
+_info.add_text("Applies morphological operations to binary or grayscale images. Used for noise removal, shape analysis, and image preprocessing.")
+_info.add_header("Inputs")
+_info.add_bullets(("Input 0:", "Binary or grayscale image"))
+_info.add_header("Outputs")
+_info.add_bullets(("Output 0:", "Processed image"))
+_info.add_header("Operations")
+_info.add_bullets(
+    ("Erode:", "Shrinks white regions, removes small noise"),
+    ("Dilate:", "Expands white regions, fills small holes"),
+    ("Open:", "Erode then dilate - removes noise while preserving shape"),
+    ("Close:", "Dilate then erode - fills holes while preserving shape"),
+    ("Gradient:", "Difference between dilation and erosion - finds edges"),
+    ("Top Hat:", "Difference between input and opening - finds bright spots"),
+    ("Black Hat:", "Difference between closing and input - finds dark spots")
+)
 
 class MorphologyNode(BaseNode):
     """
     Morphology node - applies morphological operations to binary/grayscale images.
     Supports erosion, dilation, opening, closing, gradient, tophat, and blackhat.
     """
+    info = str(_info)
     display_name = 'Morphology'
     icon = '⬡'
     category = 'opencv'

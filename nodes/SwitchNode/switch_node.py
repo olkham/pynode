@@ -6,7 +6,34 @@ Supports dynamic rules with multiple outputs.
 
 import re
 from typing import Any, Dict, List
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
+
+_info = Info()
+_info.add_text("Routes messages to different outputs based on configurable rules. Each rule creates an output port - messages are sent to outputs where rules match.")
+_info.add_header("Inputs")
+_info.add_bullets(
+    ("Input 0:", "Message to evaluate and route")
+)
+_info.add_header("Outputs")
+_info.add_bullets(
+    ("Output N:", "One output per rule - message sent to matching rule outputs")
+)
+_info.add_header("Configuration")
+_info.add_bullets(
+    ("Property:", "Message property to evaluate (e.g., payload, topic)"),
+    ("Rules:", "List of conditions - each creates an output port"),
+    ("Check all:", "If enabled, checks all rules; otherwise stops at first match")
+)
+_info.add_header("Operators")
+_info.add_bullets(
+    ("eq/neq:", "Equals / not equals"),
+    ("lt/lte/gt/gte:", "Less than, greater than (or equal)"),
+    ("between:", "Value is in range (format: 'min,max')"),
+    ("contains/matches:", "String contains or regex matches"),
+    ("true/false/null/nnull:", "Boolean and null checks"),
+    ("empty/nempty:", "Check if value is empty"),
+    ("else:", "Catch-all (always matches)")
+)
 
 
 class SwitchNode(BaseNode):
@@ -15,6 +42,7 @@ class SwitchNode(BaseNode):
     Each rule creates a separate output port.
     Messages are routed to the first matching rule's output.
     """
+    info = str(_info)
     display_name = 'Switch'
     icon = '⎇'
     category = 'logic'

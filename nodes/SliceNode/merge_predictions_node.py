@@ -5,7 +5,23 @@ Based on SAHI (Slicing Aided Hyper Inference) methodology for prediction merging
 
 import numpy as np
 from typing import Any, Dict, List, Tuple, Optional
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
+
+_info = Info()
+_info.add_text("Combines detection predictions from multiple image slices back into a unified result. Based on SAHI methodology for prediction merging.")
+_info.add_header("Inputs")
+_info.add_bullets(("Input 0:", "Array message containing slice predictions with offset metadata"))
+_info.add_header("Outputs")
+_info.add_bullets(
+    ("Output 0:", "Merged predictions with coordinates transformed to original image space"),
+)
+_info.add_header("Configuration")
+_info.add_bullets(
+    ("NMS IoU Threshold:", "Threshold for Non-Maximum Suppression to remove duplicates"),
+    ("Match Metric:", "IoU (Intersection over Union) or IoS (Intersection over Smaller)"),
+    ("Match Threshold:", "Threshold for considering detections as duplicates"),
+    ("Class Agnostic NMS:", "Apply NMS across all classes vs per-class"),
+)
 
 
 class MergeSlicePredictionsNode(BaseNode):
@@ -18,6 +34,7 @@ class MergeSlicePredictionsNode(BaseNode):
     from overlapping regions.
     """
     display_name = 'Merge Predictions'
+    info = str(_info)
     icon = '🔗'
     category = 'vision'
     color = '#FF6B6B'

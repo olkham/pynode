@@ -5,7 +5,24 @@ OpenCV Blur Node - applies various blur/smoothing filters to images.
 import cv2
 import numpy as np
 from typing import Any, Dict
-from nodes.base_node import BaseNode, process_image
+from nodes.base_node import BaseNode, process_image, Info
+
+_info = Info()
+_info.add_text("Applies blur/smoothing filters to images for noise reduction or artistic effects.")
+_info.add_header("Inputs")
+_info.add_bullets(
+    ("Input 0:", "Image to blur")
+)
+_info.add_header("Methods")
+_info.add_bullets(
+    ("Gaussian:", "Standard smooth blur, good for noise reduction"),
+    ("Median:", "Preserves edges, excellent for salt-and-pepper noise"),
+    ("Bilateral:", "Edge-preserving smoothing, maintains sharp edges"),
+    ("Box:", "Simple average blur, fast but less smooth"),
+    ("Stack:", "Fast approximation of Gaussian blur")
+)
+_info.add_header("Output")
+_info.add_text("Outputs the blurred image.")
 
 
 class BlurNode(BaseNode):
@@ -13,6 +30,7 @@ class BlurNode(BaseNode):
     Blur node - applies smoothing/blur filters to images.
     Supports Gaussian, median, bilateral, and box blur.
     """
+    info = str(_info)
     display_name = 'Blur'
     icon = '◌'
     category = 'opencv'

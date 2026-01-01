@@ -5,14 +5,32 @@ OpenCV Perspective Transform Node - applies perspective transformations.
 import cv2
 import numpy as np
 from typing import Any, Dict
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
 
+_info = Info()
+_info.add_text("Applies perspective transformation to correct distortion or create custom warps. Transforms a quadrilateral region to a rectangular output.")
+_info.add_header("Inputs")
+_info.add_bullets(("Input 0:", "Source image"))
+_info.add_header("Outputs")
+_info.add_bullets(("Output 0:", "Warped image with perspective corrected"))
+_info.add_header("Properties")
+_info.add_bullets(
+    ("Mode:", "Get source points from message or manual entry"),
+    ("Output Size:", "Width and height of the output image"),
+    ("Source Points:", "Four corners as x1,y1;x2,y2;x3,y3;x4,y4 (TL,TR,BR,BL)")
+)
+_info.add_header("Message Fields")
+_info.add_bullets(
+    ("perspective_points:", "Source points from upstream node"),
+    ("transform_matrix:", "Output transformation matrix")
+)
 
 class PerspectiveNode(BaseNode):
     """
     Perspective Transform node - applies perspective/warp transformations.
     Can correct perspective distortion or apply custom warps.
     """
+    info = str(_info)
     display_name = 'Perspective'
     icon = '⬱'
     category = 'opencv'

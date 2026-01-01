@@ -5,7 +5,23 @@ Colormap Node - applies colormaps to depth/grayscale images for visualization.
 import cv2
 import numpy as np
 from typing import Any, Dict
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
+
+_info = Info()
+_info.add_text("Applies colormaps to depth maps or grayscale images for visualization.")
+_info.add_header("Inputs")
+_info.add_bullets(
+    ("Input 0:", "Grayscale image or depth map")
+)
+_info.add_header("Features")
+_info.add_bullets(
+    ("Input Source:", "Read from image or depth payload field"),
+    ("Colormaps:", "21 options including Jet, Turbo, Viridis, Plasma, etc."),
+    ("Auto Scale:", "Normalize values to full 0-255 range"),
+    ("Invert:", "Reverse the colormap direction")
+)
+_info.add_header("Output")
+_info.add_text("Outputs a colorized BGR image.")
 
 
 class ColormapNode(BaseNode):
@@ -13,6 +29,7 @@ class ColormapNode(BaseNode):
     Colormap node - applies OpenCV colormaps to depth or grayscale images.
     Useful for visualizing depth maps, heatmaps, and other single-channel data.
     """
+    info = str(_info)
     display_name = 'Colormap'
     icon = '🎨'
     category = 'opencv'

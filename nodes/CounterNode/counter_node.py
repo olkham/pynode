@@ -4,7 +4,27 @@ Demonstrates the use of UI components (button + rate-display).
 """
 
 from typing import Any, Dict
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
+
+_info = Info()
+_info.add_text("Counts incoming messages and outputs the running total. Includes a reset button to restart the count.")
+_info.add_header("Input")
+_info.add_bullets(
+    ("msg:", "Any message triggers the counter increment."),
+)
+_info.add_header("Output")
+_info.add_bullets(
+    ("payload.count:", "Current count value."),
+    ("payload.original_payload:", "The original payload from the input message."),
+    ("payload.display:", "Formatted count for display."),
+)
+_info.add_header("Properties")
+_info.add_bullets(
+    ("Initial Value:", "Starting count value."),
+    ("Increment By:", "Amount to add per message."),
+)
+_info.add_header("UI")
+_info.add_text("Click the reset button on the node to reset the counter to initial value.")
 
 
 class CounterNode(BaseNode):
@@ -12,6 +32,7 @@ class CounterNode(BaseNode):
     Counter node - counts incoming messages and displays the total.
     Can be reset via button click.
     """
+    info = str(_info)
     display_name = 'Counter'
     icon = '🔢'
     category = 'measurement'

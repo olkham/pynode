@@ -4,7 +4,22 @@ This demonstrates how third-party developers can create their own nodes.
 """
 
 from typing import Any, Dict
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
+
+# Build info content
+_info = Info()
+_info.add_text("Template node for creating custom third-party nodes.")
+_info.add_text("Copy this file and modify to create your own nodes.")
+_info.add_header("Inputs")
+_info.add_bullet("Input 0:", "Any message to process through the template")
+_info.add_header("Outputs")
+_info.add_bullet("Output 0:", "Message with payload replaced by template output")
+_info.add_header("Properties")
+_info.add_bullet("Template:", "Text template with {{payload}} and {{topic}} placeholders")
+_info.add_bullet("Output Format:", "Format type: plain, json, or html")
+_info.add_header("Template Variables")
+_info.add_bullet("{{payload}}:", "Replaced with the message payload")
+_info.add_bullet("{{topic}}:", "Replaced with the message topic")
 
 
 class TemplateNode(BaseNode):
@@ -21,6 +36,7 @@ class TemplateNode(BaseNode):
     text_color = '#000000'
     input_count = 1
     output_count = 1
+    info = str(_info)
     
     # Property schema for the properties panel
     # This defines what fields appear in the UI when the node is selected

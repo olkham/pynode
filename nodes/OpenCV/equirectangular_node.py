@@ -7,7 +7,28 @@ import math
 import cv2
 import numpy as np
 from typing import Any, Dict, Tuple
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
+
+_info = Info()
+_info.add_text("Converts 360° equirectangular images to standard pinhole camera perspective views. Uses optimized Numba JIT compilation for high-performance coordinate mapping when available.")
+_info.add_header("Inputs")
+_info.add_bullets(
+    ("Input 0:", "Equirectangular (360°) image frame")
+)
+_info.add_header("Outputs")
+_info.add_bullets(
+    ("Output 0:", "Projected pinhole camera view image")
+)
+_info.add_header("Configuration")
+_info.add_bullets(
+    ("Yaw:", "Horizontal rotation angle (-180° to 180°)"),
+    ("Pitch:", "Vertical rotation angle (-90° to 90°)"),
+    ("Roll:", "Rotation around view axis (-180° to 180°)"),
+    ("FOV:", "Field of view in degrees (1° to 179°)"),
+    ("Output Width/Height:", "Resolution of the projected output image"),
+    ("Angle Source:", "Use config values or read from msg.angles"),
+    ("Interpolation:", "Nearest, Linear, or Cubic sampling")
+)
 
 # Check for Numba availability
 try:
@@ -110,6 +131,7 @@ class EquirectangularNode(BaseNode):
     Equirectangular to Pinhole Projection node - converts 360° equirectangular images
     to standard pinhole camera perspective views with configurable yaw, pitch, roll, and FOV.
     """
+    info = str(_info)
     display_name = 'Equirectangular'
     icon = '🌐'
     category = 'opencv'

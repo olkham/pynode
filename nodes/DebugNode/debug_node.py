@@ -6,7 +6,22 @@ Similar to Node-RED's debug node.
 import time
 import numpy as np
 from typing import Any, Dict
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
+
+_info = Info()
+_info.add_text("Displays message content for debugging purposes. Similar to Node-RED's debug node.")
+_info.add_header("Input")
+_info.add_bullets(
+    ("msg:", "Any message to inspect. Large values are automatically truncated."),
+)
+_info.add_header("Output")
+_info.add_text("This node has no outputs. Messages are displayed in the debug panel.")
+_info.add_header("Properties")
+_info.add_bullets(
+    ("Output:", "Show msg.payload only or complete message."),
+)
+_info.add_header("UI")
+_info.add_text("Toggle the node on/off using the button. Last 10 messages are stored.")
 
 
 class DebugNode(BaseNode):
@@ -14,6 +29,7 @@ class DebugNode(BaseNode):
     Debug node - prints messages to console.
     Similar to Node-RED's debug node.
     """
+    info = str(_info)
     display_name = 'Debug'
     icon = '🐛'
     category = 'common'

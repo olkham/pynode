@@ -7,7 +7,29 @@ import os
 import json
 import time
 import threading
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
+
+_info = Info()
+_info.add_text("Generates messages with configurable properties. Can inject manually, once after a delay, or repeatedly at an interval. Similar to Node-RED's inject node.")
+_info.add_header("Outputs")
+_info.add_bullets(
+    ("Output 0:", "Generated message with configured properties.")
+)
+_info.add_header("Trigger Options")
+_info.add_bullets(
+    ("Manual:", "Click the inject button on the node."),
+    ("Once After:", "Inject once after a delay (in seconds) when workflow starts."),
+    ("Repeat:", "Inject repeatedly at the specified interval (in seconds).")
+)
+_info.add_header("Property Types")
+_info.add_bullets(
+    ("String:", "Text value"),
+    ("Number:", "Numeric value"),
+    ("Boolean:", "true or false"),
+    ("JSON:", "Parsed JSON object or array"),
+    ("Timestamp:", "Current Unix timestamp (time.time())"),
+    ("Env:", "Environment variable value")
+)
 
 
 class InjectNode(BaseNode):
@@ -23,6 +45,7 @@ class InjectNode(BaseNode):
     text_color = '#000000'
     input_count = 0
     output_count = 1
+    info = str(_info)
     ui_component = 'button'
     ui_component_config = {
         'icon': '▶',

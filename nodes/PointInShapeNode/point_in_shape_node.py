@@ -38,6 +38,7 @@ import cv2
 class PointInShapeNode(BaseNode):
     """Check if points are inside shapes"""
     
+    info = str(_info)
     display_name = 'Point in Shape'
     icon = '📍'
     category = 'analysis'

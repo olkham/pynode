@@ -6,10 +6,27 @@ Detects and analyzes contours for shape detection.
 import cv2
 import numpy as np
 from typing import Any, Dict, List
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
+
+_info = Info()
+_info.add_text("Finds and analyzes contours in binary/edge images. Outputs contour data including area, perimeter, bounding boxes, and centroids.")
+_info.add_header("Inputs")
+_info.add_bullets(("Input 0:", "Binary or edge-detected image (grayscale recommended)"))
+_info.add_header("Outputs")
+_info.add_bullets(
+    ("Output 0:", "Image with contours drawn (if enabled)"),
+    ("msg.contours:", "List of contour data with area, perimeter, bbox, and centroid")
+)
+_info.add_header("Properties")
+_info.add_bullets(
+    ("Retrieval Mode:", "External only, All (list), All (hierarchy), or Two-level"),
+    ("Approximation:", "Contour point approximation method"),
+    ("Min/Max Area:", "Filter contours by area size")
+)
 
 
 class ContoursNode(BaseNode):
+    info = str(_info)
     """
     Contours node - finds and analyzes contours in binary images.
     Outputs contour data including area, perimeter, bounding boxes, and centroids.

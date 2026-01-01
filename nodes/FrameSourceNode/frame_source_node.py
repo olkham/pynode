@@ -9,7 +9,32 @@ import time
 import sys
 from pathlib import Path
 from typing import Any, Dict
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
+
+_info = Info()
+_info.add_text("Captures frames from various video sources and outputs them as messages. Supports webcams, video files, RTSP streams, image folders, and specialized cameras.")
+_info.add_header("Outputs")
+_info.add_bullets(
+    ("Output 0:", "Frame message with image data (numpy array or JPEG encoded).")
+)
+_info.add_header("Source Types")
+_info.add_bullets(
+    ("Webcam:", "Local USB webcam (source = device index, e.g. 0)"),
+    ("Video File:", "MP4, AVI, or other video files"),
+    ("RTSP Stream:", "IP camera RTSP URL"),
+    ("Image Folder:", "Directory of images to cycle through"),
+    ("Basler:", "Basler industrial camera"),
+    ("RealSense:", "Intel RealSense depth camera (includes depth data)"),
+    ("Screen Capture:", "Desktop screen recording"),
+    ("GenICam:", "GenICam-compatible industrial cameras"),
+    ("Audio Spectrogram:", "Audio visualization as frames")
+)
+_info.add_header("Output Format")
+_info.add_bullets(
+    ("payload.image:", "Image data as numpy array or base64 JPEG"),
+    ("payload.frame_count:", "Frame sequence number"),
+    ("payload.width/height:", "Frame dimensions")
+)
 
 # Add FrameSource package to path
 _framesource_path = Path(__file__).parent / 'FrameSource'
@@ -31,6 +56,7 @@ class FrameSourceNode(BaseNode):
     text_color = '#000000'
     input_count = 0  # No input
     output_count = 1
+    info = str(_info)
 
     DEFAULT_CONFIG = {
         'source_type': 'webcam',

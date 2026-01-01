@@ -8,10 +8,32 @@ import cv2
 import logging
 import numpy as np
 from typing import Any, Dict, List
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
 import torch
 
 logger = logging.getLogger(__name__)
+
+_info = Info()
+_info.add_text("Performs YOLOv8 object detection on input images using Ultralytics.")
+_info.add_header("Inputs")
+_info.add_bullets(("Input 0:", "Image (base64 encoded)"))
+_info.add_header("Outputs")
+_info.add_bullets(
+    ("Output 0:", "Detection results with:"),
+)
+_info.add_bullets(
+    ("payload.image:", "Annotated image (if draw_results enabled)"),
+    ("payload.detections:", "List of detections with class_id, class_name, confidence, bbox"),
+    ("payload.detection_count:", "Number of detected objects"),
+    ("payload.bbox_format:", "Bounding box format (xyxy)"),
+)
+_info.add_header("Configuration")
+_info.add_bullets(
+    ("Model:", "YOLOv8 variant (nano to extra large)"),
+    ("Device:", "CPU or CUDA GPU for inference"),
+    ("Confidence:", "Detection confidence threshold"),
+    ("IoU:", "Intersection over Union threshold for NMS"),
+)
 
 
 class UltralyticsNode(BaseNode):
@@ -21,6 +43,7 @@ class UltralyticsNode(BaseNode):
     """
     # Visual properties
     display_name = 'YOLO'
+    info = str(_info)
     icon = '🎯'
     category = 'vision'
     color = '#00D9FF'

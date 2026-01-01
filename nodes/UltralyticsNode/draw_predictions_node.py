@@ -8,9 +8,28 @@ import cv2
 import logging
 import numpy as np
 from typing import Any, Dict
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
 
 logger = logging.getLogger(__name__)
+
+_info = Info()
+_info.add_text("Draws YOLO detection results (bounding boxes and labels) on images.")
+_info.add_header("Inputs")
+_info.add_bullets(
+    ("Input 0:", "Message with payload.predictions (from YOLO) and payload.image (base64)"),
+)
+_info.add_header("Outputs")
+_info.add_bullets(
+    ("Output 0:", "Annotated image with bounding boxes and labels drawn"),
+)
+_info.add_header("Configuration")
+_info.add_bullets(
+    ("Line Width:", "Thickness of bounding box lines"),
+    ("Font Scale:", "Size of label text"),
+    ("Text Color:", "Color of label text"),
+    ("Show Confidence:", "Display confidence scores on labels"),
+    ("Show Class:", "Display class names on labels"),
+)
 
 
 class DrawPredictionsNode(BaseNode):
@@ -19,6 +38,7 @@ class DrawPredictionsNode(BaseNode):
     Expects msg.payload.predictions (from YOLO) and msg.payload.image (base64).
     """
     display_name = 'Draw Predictions'
+    info = str(_info)
     icon = '🎨'
     category = 'vision'
     color = '#FF6B9D'

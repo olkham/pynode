@@ -8,7 +8,30 @@ import base64
 import time
 from datetime import datetime
 from typing import Any, Dict
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
+
+_info = Info()
+_info.add_text("Writes image frames or data to disk. Supports dynamic filenames with counter, timestamp, or datetime patterns.")
+_info.add_header("Inputs")
+_info.add_bullets(
+    ("Input 0:", "Message with payload containing data to write. Images should be base64 encoded or numpy arrays.")
+)
+_info.add_header("Outputs")
+_info.add_bullets(
+    ("Output 0:", "Status message with path, filename, bytes written, and counter.")
+)
+_info.add_header("Message Properties")
+_info.add_bullets(
+    ("msg.fname:", "Override filename from message."),
+    ("msg.extension:", "Override file extension from message.")
+)
+_info.add_header("Naming Modes")
+_info.add_bullets(
+    ("Counter:", "frame_0001.jpg, frame_0002.jpg, ..."),
+    ("Timestamp:", "frame_1234567890.jpg (Unix timestamp)"),
+    ("DateTime:", "frame_2024-12-03_153045.jpg"),
+    ("Message:", "Use msg.fname from incoming message")
+)
 
 
 class FileSystemNode(BaseNode):
@@ -24,6 +47,7 @@ class FileSystemNode(BaseNode):
     text_color = '#000000'
     input_count = 1
     output_count = 1
+    info = str(_info)
     
     DEFAULT_CONFIG = {
         'directory': './output',

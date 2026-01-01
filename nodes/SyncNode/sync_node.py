@@ -4,7 +4,29 @@ Useful for synchronizing multiple message streams or batch processing.
 """
 
 from typing import Any, Dict, List
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
+
+_info = Info()
+_info.add_text("Buffers messages by index and releases them on command. Useful for collecting messages out of order and releasing them in sequence, or for batch processing.")
+_info.add_header("Inputs")
+_info.add_bullets(
+    ("Input 0:", "Messages to buffer (with index property) or release command")
+)
+_info.add_header("Outputs")
+_info.add_bullets(
+    ("Output 0:", "Buffered messages released in order, or as an array")
+)
+_info.add_header("Configuration")
+_info.add_bullets(
+    ("Index Property:", "Property name containing the message index (e.g., 'index', 'id')"),
+    ("Release Payload:", "Payload value that triggers release (default: 'release')"),
+    ("Output Mode:", "Sequential (one by one) or Array (all at once)"),
+    ("Sort Order:", "Ascending, descending, or arrival order"),
+    ("Clear After Release:", "Whether to clear the buffer after releasing"),
+    ("Max Buffer Size:", "Maximum messages to buffer (oldest dropped when full)")
+)
+_info.add_header("Usage")
+_info.add_text("Send messages with an index property to buffer them. Send a message with payload='release' to output all buffered messages in order.")
 
 
 class SyncNode(BaseNode):
@@ -12,6 +34,7 @@ class SyncNode(BaseNode):
     Sync node - buffers messages by index and releases them on command.
     Messages are stored until a "release" payload is received.
     """
+    info = str(_info)
     display_name = 'Sync'
     icon = '🔄'
     category = 'logic'

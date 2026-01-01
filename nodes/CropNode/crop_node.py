@@ -6,7 +6,28 @@ import base64
 import cv2
 import numpy as np
 from typing import Any, Dict
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
+
+_info = Info()
+_info.add_text("Extracts cropped regions from images based on bounding box coordinates from detections or manual input.")
+_info.add_header("Input")
+_info.add_bullets(
+    ("payload.image:", "Source image to crop from."),
+    ("payload.detections:", "List of detections with 'bbox' field (when using detection mode)."),
+)
+_info.add_header("Output")
+_info.add_bullets(
+    ("payload.image:", "Cropped image data."),
+    ("payload.bbox:", "Bounding box coordinates used for the crop."),
+    ("payload.detection:", "Original detection info (if from detections)."),
+    ("parts:", "Sequence info when outputting separate messages."),
+)
+_info.add_header("Properties")
+_info.add_bullets(
+    ("Bounding Box Source:", "Use detections from message or manual coordinates."),
+    ("Manual Coordinates:", "X1, Y1, X2, Y2 values for manual crop region."),
+    ("Output Mode:", "Send all crops in one message or separate messages."),
+)
 
 
 class CropNode(BaseNode):
@@ -14,6 +35,7 @@ class CropNode(BaseNode):
     Crop Node - extracts bounding box regions from images.
     Receives image data and bbox coordinates, outputs cropped images.
     """
+    info = str(_info)
     display_name = 'Crop'
     icon = '✂️'
     category = 'vision'

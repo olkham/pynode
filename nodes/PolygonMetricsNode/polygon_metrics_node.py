@@ -34,6 +34,7 @@ import cv2
 class PolygonMetricsNode(BaseNode):
     """Calculate metrics from polygons"""
     
+    info = str(_info)
     display_name = 'Polygon Metrics'
     icon = '⬡'
     category = 'analysis'

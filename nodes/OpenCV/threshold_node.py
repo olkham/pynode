@@ -6,14 +6,30 @@ Converts grayscale images to binary using various thresholding methods.
 import cv2
 import numpy as np
 from typing import Any, Dict
-from nodes.base_node import BaseNode, process_image
+from nodes.base_node import BaseNode, process_image, Info
 
+_info = Info()
+_info.add_text("Converts grayscale images to binary using various thresholding methods. Essential for image segmentation and preparing images for contour detection.")
+_info.add_header("Inputs")
+_info.add_bullets(("Input 0:", "Grayscale image (auto-converts color if enabled)"))
+_info.add_header("Outputs")
+_info.add_bullets(("Output 0:", "Binary/thresholded image"))
+_info.add_header("Methods")
+_info.add_bullets(
+    ("Binary:", "Pixels above threshold become white, others black"),
+    ("Binary Inv:", "Inverse of binary"),
+    ("Truncate:", "Cap values at threshold"),
+    ("To Zero:", "Below threshold becomes 0"),
+    ("Otsu:", "Automatic threshold calculation"),
+    ("Adaptive Mean/Gaussian:", "Local threshold based on neighborhood")
+)
 
 class ThresholdNode(BaseNode):
     """
     Threshold node - applies thresholding to grayscale images.
     Supports binary, binary inverted, truncate, to-zero, and adaptive methods.
     """
+    info = str(_info)
     display_name = 'Threshold'
     icon = '◐'
     category = 'opencv'

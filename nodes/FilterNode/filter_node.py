@@ -3,7 +3,25 @@ Filter Node - filters messages based on conditions.
 """
 
 from typing import Any, Dict
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
+
+_info = Info()
+_info.add_text("Filters messages based on various conditions. Only passes messages that meet the specified criteria.")
+_info.add_header("Inputs")
+_info.add_bullets(
+    ("Input 0:", "Any message to be filtered.")
+)
+_info.add_header("Outputs")
+_info.add_bullets(
+    ("Output 0:", "Messages that pass the filter.")
+)
+_info.add_header("Filter Modes")
+_info.add_bullets(
+    ("Block:", "Block unless payload value changes."),
+    ("Dedupe:", "Block duplicate payloads (same as Block)."),
+    ("Drop First:", "Drop the first N messages, pass the rest."),
+    ("Keep First:", "Keep only the first N messages, drop the rest.")
+)
 
 
 class FilterNode(BaseNode):
@@ -18,6 +36,7 @@ class FilterNode(BaseNode):
     text_color = '#000000'
     input_count = 1
     output_count = 1
+    info = str(_info)
     
     properties = [
         {

@@ -1,15 +1,39 @@
 import numpy as np
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
 import logging
 from typing import List, Dict, Any
 
 logger = logging.getLogger(__name__)
+
+_info = Info()
+_info.add_text("Object tracker using the supervision library (ByteTrack). Provides high-quality tracking with built-in visualization using supervision's annotators.")
+_info.add_header("Inputs")
+_info.add_bullets(
+    ("Input 0:", "Message with payload containing 'detections' array (from object detector) and optional 'image' for visualization")
+)
+_info.add_header("Outputs")
+_info.add_bullets(
+    ("Output 0:", "Message with 'tracks' array added to payload, each track containing track_id, class_id, confidence, bbox [x1,y1,x2,y2], and bbox_wh [x,y,w,h]")
+)
+_info.add_header("Properties")
+_info.add_bullets(
+    ("Tracker Type:", "Tracking algorithm to use (ByteTrack)"),
+    ("Tracking Threshold:", "Activation threshold for new tracks (default: 0.25)"),
+    ("Track Buffer:", "Number of frames to keep lost tracks (default: 30)"),
+    ("Match Threshold:", "Minimum IoU for matching detections (default: 0.8)"),
+    ("Draw Tracks:", "Annotate image with boxes and track labels using supervision annotators")
+)
+_info.add_header("Requirements")
+_info.add_bullets(
+    ("supervision:", "pip install supervision")
+)
 
 class SupervisionTrackerNode(BaseNode):
     """
     Tracker Node that uses the supervision library for object tracking.
     Supports ByteTrack and other algorithms provided by supervision.
     """
+    info = str(_info)
     display_name = 'Supervision Tracker'
     icon = '👀'
     category = 'vision'

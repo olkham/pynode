@@ -6,7 +6,25 @@ Similar to Node-RED's change node.
 import json
 import re
 from typing import Any, Dict
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
+
+_info = Info()
+_info.add_text("Modifies message properties using configurable rules. Similar to Node-RED's change node.")
+_info.add_header("Input")
+_info.add_bullets(
+    ("msg:", "Any message to be modified according to the configured rules."),
+)
+_info.add_header("Output")
+_info.add_bullets(
+    ("msg:", "The modified message after all rules have been applied."),
+)
+_info.add_header("Operations")
+_info.add_bullets(
+    ("Set:", "Set a property to a value or copy from another property."),
+    ("Change:", "Search and replace text within a property."),
+    ("Delete:", "Remove a property from the message."),
+    ("Move:", "Move a property to a different location."),
+)
 
 
 class ChangeNode(BaseNode):
@@ -20,6 +38,7 @@ class ChangeNode(BaseNode):
     - delete: Remove a property
     - move: Move a property to another location
     """
+    info = str(_info)
     display_name = 'Change'
     icon = '✎'
     category = 'function'

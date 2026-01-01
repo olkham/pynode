@@ -5,10 +5,34 @@ OpenCV Hough Lines Node - detects lines in images.
 import cv2
 import numpy as np
 from typing import Any, Dict
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
+
+_info = Info()
+_info.add_text("Detects lines in images using the Hough Line Transform. Works best on edge-detected images (use Edge Detector node first).")
+_info.add_header("Inputs")
+_info.add_bullets(("Input 0:", "Edge-detected or binary image recommended"))
+_info.add_header("Outputs")
+_info.add_bullets(
+    ("Output 0:", "Image with lines drawn (if enabled)"),
+    ("msg.lines:", "Array of detected lines with coordinates")
+)
+_info.add_header("Methods")
+_info.add_bullets(
+    ("Standard:", "Returns lines in polar form (rho, theta)"),
+    ("Probabilistic:", "Returns line segments with endpoints (x1,y1,x2,y2)")
+)
+_info.add_header("Key Parameters")
+_info.add_bullets(
+    ("Rho:", "Distance resolution in pixels (typically 1)"),
+    ("Theta:", "Angle resolution in degrees (typically 1)"),
+    ("Threshold:", "Minimum votes needed to detect a line"),
+    ("Min Length:", "Minimum line segment length (probabilistic only)"),
+    ("Max Gap:", "Maximum gap to connect line segments (probabilistic only)")
+)
 
 
 class HoughLinesNode(BaseNode):
+    info = str(_info)
     """
     Hough Lines node - detects lines in images using Hough transform.
     Works best on edge-detected images.

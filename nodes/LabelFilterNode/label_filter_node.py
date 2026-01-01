@@ -4,7 +4,30 @@ Passes through messages that contain detections matching allowed labels.
 """
 
 from typing import Any, Dict, List
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
+
+_info = Info()
+_info.add_text("Filters messages based on object detection class labels. Routes messages to different outputs based on whether they contain matching detections.")
+_info.add_header("Inputs")
+_info.add_bullets(
+    ("Input 0:", "Message with detection data (e.g., from inference node).")
+)
+_info.add_header("Outputs")
+_info.add_bullets(
+    ("Output 0:", "Messages with detections matching allowed labels."),
+    ("Output 1:", "Messages without matching labels.")
+)
+_info.add_header("Match Modes")
+_info.add_bullets(
+    ("Any:", "Pass if any detection matches any allowed label."),
+    ("All:", "Pass only if all allowed labels are present in detections.")
+)
+_info.add_header("Options")
+_info.add_bullets(
+    ("Labels:", "Comma-separated list of allowed labels (e.g., 'person, car, dog')."),
+    ("Case Sensitive:", "Whether label matching is case-sensitive."),
+    ("Filter Detections:", "Remove non-matching detections from output message.")
+)
 
 
 class LabelFilterNode(BaseNode):
@@ -20,6 +43,7 @@ class LabelFilterNode(BaseNode):
     text_color = '#000000'
     input_count = 1
     output_count = 2  # Output 1: matched, Output 2: unmatched
+    info = str(_info)
 
     DEFAULT_CONFIG = {
         'labels': 'person, car',

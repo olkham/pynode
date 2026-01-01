@@ -8,7 +8,29 @@ import copy
 import cv2
 import numpy as np
 from typing import Any, Dict
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
+
+_info = Info()
+_info.add_text("Converts image data between numpy arrays and base64 encoded images. Supports automatic format detection.")
+_info.add_header("Inputs")
+_info.add_bullets(
+    ("Input 0:", "Message with image data at the configured data path.")
+)
+_info.add_header("Outputs")
+_info.add_bullets(
+    ("Output 0:", "Message with converted image data.")
+)
+_info.add_header("Conversion Modes")
+_info.add_bullets(
+    ("Auto Detect:", "Automatically detect source format and convert."),
+    ("Numpy to Base64:", "Convert numpy array to base64 JPEG/PNG string."),
+    ("Base64 to Numpy:", "Decode base64 string to numpy array (BGR format).")
+)
+_info.add_header("Image Formats")
+_info.add_bullets(
+    ("JPEG:", "Lossy compression, smaller size, configurable quality."),
+    ("PNG:", "Lossless compression, larger size, preserves all data.")
+)
 
 
 class ImageFormatNode(BaseNode):
@@ -23,6 +45,7 @@ class ImageFormatNode(BaseNode):
     text_color = '#000000'
     input_count = 1
     output_count = 1
+    info = str(_info)
     
     DEFAULT_CONFIG = {
         'mode': 'auto',

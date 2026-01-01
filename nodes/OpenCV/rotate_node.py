@@ -5,13 +5,32 @@ OpenCV Rotate Node - rotates images.
 import cv2
 import numpy as np
 from typing import Any, Dict
-from nodes.base_node import BaseNode, process_image
+from nodes.base_node import BaseNode, process_image, Info
 
+_info = Info()
+_info.add_text("Rotates and flips images. Supports preset rotations (90°, 180°), custom angles, and flip operations.")
+_info.add_header("Inputs")
+_info.add_bullets(("Input 0:", "Source image"))
+_info.add_header("Outputs")
+_info.add_bullets(("Output 0:", "Rotated/flipped image"))
+_info.add_header("Modes")
+_info.add_bullets(
+    ("90° CW/CCW:", "Fast 90-degree rotations"),
+    ("180°:", "Rotate upside down"),
+    ("Custom Angle:", "Rotate by any angle in degrees"),
+    ("Flip H/V/Both:", "Mirror image horizontally, vertically, or both")
+)
+_info.add_header("Custom Angle Options")
+_info.add_bullets(
+    ("Expand Canvas:", "Grow canvas to fit rotated image"),
+    ("Fill Color:", "Color for empty areas (B,G,R format)")
+)
 
 class RotateNode(BaseNode):
     """
     Rotate node - rotates images by specified angle.
     """
+    info = str(_info)
     display_name = 'Rotate'
     icon = '↻'
     category = 'opencv'

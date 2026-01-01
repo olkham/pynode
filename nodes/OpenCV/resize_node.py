@@ -5,13 +5,35 @@ OpenCV Resize Node - resizes images.
 import cv2
 import numpy as np
 from typing import Any, Dict
-from nodes.base_node import BaseNode, process_image
+from nodes.base_node import BaseNode, process_image, Info
 
+_info = Info()
+_info.add_text("Resizes images using various modes and interpolation methods. Supports absolute dimensions, scale factors, and aspect-ratio preserving modes.")
+_info.add_header("Inputs")
+_info.add_bullets(("Input 0:", "Source image"))
+_info.add_header("Outputs")
+_info.add_bullets(("Output 0:", "Resized image"))
+_info.add_header("Modes")
+_info.add_bullets(
+    ("Absolute:", "Resize to exact width and height"),
+    ("Scale:", "Multiply dimensions by scale factor"),
+    ("Fit:", "Fit within bounds, preserve aspect ratio"),
+    ("Fill:", "Fill bounds with cropping, preserve aspect ratio")
+)
+_info.add_header("Interpolation")
+_info.add_bullets(
+    ("Nearest:", "Fast, pixelated (good for pixel art)"),
+    ("Linear:", "Balanced quality and speed"),
+    ("Area:", "Best for shrinking images"),
+    ("Cubic:", "High quality for enlarging"),
+    ("Lanczos:", "Highest quality, slowest")
+)
 
 class ResizeNode(BaseNode):
     """
     Resize node - resizes images to specified dimensions or scale.
     """
+    info = str(_info)
     display_name = 'Resize'
     icon = '⤡'
     category = 'opencv'

@@ -4,7 +4,25 @@ Simply buffers the latest message from each input and outputs all when a new mes
 """
 
 from typing import Any, Dict, Optional
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
+
+_info = Info()
+_info.add_text("Joins messages from multiple inputs by buffering the latest message from each input and outputting them together when any new message arrives.")
+_info.add_header("Inputs")
+_info.add_bullets(
+    ("Input 0-N:", "Messages to synchronize. The node buffers the latest message from each input."),
+)
+_info.add_header("Output")
+_info.add_bullets(
+    ("payload.messages:", "Array of payloads from all buffered messages."),
+    ("payload.sync_values:", "Array of sync property values from each message."),
+    ("payload.delta:", "Difference between max and min sync values."),
+)
+_info.add_header("Properties")
+_info.add_bullets(
+    ("Number of Inputs:", "How many input ports to synchronize (2-10)."),
+    ("Sync Property Path:", "Property path to extract for delta calculation (e.g., 'frame_count')."),
+)
 
 
 class AutoSyncNode(BaseNode):
@@ -13,6 +31,7 @@ class AutoSyncNode(BaseNode):
     Buffers the latest message from each input and outputs them together
     along with the delta between sync property values.
     """
+    info = str(_info)
     display_name = 'Auto Sync'
     icon = '⚡'
     category = 'logic'

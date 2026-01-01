@@ -4,8 +4,25 @@ Uses shared MQTT service for connection management.
 """
 
 from typing import Any, Dict, Optional
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
 from nodes.MQTTNode.mqtt_service import mqtt_manager, MQTTService
+
+_info = Info()
+_info.add_text("Publishes messages to an MQTT topic. Uses a shared broker connection that can be reused across multiple MQTT nodes.")
+_info.add_header("Inputs")
+_info.add_bullets(
+    ("Input 0:", "Message to publish. msg.payload becomes the MQTT message body")
+)
+_info.add_header("Configuration")
+_info.add_bullets(
+    ("MQTT Broker:", "Select or configure a broker connection (host, port, credentials)"),
+    ("Topic:", "MQTT topic to publish to (can be overridden by msg.topic)"),
+    ("QoS:", "Quality of Service level (0=at most once, 1=at least once, 2=exactly once)"),
+    ("Retain:", "If true, broker retains the last message for new subscribers")
+)
+_info.add_header("Input Message")
+_info.add_code('msg.payload').text(" - Data to publish (objects are JSON-encoded)").end()
+_info.add_code('msg.topic').text(" - Optional topic override").end()
 
 
 class MqttOutNode(BaseNode):
@@ -13,6 +30,7 @@ class MqttOutNode(BaseNode):
     MQTT Out node - publishes messages to MQTT topics.
     Uses a shared MQTT service for the broker connection.
     """
+    info = str(_info)
     display_name = 'MQTT Out'
     icon = '📤'
     category = 'network'

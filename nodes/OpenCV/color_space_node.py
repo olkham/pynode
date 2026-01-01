@@ -5,7 +5,26 @@ OpenCV Color Space Converter Node - converts between color spaces.
 import cv2
 import numpy as np
 from typing import Any, Dict
-from nodes.base_node import BaseNode, process_image
+from nodes.base_node import BaseNode, process_image, Info
+
+_info = Info()
+_info.add_text("Converts images between different color spaces.")
+_info.add_header("Inputs")
+_info.add_bullets(
+    ("Input 0:", "Image to convert")
+)
+_info.add_header("Color Spaces")
+_info.add_bullets(
+    ("BGR:", "OpenCV default (Blue, Green, Red)"),
+    ("RGB:", "Standard web format (Red, Green, Blue)"),
+    ("HSV:", "Hue, Saturation, Value - good for color filtering"),
+    ("HLS:", "Hue, Lightness, Saturation"),
+    ("LAB:", "Perceptually uniform color space"),
+    ("YUV:", "Luminance and chrominance separation"),
+    ("Grayscale:", "Single channel intensity")
+)
+_info.add_header("Output")
+_info.add_text("Outputs the converted image in the target color space.")
 
 
 class ColorSpaceNode(BaseNode):
@@ -13,6 +32,7 @@ class ColorSpaceNode(BaseNode):
     Color Space node - converts images between different color spaces.
     Supports BGR, RGB, HSV, HLS, LAB, YUV, and grayscale.
     """
+    info = str(_info)
     display_name = 'Color Space'
     icon = '🎨'
     category = 'opencv'

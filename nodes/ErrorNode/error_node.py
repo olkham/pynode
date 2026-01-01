@@ -4,7 +4,18 @@ Automatically receives error events and displays them in the debug panel.
 """
 
 from typing import Any, Dict
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
+
+# Build info content
+_info = Info()
+_info.add_text("Captures and displays error messages from any node in the workflow.")
+_info.add_text("Unlike debug nodes that need to be wired, error nodes automatically receive errors from all nodes.")
+_info.add_header("Properties")
+_info.add_bullet("Filter by Node:", "Only show errors from nodes matching this filter (leave empty for all errors)")
+_info.add_header("Features")
+_info.add_bullet("Auto-capture:", "Receives errors from all workflow nodes automatically")
+_info.add_bullet("History:", "Keeps the last 100 errors")
+_info.add_bullet("Filtering:", "Can filter errors by node name")
 
 
 class ErrorNode(BaseNode):
@@ -21,6 +32,7 @@ class ErrorNode(BaseNode):
     text_color = '#FFFFFF'
     input_count = 0  # No input - errors come automatically
     output_count = 0  # No output - errors are displayed only
+    info = str(_info)
     
     properties = [
         {

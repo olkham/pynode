@@ -6,7 +6,28 @@ Similar to Node-RED's function node.
 import time
 import copy
 from typing import Any, Dict
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
+
+_info = Info()
+_info.add_text("Executes custom Python code on incoming messages. Similar to Node-RED's function node.")
+_info.add_header("Inputs")
+_info.add_bullets(
+    ("Input 0:", "Any message to process.")
+)
+_info.add_header("Outputs")
+_info.add_bullets(
+    ("Output 0-N:", "Processed message(s). Configure number of outputs in properties.")
+)
+_info.add_header("Available Variables")
+_info.add_bullets(
+    ("msg:", "The incoming message dictionary."),
+    ("node:", "Reference to this node (for node.send(), node.report_error())."),
+    ("time:", "Python time module.")
+)
+_info.add_header("Example")
+_info.add_code("msg['payload'] = msg['payload'] * 2\nreturn msg").text("Doubles the payload value and returns the modified message.").end()
+_info.add_header("Multiple Outputs")
+_info.add_code("return [msg, None, {'payload': 'alt'}]").text("Returns array to send to different outputs. None skips that output.").end()
 
 
 class FunctionNode(BaseNode):
@@ -22,6 +43,7 @@ class FunctionNode(BaseNode):
     text_color = '#000000'
     input_count = 1
     output_count = 1
+    info = str(_info)
     
     properties = [
         {

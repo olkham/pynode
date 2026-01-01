@@ -6,7 +6,26 @@ Passes messages through while tracking and displaying the rate.
 import time
 from typing import Any, Dict
 from collections import deque
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
+
+_info = Info()
+_info.add_text("Monitors message throughput rate by counting messages within a time window. Displays the rate on the node and outputs rate information.")
+_info.add_header("Inputs")
+_info.add_bullets(
+    ("Input 0:", "Any message to count")
+)
+_info.add_header("Outputs")
+_info.add_bullets(
+    ("Output 0:", "Message with rate statistics in payload")
+)
+_info.add_header("Configuration")
+_info.add_bullets(
+    ("Window Size:", "Time window in seconds for calculating the rate (default: 1 second)")
+)
+_info.add_header("Output Message")
+_info.add_code('msg.payload.rate').text(" - Messages per second as a number").end()
+_info.add_code('msg.payload.display').text(" - Human-readable rate string (e.g., '30/s', '2.5k/s')").end()
+_info.add_code('msg.payload.message_count').text(" - Number of messages in the current window").end()
 
 
 class RateProbeNode(BaseNode):
@@ -14,6 +33,7 @@ class RateProbeNode(BaseNode):
     Rate Probe node - monitors and displays message rate.
     Passes all messages through unchanged while tracking throughput.
     """
+    info = str(_info)
     display_name = 'Rate Probe'
     icon = '📊'
     category = 'measurement'

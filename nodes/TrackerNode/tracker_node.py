@@ -1,10 +1,28 @@
 import numpy as np
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
 import time
 import logging
 from typing import List, Dict, Any, Tuple
 
 logger = logging.getLogger(__name__)
+
+_info = Info()
+_info.add_text("Implements ByteTrack algorithm to track detected objects across video frames. Uses Kalman filtering for motion prediction and IoU-based association to maintain consistent track IDs.")
+_info.add_header("Inputs")
+_info.add_bullets(
+    ("Input 0:", "Message with payload containing 'detections' array (from object detector) and optional 'image' for visualization")
+)
+_info.add_header("Outputs")
+_info.add_bullets(
+    ("Output 0:", "Message with 'tracks' array added to payload, each track containing track_id, class_id, confidence, bbox [x1,y1,x2,y2], and bbox_wh [x,y,w,h]")
+)
+_info.add_header("Properties")
+_info.add_bullets(
+    ("Tracking Threshold:", "Minimum confidence score for high-priority detections (default: 0.5)"),
+    ("Track Buffer:", "Number of frames to keep lost tracks before removal (default: 30)"),
+    ("Match Threshold:", "IoU threshold for associating detections with tracks (default: 0.8)"),
+    ("Draw Tracks:", "Annotate image with bounding boxes and track IDs")
+)
 
 class KalmanFilter:
     """
@@ -567,6 +585,7 @@ class TrackerNode(BaseNode):
     Tracker Node that implements ByteTrack algorithm to track objects across frames.
     Takes detections as input and outputs tracks with IDs.
     """
+    info = str(_info)
     display_name = 'Tracker'
     icon = '👣'
     category = 'vision'

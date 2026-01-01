@@ -5,10 +5,33 @@ OpenCV Histogram Node - computes and optionally equalizes image histograms.
 import cv2
 import numpy as np
 from typing import Any, Dict
-from nodes.base_node import BaseNode, process_image
+from nodes.base_node import BaseNode, process_image, Info
+
+_info = Info()
+_info.add_text("Computes histograms and applies histogram operations for contrast enhancement. For color images, operates on the L channel in LAB color space.")
+_info.add_header("Inputs")
+_info.add_bullets(("Input 0:", "Image (color or grayscale)"))
+_info.add_header("Outputs")
+_info.add_bullets(
+    ("Output 0:", "Processed image"),
+    ("msg.histogram:", "Array of 256 values representing pixel distribution")
+)
+_info.add_header("Operations")
+_info.add_bullets(
+    ("Compute only:", "Calculate histogram without modifying image"),
+    ("Equalize:", "Standard histogram equalization for global contrast"),
+    ("CLAHE:", "Adaptive equalization that prevents over-amplification"),
+    ("Normalize:", "Stretch pixel values to specified range")
+)
+_info.add_header("Tips")
+_info.add_bullets(
+    ("CLAHE:", "Best for images with varying lighting conditions"),
+    ("Clip Limit:", "Higher values = more contrast, may increase noise")
+)
 
 
 class HistogramNode(BaseNode):
+    info = str(_info)
     """
     Histogram node - computes histograms and applies histogram equalization.
     """

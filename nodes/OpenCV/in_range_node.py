@@ -6,14 +6,31 @@ Useful for color-based object detection and masking.
 import cv2
 import numpy as np
 from typing import Any, Dict
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
 
+_info = Info()
+_info.add_text("Creates a binary mask from pixels within a specified color/intensity range. Useful for color-based object detection and masking. Works best with HSV color space for color filtering.")
+_info.add_header("Inputs")
+_info.add_bullets(("Input 0:", "Image (any color space, HSV recommended)"))
+_info.add_header("Outputs")
+_info.add_bullets(
+    ("Output 0:", "Binary mask (white = in range, black = out of range)"),
+    ("Output 1:", "Masked image (original with out-of-range pixels blacked out)")
+)
+_info.add_header("Properties")
+_info.add_bullets(
+    ("Channel 1 (H/B):", "Min/Max for first channel (Hue 0-179 in HSV)"),
+    ("Channel 2 (S/G):", "Min/Max for second channel (Saturation in HSV)"),
+    ("Channel 3 (V/R):", "Min/Max for third channel (Value in HSV)"),
+    ("Output Mode:", "Choose mask only, masked image only, or both")
+)
 
 class InRangeNode(BaseNode):
     """
     In Range node - creates a binary mask from pixels within a color range.
     Works with any color space (HSV recommended for color filtering).
     """
+    info = str(_info)
     display_name = 'In Range'
     icon = '🎯'
     category = 'opencv'

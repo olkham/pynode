@@ -5,10 +5,31 @@ OpenCV Draw Node - draws shapes and annotations on images.
 import cv2
 import numpy as np
 from typing import Any, Dict, List
-from nodes.base_node import BaseNode, process_image
+from nodes.base_node import BaseNode, process_image, Info
+
+_info = Info()
+_info.add_text("Draws shapes, text, and annotations on images. Supports rectangles, circles, lines, and text.")
+_info.add_header("Inputs")
+_info.add_bullets(("Input 0:", "Image to draw on"))
+_info.add_header("Outputs")
+_info.add_bullets(("Output 0:", "Image with shapes drawn"))
+_info.add_header("Shape Types")
+_info.add_bullets(
+    ("Rectangle:", "Uses X1,Y1 (top-left) and X2,Y2 (bottom-right)"),
+    ("Circle:", "Uses X1,Y1 (center) and radius"),
+    ("Line:", "Uses X1,Y1 (start) and X2,Y2 (end)"),
+    ("Text:", "Uses X1,Y1 (position) with text and font scale"),
+    ("From message:", "Reads shapes from msg.shapes array")
+)
+_info.add_header("Properties")
+_info.add_bullets(
+    ("Color:", "BGR format (e.g., 0,255,0 for green)"),
+    ("Thickness:", "-1 for filled shapes")
+)
 
 
 class DrawNode(BaseNode):
+    info = str(_info)
     """
     Draw node - draws shapes, text, and annotations on images.
     Can draw rectangles, circles, lines, and text.

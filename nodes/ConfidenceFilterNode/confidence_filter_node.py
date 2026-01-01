@@ -4,7 +4,26 @@ Passes through messages that contain detections meeting the confidence threshold
 """
 
 from typing import Any, Dict, List
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
+
+_info = Info()
+_info.add_text("Filters messages based on detection confidence scores, routing to different outputs based on threshold.")
+_info.add_header("Input")
+_info.add_bullets(
+    ("payload.detection:", "Detection object containing a confidence score."),
+)
+_info.add_header("Outputs")
+_info.add_bullets(
+    ("Output 0:", "Detections with confidence >= threshold."),
+    ("Output 1:", "Detections with confidence < threshold."),
+)
+_info.add_header("Properties")
+_info.add_bullets(
+    ("Threshold:", "Minimum confidence score (0-1) to pass to output 0."),
+    ("Threshold Source:", "Use configured value or read from msg.threshold."),
+    ("Detection Path:", "Path to the detection object in the message."),
+    ("Confidence Field:", "Name of the confidence field within the detection."),
+)
 
 
 class ConfidenceFilterNode(BaseNode):
@@ -13,6 +32,7 @@ class ConfidenceFilterNode(BaseNode):
     Output 0: Detections with confidence >= threshold
     Output 1: Detections with confidence < threshold
     """
+    info = str(_info)
     display_name = 'Confidence Filter'
     icon = '📊'
     category = 'vision'

@@ -5,10 +5,30 @@ OpenCV Edge Detection Node - detects edges using various algorithms.
 import cv2
 import numpy as np
 from typing import Any, Dict
-from nodes.base_node import BaseNode, process_image
+from nodes.base_node import BaseNode, process_image, Info
+
+_info = Info()
+_info.add_text("Detects edges in images using various algorithms. Converts color images to grayscale automatically.")
+_info.add_header("Inputs")
+_info.add_bullets(("Input 0:", "Image (color or grayscale)"))
+_info.add_header("Outputs")
+_info.add_bullets(("Output 0:", "Edge-detected image (grayscale)"))
+_info.add_header("Methods")
+_info.add_bullets(
+    ("Canny:", "Two-threshold hysteresis edge detection (most common)"),
+    ("Sobel:", "Gradient-based detection with directional control"),
+    ("Laplacian:", "Second derivative edge detection"),
+    ("Scharr:", "More accurate gradient than Sobel")
+)
+_info.add_header("Tips")
+_info.add_bullets(
+    ("Canny:", "Lower threshold1 detects more edges"),
+    ("Sobel/Scharr:", "Use 'Both X and Y' for all edge directions")
+)
 
 
 class EdgeDetectorNode(BaseNode):
+    info = str(_info)
     """
     Edge Detection node - detects edges in images.
     Supports Canny, Sobel, Laplacian, and Scharr methods.

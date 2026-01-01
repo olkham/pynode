@@ -3,7 +3,26 @@ Range Node - scales/maps values from one range to another.
 """
 
 from typing import Any, Dict
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
+
+_info = Info()
+_info.add_text("Maps numeric values from one range to another using linear interpolation. Useful for scaling sensor data, normalizing values, or converting between units.")
+_info.add_header("Inputs")
+_info.add_bullets(
+    ("Input 0:", "Message with numeric payload to scale")
+)
+_info.add_header("Outputs")
+_info.add_bullets(
+    ("Output 0:", "Message with scaled payload value")
+)
+_info.add_header("Configuration")
+_info.add_bullets(
+    ("Input Min/Max:", "The expected range of input values"),
+    ("Output Min/Max:", "The desired range of output values"),
+    ("Clamp:", "If enabled, output is constrained to the output range")
+)
+_info.add_header("Example")
+_info.add_text("Input range 0-100 to output range 0-1: A value of 50 becomes 0.5")
 
 
 class RangeNode(BaseNode):
@@ -11,6 +30,7 @@ class RangeNode(BaseNode):
     Range Node - maps numeric values from one range to another.
     Similar to Node-RED's range node.
     """
+    info = str(_info)
     display_name = 'Range'
     icon = '📊'
     category = 'function'

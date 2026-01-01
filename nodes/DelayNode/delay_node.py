@@ -7,7 +7,31 @@ import time
 import threading
 from collections import deque
 from typing import Any, Dict
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
+
+_info = Info()
+_info.add_text("Delays or rate-limits message delivery. Similar to Node-RED's delay node.")
+_info.add_header("Input")
+_info.add_bullets(
+    ("msg:", "Any message to be delayed or rate-limited."),
+)
+_info.add_header("Output")
+_info.add_bullets(
+    ("msg:", "The original message after the configured delay."),
+)
+_info.add_header("Modes")
+_info.add_bullets(
+    ("Delay each message:", "Hold each message for a fixed time before sending."),
+    ("Delay by message count:", "Release messages after N more messages arrive."),
+    ("Rate limit:", "Limit throughput to N messages per time period."),
+)
+_info.add_header("Properties")
+_info.add_bullets(
+    ("Delay (seconds):", "Time to delay each message."),
+    ("Delay (messages):", "Number of messages to buffer before releasing."),
+    ("Rate/Time:", "Messages per time period for rate limiting."),
+    ("Intermediate Messages:", "Drop or queue messages during rate limiting."),
+)
 
 
 class DelayNode(BaseNode):
@@ -15,6 +39,7 @@ class DelayNode(BaseNode):
     Delay node - delays message delivery (non-blocking).
     Similar to Node-RED's delay node.
     """
+    info = str(_info)
     display_name = 'Delay'
     icon = '⧗'
     category = 'function'

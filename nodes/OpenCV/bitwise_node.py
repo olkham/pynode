@@ -5,13 +5,32 @@ OpenCV Bitwise Operations Node - performs bitwise operations on images.
 import cv2
 import numpy as np
 from typing import Any, Dict
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
+
+_info = Info()
+_info.add_text("Performs bitwise operations (AND, OR, XOR, NOT) between two images or applies a mask.")
+_info.add_header("Inputs")
+_info.add_bullets(
+    ("Input 0:", "First image (or only image for NOT operation)"),
+    ("Input 1:", "Second image or mask")
+)
+_info.add_header("Operations")
+_info.add_bullets(
+    ("AND:", "Combines pixels where both images have values"),
+    ("OR:", "Combines pixels where either image has values"),
+    ("XOR:", "Combines pixels where only one image has values"),
+    ("NOT:", "Inverts the first image (ignores second input)"),
+    ("Mask:", "Applies second image as a mask to the first")
+)
+_info.add_header("Output")
+_info.add_text("Outputs the resulting image from the bitwise operation.")
 
 
 class BitwiseNode(BaseNode):
     """
     Bitwise node - performs bitwise operations between images or with masks.
     """
+    info = str(_info)
     display_name = 'Bitwise'
     icon = '&'
     category = 'opencv'

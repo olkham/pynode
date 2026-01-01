@@ -25,13 +25,33 @@ import os
 from typing import Any, Dict
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
 import numpy as np
+
+_info = Info()
+_info.add_text("Calculates geometric metrics from bounding boxes including dimensions, area, aspect ratio, center point, and diagonal length.")
+_info.add_header("Input")
+_info.add_bullets(
+    ("detections:", "List of detection objects containing 'bbox' field."),
+    ("boxes:", "Array of bounding boxes [x1, y1, x2, y2]."),
+    ("bbox:", "Single bounding box [x1, y1, x2, y2]."),
+)
+_info.add_header("Output")
+_info.add_bullets(
+    ("metrics:", "Calculated metrics (width, height, area, aspect_ratio, center, diagonal)."),
+    ("detections:", "Original detections with 'metrics' field added to each."),
+)
+_info.add_header("Properties")
+_info.add_bullets(
+    ("Metrics to Calculate:", "Select which metrics to compute."),
+    ("Normalize:", "Normalize values by image dimensions."),
+    ("Image Dimensions:", "Reference size for normalization."),
+)
 
 
 class BBoxMetricsNode(BaseNode):
     """Calculate metrics from bounding boxes"""
-    
+    info = str(_info)
     display_name = 'BBox Metrics'
     icon = '📏'
     category = 'analysis'

@@ -5,8 +5,24 @@ Uses shared MQTT service for connection management.
 
 import json
 from typing import Any, Dict, Optional
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
 from nodes.MQTTNode.mqtt_service import mqtt_manager, MQTTService
+
+_info = Info()
+_info.add_text("Subscribes to an MQTT topic and outputs received messages. Uses a shared broker connection that can be reused across multiple MQTT nodes.")
+_info.add_header("Outputs")
+_info.add_bullets(
+    ("Output 0:", "Message with payload from MQTT and topic set to the received topic")
+)
+_info.add_header("Configuration")
+_info.add_bullets(
+    ("MQTT Broker:", "Select or configure a broker connection (host, port, credentials)"),
+    ("Topic:", "MQTT topic to subscribe to (supports + and # wildcards)"),
+    ("QoS:", "Quality of Service level (0=at most once, 1=at least once, 2=exactly once)")
+)
+_info.add_header("Output Message")
+_info.add_code('msg.payload').text(" - Received data (auto-parsed as JSON if valid)").end()
+_info.add_code('msg.topic').text(" - The MQTT topic the message was received on").end()
 
 
 class MqttInNode(BaseNode):
@@ -14,6 +30,7 @@ class MqttInNode(BaseNode):
     MQTT In node - subscribes to MQTT topics and receives messages.
     Uses a shared MQTT service for the broker connection.
     """
+    info = str(_info)
     display_name = 'MQTT In'
     icon = '📥'
     category = 'network'

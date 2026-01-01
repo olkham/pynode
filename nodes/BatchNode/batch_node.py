@@ -3,13 +3,31 @@ Batch Node - groups messages into batches.
 """
 
 from typing import Any, Dict, List
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
+
+_info = Info()
+_info.add_text("Collects incoming messages into batches and sends them together as an array.")
+_info.add_header("Input")
+_info.add_bullets(
+    ("payload:", "Any message payload to be collected into a batch."),
+)
+_info.add_header("Output")
+_info.add_bullets(
+    ("payload:", "Array of payloads from the batched messages."),
+    ("batch_size:", "Number of messages in the batch."),
+)
+_info.add_header("Properties")
+_info.add_bullets(
+    ("Batch Size:", "Number of messages to collect before sending."),
+    ("Overlap:", "Number of messages to retain for the next batch."),
+)
 
 
 class BatchNode(BaseNode):
     """
     Batch Node - collects messages into batches and sends them together.
     """
+    info = str(_info)
     display_name = 'Batch'
     icon = '📦'
     category = 'function'

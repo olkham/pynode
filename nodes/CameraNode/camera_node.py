@@ -7,13 +7,32 @@ import base64
 import threading
 import time
 from typing import Any, Dict
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
+
+_info = Info()
+_info.add_text("Captures video frames from a webcam or video device using OpenCV and outputs them as messages.")
+_info.add_header("Inputs")
+_info.add_text("This node has no inputs. It generates frames automatically when the workflow starts.")
+_info.add_header("Output")
+_info.add_bullets(
+    ("payload.image:", "Image data (JPEG base64 or numpy array depending on config)."),
+    ("payload.image.width:", "Frame width in pixels."),
+    ("payload.image.height:", "Frame height in pixels."),
+)
+_info.add_header("Properties")
+_info.add_bullets(
+    ("Camera Index:", "Device index (0 for default camera)."),
+    ("Frame Rate:", "Target FPS for capture."),
+    ("Width/Height:", "Resolution settings."),
+    ("Encode as JPEG:", "Output as base64 JPEG or raw numpy array."),
+)
 
 
 class CameraNode(BaseNode):
     """
     Camera node - captures frames from a webcam and outputs them as messages.
     """
+    info = str(_info)
     display_name = 'Camera'
     icon = '📷'
     category = 'sensors'

@@ -5,13 +5,30 @@ OpenCV Blend Node - blends two images together.
 import cv2
 import numpy as np
 from typing import Any, Dict
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
+
+_info = Info()
+_info.add_text("Blends two images together using weighted addition: result = alpha×image1 + beta×image2 + gamma.")
+_info.add_header("Inputs")
+_info.add_bullets(
+    ("Input 0:", "First image"),
+    ("Input 1:", "Second image (will be resized to match first if different size)")
+)
+_info.add_header("Parameters")
+_info.add_bullets(
+    ("Alpha:", "Weight for first image (0-1)"),
+    ("Beta:", "Weight for second image (0-1)"),
+    ("Gamma:", "Brightness adjustment added to result")
+)
+_info.add_header("Output")
+_info.add_text("Outputs the blended image.")
 
 
 class BlendNode(BaseNode):
     """
     Blend node - blends two images together using weighted addition.
     """
+    info = str(_info)
     display_name = 'Blend'
     icon = '⧉'
     category = 'opencv'

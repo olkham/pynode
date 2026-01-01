@@ -3,8 +3,29 @@ mDNS Broadcast Node - Broadcasts service information over mDNS for discovery
 """
 
 import json
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
 from .mdns_manager import MDNSBroadcaster, MDNS_AVAILABLE
+
+_info = Info()
+_info.add_text("Broadcasts service information over mDNS (multicast DNS) for network discovery. Other devices on the local network can discover this service using mDNS/Bonjour.")
+_info.add_header("Inputs")
+_info.add_bullets(
+    ("Input 0:", "Control messages or broadcast data to advertise")
+)
+_info.add_header("Outputs")
+_info.add_bullets(
+    ("Output 0:", "Status messages and pass-through of input messages")
+)
+_info.add_header("Configuration")
+_info.add_bullets(
+    ("Node ID:", "Unique identifier for this service (auto-generated if empty)"),
+    ("Service Port:", "Port number where the service is running"),
+    ("Service Type:", "mDNS service type (e.g., _http._tcp.local.)"),
+    ("Auto Start:", "Start broadcasting automatically when workflow starts")
+)
+_info.add_header("Input Message")
+_info.add_code("msg.payload.action").text(" - Control: 'start', 'stop', or 'restart'").end()
+_info.add_code("msg.broadcast").text(" - Dictionary of key-value pairs to advertise").end()
 
 
 class MDNSBroadcastNode(BaseNode):
@@ -12,6 +33,7 @@ class MDNSBroadcastNode(BaseNode):
     Broadcasts information via mDNS for discovery by other nodes on the network.
     Broadcasts properties from incoming messages.
     """
+    info = str(_info)
     display_name = 'mDNS Broadcast'
     icon = '📡'
     category = 'network'

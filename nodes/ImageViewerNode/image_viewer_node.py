@@ -6,7 +6,25 @@ import base64
 import cv2
 import numpy as np
 from typing import Any, Dict
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
+
+_info = Info()
+_info.add_text("Displays images and video frames directly in the web UI. Automatically converts incoming image data to a displayable format.")
+_info.add_header("Inputs")
+_info.add_bullets(
+    ("Input 0:", "Message with image data at the configured image path.")
+)
+_info.add_header("Supported Formats")
+_info.add_bullets(
+    ("Numpy Array:", "OpenCV BGR image arrays."),
+    ("Base64:", "Base64 encoded JPEG/PNG strings."),
+    ("Dict:", "Image dict with 'data' and 'encoding' keys.")
+)
+_info.add_header("Configuration")
+_info.add_bullets(
+    ("Width/Height:", "Display size in pixels (image is scaled to fit)."),
+    ("Image Path:", "Dot-separated path to image data (e.g., payload.image).")
+)
 
 
 class ImageViewerNode(BaseNode):
@@ -21,6 +39,7 @@ class ImageViewerNode(BaseNode):
     text_color = '#000000'
     input_count = 1
     output_count = 0
+    info = str(_info)
     
     DEFAULT_CONFIG = {
         'width': 320,

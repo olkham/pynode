@@ -4,7 +4,24 @@ Can be toggled on/off directly from the UI without redeployment.
 """
 
 from typing import Any, Dict
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
+
+_info = Info()
+_info.add_text("Allows or blocks messages from passing through. Can be toggled on/off in real-time from the UI without redeploying.")
+_info.add_header("Inputs")
+_info.add_bullets(
+    ("Input 0:", "Any message.")
+)
+_info.add_header("Outputs")
+_info.add_bullets(
+    ("Output 0:", "Messages pass through when gate is open.")
+)
+_info.add_header("Usage")
+_info.add_bullets(
+    ("Toggle:", "Click the toggle button on the node to open/close the gate."),
+    ("Open:", "Messages pass through unchanged."),
+    ("Closed:", "Messages are silently discarded.")
+)
 
 
 class GateNode(BaseNode):
@@ -20,6 +37,7 @@ class GateNode(BaseNode):
     text_color = '#000000'
     input_count = 1
     output_count = 1
+    info = str(_info)
     ui_component = 'toggle'
     ui_component_config = {
         'action': 'toggle_gate',

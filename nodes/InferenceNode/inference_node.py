@@ -9,9 +9,27 @@ import logging
 import os
 import numpy as np
 from typing import Any, Dict, List, Optional
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
 
 logger = logging.getLogger(__name__)
+
+_info = Info()
+_info.add_text("Performs object detection and inference using multiple backends including Ultralytics YOLO, Intel Geti, and ONNX Runtime.")
+_info.add_header("Inputs")
+_info.add_bullets(("Input 0:", "Image message with 'image' field (base64 or numpy array)"))
+_info.add_header("Outputs")
+_info.add_bullets(
+    ("Output 0:", "Detection results with optional annotated image"),
+)
+_info.add_header("Configuration")
+_info.add_bullets(
+    ("Engine Type:", "Select inference backend (Ultralytics, Geti, ONNX, etc.)"),
+    ("Model File:", "Path to model file (.pt, .onnx, .xml, .zip)"),
+    ("Target Hardware:", "CPU, CUDA GPU, or Intel OpenVINO devices"),
+    ("Confidence:", "Minimum confidence threshold (0.0-1.0)"),
+    ("IoU:", "IoU threshold for Non-Maximum Suppression"),
+    ("Draw Results:", "Overlay detections on output image"),
+)
 
 # Try to import torch for device detection
 try:
@@ -29,6 +47,7 @@ class InferenceNode(BaseNode):
     """
     # Visual properties
     display_name = 'Inference'
+    info = str(_info)
     icon = '🧠'
     category = 'vision'
     color = '#7B68EE'  # Medium slate blue

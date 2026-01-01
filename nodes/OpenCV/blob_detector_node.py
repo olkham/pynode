@@ -6,7 +6,24 @@ Uses SimpleBlobDetector to find circular/blob-like features.
 import cv2
 import numpy as np
 from typing import Any, Dict, List
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
+
+_info = Info()
+_info.add_text("Detects blob-like features in images using OpenCV's SimpleBlobDetector.")
+_info.add_header("Inputs")
+_info.add_bullets(
+    ("Input 0:", "Image to detect blobs in")
+)
+_info.add_header("Filter Parameters")
+_info.add_bullets(
+    ("Area:", "Min/max blob size in pixels"),
+    ("Circularity:", "How circular the blob must be (1 = perfect circle)"),
+    ("Convexity:", "How convex the blob must be"),
+    ("Inertia:", "Shape elongation (1 = circle, 0 = line)"),
+    ("Color:", "Filter for dark or light blobs")
+)
+_info.add_header("Output")
+_info.add_text("Outputs image with keypoints drawn (optional) and msg.payload.blobs containing detected blob data (x, y, size).")
 
 
 class BlobDetectorNode(BaseNode):
@@ -14,6 +31,7 @@ class BlobDetectorNode(BaseNode):
     Blob Detector node - detects blobs in images using SimpleBlobDetector.
     Outputs keypoints with position, size, and other blob properties.
     """
+    info = str(_info)
     display_name = 'Blob Detector'
     icon = '⬤'
     category = 'opencv'
