@@ -62,7 +62,8 @@ class PasteNode(BaseNode):
         'position_source': 'bbox',
         'x': 0,
         'y': 0,
-        'resize_to_fit': 'true'
+        'resize_to_fit': 'true',
+        'drop_messages': False  # Don't drop messages - we need both inputs to stay in sync
     }
     
     properties = [
@@ -108,6 +109,8 @@ class PasteNode(BaseNode):
         super().__init__(node_id, name)
         self._background: Optional[np.ndarray] = None
         self._background_msg: Optional[Dict] = None
+        self._foreground: Optional[np.ndarray] = None
+        self._foreground_msg: Optional[Dict] = None
         self._format_type: Optional[str] = None
     
     def on_start(self):
@@ -115,13 +118,16 @@ class PasteNode(BaseNode):
         super().on_start()
         self._background = None
         self._background_msg = None
+        self._foreground = None
+        self._foreground_msg = None
         self._format_type = None
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """
         Process images:
         - Input 0: Store as background
-        - Input 1: Paste onto background and send
+        - Input 1: Store as foreground
+        Output is produced whenever either input updates (if both are available)
         """
         if 'payload' not in msg:
             return
@@ -136,15 +142,24 @@ class PasteNode(BaseNode):
             self._background_msg = msg.copy()
             self._format_type = format_type
         else:
-            # Foreground image - paste onto background
-            if self._background is None:
-                self.report_error("No background image received yet")
-                return
-            
-            self._paste_foreground(img, msg)
+            # Foreground image - store it
+            self._foreground = img.copy()
+            self._foreground_msg = msg.copy()
+        
+        # Output if we have both images
+        if self._background is not None and self._foreground is not None:
+            self._paste_and_send()
     
-    def _paste_foreground(self, foreground: np.ndarray, fg_msg: Dict[str, Any]):
-        """Paste foreground onto background at specified position."""
+    def _paste_and_send(self):
+        """Paste foreground onto background and send result."""
+        # These are guaranteed to be set by caller check
+        assert self._foreground is not None
+        assert self._foreground_msg is not None
+        assert self._background is not None
+        
+        foreground = self._foreground
+        fg_msg = self._foreground_msg
+        
         position_source = self.config.get('position_source', 'bbox')
         resize_to_fit = self.get_config_bool('resize_to_fit', True)
         
