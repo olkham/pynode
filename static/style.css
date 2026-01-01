@@ -1254,6 +1254,7 @@ body {
     cursor: pointer;
     transition: background 0.2s ease;
     position: relative;
+    overflow: hidden;
 }
 
 .debug-message:hover {
@@ -1324,10 +1325,15 @@ body {
     font-family: 'Consolas', 'Monaco', monospace;
     font-size: 12px;
     line-height: 1.4;
+    overflow: hidden;
+    width: 100%;
 }
 
 .ti { /* tree-item */
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
 }
 
 .tt { /* tree-toggle */
@@ -1797,25 +1803,42 @@ body {
 }
 
 .mini-palette-item {
-    padding: 8px 12px;
+    background: #3e3e42;
+    padding: 0;
+    margin: 4px 8px;
+    border-radius: 6px;
     cursor: pointer;
     display: flex;
-    align-items: center;
-    gap: 8px;
+    align-items: stretch;
+    min-height: 28px;
     font-size: 13px;
-    border-left: 3px solid transparent;
+    border: 2px solid #555;
     transition: all 0.15s ease;
+    overflow: hidden;
 }
 
 .mini-palette-item:hover {
-    background: #2d2d30;
-    border-left-color: inherit;
+    border-color: #0e639c;
+    filter: brightness(1.1);
 }
 
 .mini-palette-icon {
-    font-size: 16px;
-    width: 20px;
-    text-align: center;
+    background: rgba(0, 0, 0, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    flex-shrink: 0;
+    font-size: 14px;
+    line-height: 1;
+}
+
+.mini-palette-item-name {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    padding: 4px 10px;
+    font-weight: 500;
 }
 
 /* Mini palette scrollbar */

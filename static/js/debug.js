@@ -8,7 +8,7 @@ const debugState = {
     messageMap: new Map(), // For collapsing similar messages
     showInfo: true,
     showErrors: true,
-    collapseSimilar: true
+    collapseSimilar: false
 };
 
 export function startDebugPolling() {
@@ -98,6 +98,11 @@ export function displayDebugMessages(messages) {
 
 export function displayErrorMessages(errors) {
     const container = document.getElementById('debug-messages');
+    
+    // Don't process or scroll if errors are hidden
+    if (!debugState.showErrors) {
+        return;
+    }
     
     errors.forEach(error => {
         const messageKey = `error:${error.source_node_name}:${error.message}`;
@@ -190,10 +195,10 @@ function renderTreeValue(value, key = null, depth = 0) {
         return `<span class="tv-num">${value}</span>`;
     }
     if (typeof value === 'string') {
-        const maxLen = 200;
+        const maxLen = 100;
         const displayStr = value.length > maxLen ? value.substring(0, maxLen) + '...' : value;
         const escaped = displayStr.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-        return `<span class="tv-str">"${escaped}"</span>`;
+        return `<span class="tv-str" title="${value.length > maxLen ? value.length + ' chars' : ''}">"${escaped}"</span>`;
     }
     
     if (Array.isArray(value)) {

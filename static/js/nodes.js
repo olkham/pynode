@@ -500,11 +500,13 @@ function attachNodeEventHandlers(nodeEl, nodeData) {
         });
     });
     
-    // Add mouseup handlers on input ports for connection targeting
+    // Add mouseup handlers on input ports for connection targeting (forward connection)
     const inputPorts = nodeEl.querySelectorAll('.port.input');
     inputPorts.forEach(inputPort => {
+        // Mouseup for completing forward connections (output -> input)
         inputPort.addEventListener('mouseup', (e) => {
-            if (state.drawingConnection && state.drawingConnection.sourceId !== nodeData.id) {
+            if (state.drawingConnection && !state.drawingConnection.backward && 
+                state.drawingConnection.sourceId !== nodeData.id) {
                 e.stopPropagation();
                 const inputIndex = parseInt(inputPort.getAttribute('data-index') || '0');
                 import('./connections.js').then(({ endConnection }) => {
@@ -512,11 +514,35 @@ function attachNodeEventHandlers(nodeEl, nodeData) {
                 });
             }
         });
+        
+        // Mousedown for starting backward connections (input -> output)
+        inputPort.addEventListener('mousedown', (e) => {
+            e.stopPropagation();
+            const inputIndex = parseInt(inputPort.getAttribute('data-index') || '0');
+            import('./connections.js').then(({ startBackwardConnection }) => {
+                startBackwardConnection(nodeData.id, e, inputIndex);
+            });
+        });
+    });
+    
+    // Add mouseup handlers on output ports for completing backward connections
+    outputPorts.forEach(outputPort => {
+        outputPort.addEventListener('mouseup', (e) => {
+            if (state.drawingConnection && state.drawingConnection.backward &&
+                state.drawingConnection.targetId !== nodeData.id) {
+                e.stopPropagation();
+                const outputIndex = parseInt(outputPort.getAttribute('data-index') || '0');
+                import('./connections.js').then(({ endBackwardConnection }) => {
+                    endBackwardConnection(nodeData.id, outputIndex);
+                });
+            }
+        });
     });
     
     // Also keep the node-level handler for dropping on the node body (defaults to input 0)
     nodeEl.addEventListener('mouseup', (e) => {
-        if (state.drawingConnection && state.drawingConnection.sourceId !== nodeData.id) {
+        if (state.drawingConnection && !state.drawingConnection.backward &&
+            state.drawingConnection.sourceId !== nodeData.id) {
             // Only handle if not already handled by an input port
             if (!e.target.classList.contains('port')) {
                 e.stopPropagation();

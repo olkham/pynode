@@ -638,6 +638,24 @@ def deploy_changes():
         return jsonify({'error': str(e)}), 400
 
 
+@app.route('/api/workflow/restart', methods=['POST'])
+def restart_workflow():
+    """Restart the deployed workflow by re-importing and starting all nodes."""
+    try:
+        # Export current deployed workflow state
+        workflow_data = deployed_engine.export_workflow()
+        
+        # Stop, re-import, and start - this fully reinitializes all nodes
+        deployed_engine.stop()
+        deployed_engine.import_workflow(workflow_data)
+        deployed_engine.start()
+        
+        return jsonify({'success': True}), 200
+    except Exception as e:
+        print(f"Error restarting workflow: {e}")
+        return jsonify({'error': str(e)}), 400
+
+
 @app.route('/api/workflow/stats', methods=['GET'])
 def get_workflow_stats():
     """Get deployed workflow statistics."""

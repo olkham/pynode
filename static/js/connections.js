@@ -297,6 +297,29 @@ export function startConnection(sourceId, e, outputIndex = 0) {
     document.addEventListener('mouseup', cancelConnection);
 }
 
+// Start a backward connection (dragging from input port)
+export function startBackwardConnection(targetId, e, inputIndex = 0) {
+    const targetNode = document.getElementById(`node-${targetId}`);
+    const inputPorts = targetNode.querySelectorAll('.port.input');
+    const port = inputPorts[inputIndex] || targetNode.querySelector('.port.input');
+    
+    if (!port) return;
+    
+    const rect = port.getBoundingClientRect();
+    const canvasRect = document.getElementById('canvas').getBoundingClientRect();
+    
+    state.drawingConnection = {
+        targetId: targetId,
+        inputIndex: inputIndex,
+        startX: rect.left + rect.width / 2 - canvasRect.left,
+        startY: rect.top + rect.height / 2 - canvasRect.top,
+        backward: true  // Flag to indicate backward connection
+    };
+    
+    document.addEventListener('mousemove', drawTempConnection);
+    document.addEventListener('mouseup', cancelConnection);
+}
+
 export function drawTempConnection(e) {
     if (!state.drawingConnection) return;
     
@@ -307,14 +330,27 @@ export function drawTempConnection(e) {
     const dx = endX - state.drawingConnection.startX;
     const controlDistance = Math.abs(dx) * 0.5;
     
-        const tempLine = document.getElementById('temp-line');
+    const tempLine = document.getElementById('temp-line');
+    
+    if (state.drawingConnection.backward) {
+        // Backward connection: input port is on the left, so curve goes left first
         tempLine.innerHTML = `
-                <path d="M ${state.drawingConnection.startX} ${state.drawingConnection.startY} 
-                                 C ${state.drawingConnection.startX + controlDistance} ${state.drawingConnection.startY},
-                                     ${endX - controlDistance} ${endY},
-                                     ${endX} ${endY}"
-                            stroke="#0e639c" stroke-width="2" fill="none" />
+            <path d="M ${state.drawingConnection.startX} ${state.drawingConnection.startY} 
+                     C ${state.drawingConnection.startX - controlDistance} ${state.drawingConnection.startY},
+                         ${endX + controlDistance} ${endY},
+                         ${endX} ${endY}"
+                  stroke="#0e639c" stroke-width="2" fill="none" />
         `;
+    } else {
+        // Forward connection: output port is on the right, so curve goes right first
+        tempLine.innerHTML = `
+            <path d="M ${state.drawingConnection.startX} ${state.drawingConnection.startY} 
+                     C ${state.drawingConnection.startX + controlDistance} ${state.drawingConnection.startY},
+                         ${endX - controlDistance} ${endY},
+                         ${endX} ${endY}"
+                  stroke="#0e639c" stroke-width="2" fill="none" />
+        `;
+    }
 }
 
 export function endConnection(targetId, targetInputIndex = 0) {
@@ -334,8 +370,28 @@ export function endConnection(targetId, targetInputIndex = 0) {
     cancelConnection();
 }
 
+// End a backward connection (dropped on output port)
+export function endBackwardConnection(sourceId, outputIndex = 0) {
+    if (!state.drawingConnection || !state.drawingConnection.backward) return;
+    
+    const targetId = state.drawingConnection.targetId;
+    const inputIndex = state.drawingConnection.inputIndex || 0;
+    
+    if (sourceId !== targetId) {
+        // Save state before creating connection
+        import('./history.js').then(({ saveState }) => {
+            saveState('create connection');
+        });
+        // Connection is source -> target (backward was just UI direction)
+        createConnection(sourceId, targetId, outputIndex, inputIndex);
+    }
+    
+    cancelConnection();
+}
+
 export function cancelConnection(e) {
     const hadConnection = state.drawingConnection !== null;
+    const isBackward = state.drawingConnection?.backward;
     const mousePos = e ? { x: e.clientX, y: e.clientY } : null;
     
     if (hadConnection && mousePos) {
@@ -347,16 +403,35 @@ export function cancelConnection(e) {
         const controlDistance = Math.abs(dx) * 0.5;
         
         const tempLine = document.getElementById('temp-line');
-        tempLine.innerHTML = `
-            <path d="M ${state.drawingConnection.startX} ${state.drawingConnection.startY} 
-                     C ${state.drawingConnection.startX + controlDistance} ${state.drawingConnection.startY},
-                         ${endX - controlDistance} ${endY},
-                         ${endX} ${endY}"
-                  stroke="#0e639c" stroke-width="2" fill="none" />
-        `;
+        
+        if (isBackward) {
+            // Backward connection: curve goes left first from input port
+            tempLine.innerHTML = `
+                <path d="M ${state.drawingConnection.startX} ${state.drawingConnection.startY} 
+                         C ${state.drawingConnection.startX - controlDistance} ${state.drawingConnection.startY},
+                             ${endX + controlDistance} ${endY},
+                             ${endX} ${endY}"
+                      stroke="#0e639c" stroke-width="2" fill="none" />
+            `;
+        } else {
+            // Forward connection: curve goes right first from output port
+            tempLine.innerHTML = `
+                <path d="M ${state.drawingConnection.startX} ${state.drawingConnection.startY} 
+                         C ${state.drawingConnection.startX + controlDistance} ${state.drawingConnection.startY},
+                             ${endX - controlDistance} ${endY},
+                             ${endX} ${endY}"
+                      stroke="#0e639c" stroke-width="2" fill="none" />
+            `;
+        }
         
         // Show mini palette at mouse position (temp line will be cleared when palette closes)
-        showMiniPalette(mousePos.x, mousePos.y, state.drawingConnection.sourceId, state.drawingConnection.outputIndex);
+        if (isBackward) {
+            // Backward connection: show palette to create node that outputs TO this input
+            showMiniPaletteBackward(mousePos.x, mousePos.y, state.drawingConnection.targetId, state.drawingConnection.inputIndex);
+        } else {
+            // Forward connection: show palette to create node that receives FROM this output
+            showMiniPalette(mousePos.x, mousePos.y, state.drawingConnection.sourceId, state.drawingConnection.outputIndex);
+        }
     } else {
         // No mini palette, clear the temp line immediately
         document.getElementById('temp-line').innerHTML = '';
@@ -437,66 +512,72 @@ function showMiniPalette(x, y, sourceId, outputIndex) {
     const contentContainer = document.createElement('div');
     contentContainer.className = 'mini-palette-content';
     
-    // Filter out input nodes (they have inputCount = 0) and group by category
-    import('./config.js').then(({ NODE_CATEGORIES }) => {
-        const categories = {};
-        const categoryOrder = Object.keys(NODE_CATEGORIES);
+    // Only show nodes that have inputs (filter out source-only nodes like Inject)
+    // Dynamically group nodes by category, preserving order of first appearance
+    const categories = {};
+    const categoryOrder = [];
+    
+    state.nodeTypes.forEach(nodeType => {
+        // Only show nodes that have at least one input
+        if (nodeType.inputCount === 0) return;
         
-        state.nodeTypes.forEach(nodeType => {
-            // Skip input nodes - they can't receive connections
-            if (nodeType.inputCount === 0) return;
-            
-            const category = nodeType.category || 'custom';
-            if (!categories[category]) {
-                categories[category] = [];
-            }
-            categories[category].push(nodeType);
-        });
+        const category = nodeType.category || 'custom';
+        if (!categories[category]) {
+            categories[category] = {
+                title: category.charAt(0).toUpperCase() + category.slice(1),
+                nodes: []
+            };
+            categoryOrder.push(category);
+        }
+        categories[category].nodes.push(nodeType);
+    });
+    
+    // Create palette items in category order
+    categoryOrder.forEach(category => {
+        const categoryData = categories[category];
+        if (!categoryData || categoryData.nodes.length === 0) return;
         
-        // Create palette items in category order
-        categoryOrder.forEach(category => {
-            if (!categories[category] || categories[category].length === 0) return;
+        const categoryDiv = document.createElement('div');
+        categoryDiv.className = 'mini-palette-category';
+        
+        const categoryLabel = document.createElement('div');
+        categoryLabel.className = 'mini-palette-category-label';
+        categoryLabel.textContent = categoryData.title;
+        categoryDiv.appendChild(categoryLabel);
+        
+        categoryData.nodes.forEach(nodeType => {
+            const item = document.createElement('div');
+            item.className = 'mini-palette-item';
+            item.innerHTML = `<span class="mini-palette-icon">${nodeType.icon}</span><span class="mini-palette-item-name">${nodeType.name}</span>`;
+            if (nodeType.color) item.style.backgroundColor = nodeType.color;
+            if (nodeType.borderColor) item.style.borderColor = nodeType.borderColor;
+            if (nodeType.textColor) item.style.color = nodeType.textColor;
             
-            const categoryDiv = document.createElement('div');
-            categoryDiv.className = 'mini-palette-category';
-            
-            const categoryLabel = document.createElement('div');
-            categoryLabel.className = 'mini-palette-category-label';
-            categoryLabel.textContent = NODE_CATEGORIES[category].title;
-            categoryDiv.appendChild(categoryLabel);
-            
-            categories[category].forEach(nodeType => {
-                const item = document.createElement('div');
-                item.className = 'mini-palette-item';
-                item.innerHTML = `<span class="mini-palette-icon">${nodeType.icon}</span><span class="mini-palette-item-name">${nodeType.name}</span>`;
-                item.style.borderColor = nodeType.borderColor;
-                
-                item.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    createNodeAndConnect(nodeType.type, x, y, sourceId, outputIndex);
-                    closeMiniPalette();
-                });
-                
-                categoryDiv.appendChild(item);
+            item.addEventListener('click', (e) => {
+                e.stopPropagation();
+                createNodeAndConnect(nodeType.type, x, y, sourceId, outputIndex);
+                closeMiniPalette();
             });
             
-            contentContainer.appendChild(categoryDiv);
+            categoryDiv.appendChild(item);
         });
         
-        miniPalette.appendChild(contentContainer);
-        document.body.appendChild(miniPalette);
-        
-        // Focus the search input
-        setTimeout(() => {
-            searchInput.focus();
-        }, 0);
-        
-        // Close on click outside
-        setTimeout(() => {
-            document.addEventListener('click', closeMiniPalette, { once: true });
-            document.addEventListener('keydown', handleMiniPaletteKeydown);
-        }, 0);
+        contentContainer.appendChild(categoryDiv);
     });
+    
+    miniPalette.appendChild(contentContainer);
+    document.body.appendChild(miniPalette);
+    
+    // Focus the search input
+    setTimeout(() => {
+        searchInput.focus();
+    }, 0);
+    
+    // Close on click outside
+    setTimeout(() => {
+        document.addEventListener('click', closeMiniPalette, { once: true });
+        document.addEventListener('keydown', handleMiniPaletteKeydown);
+    }, 0);
 }
 
 function filterMiniPaletteNodes(palette, filter) {
@@ -537,8 +618,8 @@ function handleMiniPaletteKeydown(e) {
     }
 }
 
-function createNodeAndConnect(nodeType, x, y, sourceId, outputIndex) {
-    import('./nodes.js').then(({ createNode }) => {
+function createNodeAndConnect(nodeType, x, y, sourceId, outputIndex, targetInputIndex = 0) {
+    import('./nodes.js').then(({ createNode, snapNodeToGrid }) => {
         // Convert screen coordinates to canvas coordinates
         // Use nodes-container rect (same as handleCanvasDrop in events.js)
         const nodesContainer = document.getElementById('nodes-container');
@@ -549,9 +630,136 @@ function createNodeAndConnect(nodeType, x, y, sourceId, outputIndex) {
         // Create the new node
         const newNodeId = createNode(nodeType, canvasX, canvasY);
         
-        // Create connection after a brief delay to ensure node is rendered
+        // Snap to grid and create connection after a brief delay to ensure node is rendered
         setTimeout(() => {
-            createConnection(sourceId, newNodeId, outputIndex, 0);
+            snapNodeToGrid(newNodeId);
+            // Connect based on direction: sourceId->newNode or newNode->sourceId
+            if (sourceId && outputIndex !== null) {
+                createConnection(sourceId, newNodeId, outputIndex, targetInputIndex);
+            }
+        }, 50);
+    });
+}
+
+// Show mini palette for backward connection (dragged from input port)
+// Creates a node that will OUTPUT to the target node's input
+function showMiniPaletteBackward(x, y, targetId, inputIndex) {
+    // Remove existing mini palette if any
+    const existing = document.getElementById('mini-palette');
+    if (existing) existing.remove();
+    
+    // Create mini palette
+    const miniPalette = document.createElement('div');
+    miniPalette.id = 'mini-palette';
+    miniPalette.className = 'mini-palette';
+    miniPalette.style.left = `${x}px`;
+    miniPalette.style.top = `${y}px`;
+    
+    // Add search field
+    const searchContainer = document.createElement('div');
+    searchContainer.className = 'mini-palette-search-container';
+    const searchInput = document.createElement('input');
+    searchInput.type = 'text';
+    searchInput.className = 'mini-palette-search';
+    searchInput.placeholder = 'Filter nodes...';
+    searchInput.addEventListener('click', (e) => e.stopPropagation());
+    searchInput.addEventListener('input', (e) => {
+        const filter = e.target.value.toLowerCase().trim();
+        filterMiniPaletteNodes(miniPalette, filter);
+    });
+    searchContainer.appendChild(searchInput);
+    miniPalette.appendChild(searchContainer);
+    
+    // Create content container for categories
+    const contentContainer = document.createElement('div');
+    contentContainer.className = 'mini-palette-content';
+    
+    // Show nodes that have outputs (filter out terminal nodes with no outputs)
+    // Dynamically group nodes by category, preserving order of first appearance
+    const categories = {};
+    const categoryOrder = [];
+    
+    state.nodeTypes.forEach(nodeType => {
+        // Only show nodes that have at least one output
+        if (nodeType.outputCount === 0) return;
+        
+        const category = nodeType.category || 'custom';
+        if (!categories[category]) {
+            categories[category] = {
+                title: category.charAt(0).toUpperCase() + category.slice(1),
+                nodes: []
+            };
+            categoryOrder.push(category);
+        }
+        categories[category].nodes.push(nodeType);
+    });
+    
+    // Create palette items in category order
+    categoryOrder.forEach(category => {
+        const categoryData = categories[category];
+        if (!categoryData || categoryData.nodes.length === 0) return;
+        
+        const categoryDiv = document.createElement('div');
+        categoryDiv.className = 'mini-palette-category';
+        
+        const categoryLabel = document.createElement('div');
+        categoryLabel.className = 'mini-palette-category-label';
+        categoryLabel.textContent = categoryData.title;
+        categoryDiv.appendChild(categoryLabel);
+        
+        categoryData.nodes.forEach(nodeType => {
+            const item = document.createElement('div');
+            item.className = 'mini-palette-item';
+            item.innerHTML = `<span class="mini-palette-icon">${nodeType.icon}</span><span class="mini-palette-item-name">${nodeType.name}</span>`;
+            if (nodeType.color) item.style.backgroundColor = nodeType.color;
+            if (nodeType.borderColor) item.style.borderColor = nodeType.borderColor;
+            if (nodeType.textColor) item.style.color = nodeType.textColor;
+            
+            item.addEventListener('click', (e) => {
+                e.stopPropagation();
+                // Create node and connect its output (0) to target's input
+                createNodeAndConnectBackward(nodeType.type, x, y, targetId, inputIndex);
+                closeMiniPalette();
+            });
+            
+            categoryDiv.appendChild(item);
+        });
+        
+        contentContainer.appendChild(categoryDiv);
+    });
+    
+    miniPalette.appendChild(contentContainer);
+    document.body.appendChild(miniPalette);
+    
+    // Focus the search input
+    setTimeout(() => {
+        searchInput.focus();
+    }, 0);
+    
+    // Close on click outside
+    setTimeout(() => {
+        document.addEventListener('click', closeMiniPalette, { once: true });
+        document.addEventListener('keydown', handleMiniPaletteKeydown);
+    }, 0);
+}
+
+// Create a node and connect its output to an existing target node's input
+function createNodeAndConnectBackward(nodeType, x, y, targetId, targetInputIndex = 0) {
+    import('./nodes.js').then(({ createNode, snapNodeToGrid }) => {
+        // Convert screen coordinates to canvas coordinates
+        const nodesContainer = document.getElementById('nodes-container');
+        const containerRect = nodesContainer.getBoundingClientRect();
+        const canvasX = x - containerRect.left;
+        const canvasY = y - containerRect.top;
+        
+        // Create the new node
+        const newNodeId = createNode(nodeType, canvasX, canvasY);
+        
+        // Snap to grid and create connection after a brief delay to ensure node is rendered
+        setTimeout(() => {
+            snapNodeToGrid(newNodeId);
+            // Connect newNode's output 0 to targetId's input
+            createConnection(newNodeId, targetId, 0, targetInputIndex);
         }, 50);
     });
 }

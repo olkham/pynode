@@ -2,7 +2,7 @@
 import { state } from './state.js';
 import { createNode, deleteNode, deleteNodeAndReconnect, snapNodeToGrid } from './nodes.js';
 import { deselectNode, deselectAllNodes, selectNode } from './selection.js';
-import { deployWorkflow, deployWorkflowFull, clearWorkflow, exportWorkflow, importWorkflow } from './workflow.js';
+import { deployWorkflow, deployWorkflowFull, restartWorkflow, clearWorkflow, exportWorkflow, importWorkflow } from './workflow.js';
 import { clearDebug } from './debug.js';
 import { getConnectionAtPoint, highlightConnectionForInsert, clearConnectionHighlight, getHoveredConnection, insertNodeIntoConnection } from './connections.js';
 
@@ -59,6 +59,13 @@ export function setupEventListeners() {
         deployFullBtn.classList.add('active');
         deployModifiedBtn.classList.remove('active');
         deployModeIcon.textContent = '●';
+        deployDropdown.classList.add('hidden');
+    });
+    
+    // Restart button
+    const deployRestartBtn = document.getElementById('deploy-restart-btn');
+    deployRestartBtn.addEventListener('click', () => {
+        restartWorkflow();
         deployDropdown.classList.add('hidden');
     });
     

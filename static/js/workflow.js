@@ -213,6 +213,24 @@ export async function deployWorkflowFull() {
     }
 }
 
+export async function restartWorkflow() {
+    try {
+        const response = await fetch(`${API_BASE}/workflow/restart`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (response.ok) {
+            showToast('Workflow restarted!');
+        } else {
+            throw new Error('Failed to restart workflow');
+        }
+    } catch (error) {
+        console.error('Failed to restart workflow:', error);
+        showToast('Failed to restart workflow');
+    }
+}
+
 export function clearWorkflow() {
     if (!confirm('Clear all nodes and connections?')) return;
     
