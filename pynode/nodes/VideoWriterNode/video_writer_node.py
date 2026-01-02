@@ -438,4 +438,4 @@ class VideoWriterNode(BaseNode):
         if event:
             # Try to send final event
             self.send({'payload': event})
-        super().close()
+        # super().close()
