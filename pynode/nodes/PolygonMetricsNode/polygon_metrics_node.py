@@ -26,9 +26,23 @@ import os
 from typing import Any, Dict
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-from pynode.nodes.base_node import BaseNode
+from pynode.nodes.base_node import BaseNode, Info
 import numpy as np
 import cv2
+
+_info = Info()
+_info.add_text("Calculate metrics from polygons including area, perimeter, bounding box, centroid, and rectangles.")
+_info.add_header("Inputs")
+_info.add_bullets(
+    ("detections:", "List of detections with polygons"),
+    ("polygons:", "List of polygons"),
+    ("polygon:", "Single polygon [[x1,y1], [x2,y2], ...]")
+)
+_info.add_header("Outputs")
+_info.add_bullets(
+    ("metrics:", "Dictionary with calculated metrics"),
+    ("detections:", "Original detections with added 'metrics' field")
+)
 
 
 class PolygonMetricsNode(BaseNode):

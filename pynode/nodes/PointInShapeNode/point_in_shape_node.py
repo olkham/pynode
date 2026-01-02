@@ -30,9 +30,26 @@ from typing import Any, Dict
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-from pynode.nodes.base_node import BaseNode
+from pynode.nodes.base_node import BaseNode, Info
 import numpy as np
 import cv2
+
+_info = Info()
+_info.add_text("Check if points are inside shapes (rectangles, polygons, or detection bboxes).")
+_info.add_header("Inputs")
+_info.add_bullets(
+    ("point:", "Single point [x, y]"),
+    ("points:", "List of points [[x1, y1], [x2, y2], ...]"),
+    ("rect:", "Rectangle [x1, y1, x2, y2]"),
+    ("polygon:", "Polygon [[x1, y1], [x2, y2], ...]"),
+    ("detections:", "Detections with bbox/polygon")
+)
+_info.add_header("Outputs")
+_info.add_bullets(
+    ("inside:", "Boolean or list of booleans"),
+    ("filtered_points:", "Points inside (if filtering enabled)"),
+    ("filtered_detections:", "Detections containing the point(s)")
+)
 
 
 class PointInShapeNode(BaseNode):
