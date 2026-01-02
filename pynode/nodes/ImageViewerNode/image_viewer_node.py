@@ -66,6 +66,12 @@ class ImageViewerNode(BaseNode):
             'type': 'text',
             'default': DEFAULT_CONFIG['image_path'],
             'description': 'Dot-separated path to image data (e.g. payload.image)'
+        },
+        {
+            'name': 'stream_url',
+            'label': 'Stream URL',
+            'type': 'streamUrl',
+            'help': 'MJPEG stream URL - open in browser or use in other applications'
         }
     ]
     

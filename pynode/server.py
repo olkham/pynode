@@ -916,6 +916,48 @@ def get_image_frame(node_id):
         return jsonify({'error': str(e)}), 400
 
 
+@app.route('/api/nodes/<node_id>/stream')
+def get_image_stream(node_id):
+    """MJPEG stream from an image viewer node - can be opened in a browser tab."""
+    import time
+    import base64
+    
+    def generate():
+        last_timestamp = 0
+        while True:
+            try:
+                node = deployed_engine.get_node(node_id)
+                if not node or not hasattr(node, 'current_frame'):
+                    time.sleep(0.1)
+                    continue
+                
+                # Check if there's a new frame
+                if node.frame_timestamp > last_timestamp and node.current_frame:
+                    last_timestamp = node.frame_timestamp
+                    frame_data = node.current_frame
+                    
+                    # Get the base64 data
+                    if isinstance(frame_data, dict) and 'data' in frame_data:
+                        img_data = base64.b64decode(frame_data['data'])
+                    else:
+                        time.sleep(0.033)
+                        continue
+                    
+                    # Yield MJPEG frame
+                    yield (b'--frame\r\n'
+                           b'Content-Type: image/jpeg\r\n\r\n' + img_data + b'\r\n')
+                else:
+                    time.sleep(0.033)  # ~30fps max polling rate
+            except Exception as e:
+                print(f"Stream error: {e}")
+                time.sleep(0.1)
+    
+    return Response(
+        stream_with_context(generate()),
+        mimetype='multipart/x-mixed-replace; boundary=frame'
+    )
+
+
 @app.route('/api/nodes/<node_id>/rate', methods=['GET'])
 def get_node_rate(node_id):
     """Get the current message rate from a rate probe node."""

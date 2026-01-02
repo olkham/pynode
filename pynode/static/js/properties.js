@@ -1,4 +1,4 @@
-// Properties panel
+﻿// Properties panel
 import { state, markNodeModified, setModified, getNodeType } from './state.js';
 import { API_BASE } from './config.js';
 import { updateNodeOutputCount, updateNodeInputCount } from './nodes.js';
@@ -166,6 +166,27 @@ export function renderProperties(nodeData) {
                 html += renderInjectPropsEditor(nodeData.id, prop.name, nodeData.config[prop.name] || []);
             } else if (prop.type === 'changeRules') {
                 html += renderChangeRulesEditor(nodeData.id, prop.name, nodeData.config[prop.name] || []);
+            } else if (prop.type === 'streamUrl') {
+                // Read-only stream URL that opens in new tab
+                const streamUrl = `${window.location.origin}/api/nodes/${nodeData.id}/stream`;
+                html += `
+                    <label class="property-label">${prop.label}</label>
+                    <div class="property-stream-url-container">
+                        <input type="text" class="property-input property-stream-url" 
+                               value="${streamUrl}" readonly
+                               onclick="this.select()">
+                        <button class="btn btn-secondary property-stream-btn" 
+                                onclick="window.open('${streamUrl}', '_blank')"
+                                title="Open stream in new tab">
+                            ↗️
+                        </button>
+                        <button class="btn btn-secondary property-stream-btn" 
+                                onclick="navigator.clipboard.writeText('${streamUrl}'); window.showToast && window.showToast('URL copied!')"
+                                title="Copy URL">
+                            🗐
+                        </button>
+                    </div>
+                `;
             }
             
             if (prop.help) {

@@ -1088,6 +1088,28 @@ body {
     min-width: 32px;
 }
 
+/* Stream URL property */
+.property-stream-url-container {
+    display: flex;
+    gap: 4px;
+}
+
+.property-stream-url-container .property-stream-url {
+    flex: 1;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 11px;
+    cursor: text;
+}
+
+.property-stream-btn {
+    padding: 6px 10px;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    flex-shrink: 0;
+    min-width: 32px;
+}
+
 /* MQTT Service Modal */
 .mqtt-service-modal {
     position: fixed;
