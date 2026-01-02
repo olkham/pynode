@@ -13,10 +13,17 @@ _info.add_header("Inputs")
 _info.add_bullets(("Input 0:", "Image to draw on"))
 _info.add_header("Outputs")
 _info.add_bullets(("Output 0:", "Image with shapes drawn"))
+_info.add_header("Coordinates")
+_info.add_text("All coordinates are normalized (0.0-1.0), making drawings independent of image size.")
+_info.add_bullets(
+    ("0.0:", "Left/Top edge"),
+    ("0.5:", "Center"),
+    ("1.0:", "Right/Bottom edge")
+)
 _info.add_header("Shape Types")
 _info.add_bullets(
     ("Rectangle:", "Uses X1,Y1 (top-left) and X2,Y2 (bottom-right)"),
-    ("Circle:", "Uses X1,Y1 (center) and radius"),
+    ("Circle:", "Uses X1,Y1 (center) and radius (relative to image width)"),
     ("Line:", "Uses X1,Y1 (start) and X2,Y2 (end)"),
     ("Text:", "Uses X1,Y1 (position) with text and font scale"),
     ("From message:", "Reads shapes from msg.shapes array")
@@ -45,11 +52,11 @@ class DrawNode(BaseNode):
     
     DEFAULT_CONFIG = {
         'shape': 'rectangle',
-        'x1': 100,
-        'y1': 100,
-        'x2': 200,
-        'y2': 200,
-        'radius': 50,
+        'x1': 0.1,
+        'y1': 0.1,
+        'x2': 0.3,
+        'y2': 0.3,
+        'radius': 0.1,
         'color': '0,255,0',
         'thickness': 2,
         'text': 'Hello',
@@ -76,7 +83,10 @@ class DrawNode(BaseNode):
             'label': 'X1 / Center X',
             'type': 'number',
             'default': DEFAULT_CONFIG['x1'],
-            'help': 'X coordinate (start point or center)',
+            'min': 0.0,
+            'max': 1.0,
+            'step': 0.01,
+            'help': 'Normalized X coordinate (0.0-1.0)',
             'showIf': {'shape': ['rectangle', 'circle', 'line', 'text']}
         },
         {
@@ -84,23 +94,32 @@ class DrawNode(BaseNode):
             'label': 'Y1 / Center Y',
             'type': 'number',
             'default': DEFAULT_CONFIG['y1'],
-            'help': 'Y coordinate (start point or center)',
+            'min': 0.0,
+            'max': 1.0,
+            'step': 0.01,
+            'help': 'Normalized Y coordinate (0.0-1.0)',
             'showIf': {'shape': ['rectangle', 'circle', 'line', 'text']}
         },
         {
             'name': 'x2',
-            'label': 'X2 / Width',
+            'label': 'X2',
             'type': 'number',
             'default': DEFAULT_CONFIG['x2'],
-            'help': 'X2 for line/rect, or width',
+            'min': 0.0,
+            'max': 1.0,
+            'step': 0.01,
+            'help': 'Normalized X2 coordinate (0.0-1.0)',
             'showIf': {'shape': ['rectangle', 'line']}
         },
         {
             'name': 'y2',
-            'label': 'Y2 / Height',
+            'label': 'Y2',
             'type': 'number',
             'default': DEFAULT_CONFIG['y2'],
-            'help': 'Y2 for line/rect, or height',
+            'min': 0.0,
+            'max': 1.0,
+            'step': 0.01,
+            'help': 'Normalized Y2 coordinate (0.0-1.0)',
             'showIf': {'shape': ['rectangle', 'line']}
         },
         {
@@ -108,7 +127,10 @@ class DrawNode(BaseNode):
             'label': 'Radius',
             'type': 'number',
             'default': DEFAULT_CONFIG['radius'],
-            'help': 'Circle radius',
+            'min': 0.0,
+            'max': 1.0,
+            'step': 0.01,
+            'help': 'Normalized radius (relative to image width)',
             'showIf': {'shape': 'circle'}
         },
         {
@@ -150,11 +172,11 @@ class DrawNode(BaseNode):
         super().__init__(node_id, name)
         self.configure({
             'shape': 'rectangle',
-            'x1': 100,
-            'y1': 100,
-            'x2': 200,
-            'y2': 200,
-            'radius': 50,
+            'x1': 0.1,
+            'y1': 0.1,
+            'x2': 0.3,
+            'y2': 0.3,
+            'radius': 0.1,
             'color': '0,255,0',
             'thickness': 2,
             'text': 'Hello',
@@ -172,34 +194,35 @@ class DrawNode(BaseNode):
             return (0, 255, 0)
     
     def _draw_shape(self, img, shape_info):
-        """Draw a single shape on the image."""
+        """Draw a single shape on the image using normalized coordinates."""
+        h, w = img.shape[:2]
         shape_type = shape_info.get('type', 'rectangle')
         color = self._parse_color(shape_info.get('color', '0,255,0'))
         thickness = int(shape_info.get('thickness', 2))
         
         if shape_type == 'rectangle':
-            x1 = int(shape_info.get('x1', 0))
-            y1 = int(shape_info.get('y1', 0))
-            x2 = int(shape_info.get('x2', 100))
-            y2 = int(shape_info.get('y2', 100))
+            x1 = int(float(shape_info.get('x1', 0)) * w)
+            y1 = int(float(shape_info.get('y1', 0)) * h)
+            x2 = int(float(shape_info.get('x2', 0.1)) * w)
+            y2 = int(float(shape_info.get('y2', 0.1)) * h)
             cv2.rectangle(img, (x1, y1), (x2, y2), color, thickness)
         
         elif shape_type == 'circle':
-            cx = int(shape_info.get('x1', shape_info.get('cx', 100)))
-            cy = int(shape_info.get('y1', shape_info.get('cy', 100)))
-            radius = int(shape_info.get('radius', 50))
+            cx = int(float(shape_info.get('x1', shape_info.get('cx', 0.5))) * w)
+            cy = int(float(shape_info.get('y1', shape_info.get('cy', 0.5))) * h)
+            radius = int(float(shape_info.get('radius', 0.1)) * w)
             cv2.circle(img, (cx, cy), radius, color, thickness)
         
         elif shape_type == 'line':
-            x1 = int(shape_info.get('x1', 0))
-            y1 = int(shape_info.get('y1', 0))
-            x2 = int(shape_info.get('x2', 100))
-            y2 = int(shape_info.get('y2', 100))
+            x1 = int(float(shape_info.get('x1', 0)) * w)
+            y1 = int(float(shape_info.get('y1', 0)) * h)
+            x2 = int(float(shape_info.get('x2', 0.1)) * w)
+            y2 = int(float(shape_info.get('y2', 0.1)) * h)
             cv2.line(img, (x1, y1), (x2, y2), color, thickness)
         
         elif shape_type == 'text':
-            x = int(shape_info.get('x1', shape_info.get('x', 100)))
-            y = int(shape_info.get('y1', shape_info.get('y', 100)))
+            x = int(float(shape_info.get('x1', shape_info.get('x', 0.1))) * w)
+            y = int(float(shape_info.get('y1', shape_info.get('y', 0.1))) * h)
             text = str(shape_info.get('text', ''))
             font_scale = float(shape_info.get('font_scale', 1.0))
             cv2.putText(img, text, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 
@@ -224,11 +247,11 @@ class DrawNode(BaseNode):
             # Draw configured shape
             shape_info = {
                 'type': shape,
-                'x1': self.config.get('x1', 100),
-                'y1': self.config.get('y1', 100),
-                'x2': self.config.get('x2', 200),
-                'y2': self.config.get('y2', 200),
-                'radius': self.config.get('radius', 50),
+                'x1': self.config.get('x1', 0.1),
+                'y1': self.config.get('y1', 0.1),
+                'x2': self.config.get('x2', 0.3),
+                'y2': self.config.get('y2', 0.3),
+                'radius': self.config.get('radius', 0.1),
                 'color': self.config.get('color', '0,255,0'),
                 'thickness': self.config.get('thickness', 2),
                 'text': self.config.get('text', 'Hello'),

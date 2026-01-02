@@ -44,6 +44,7 @@ export function getConnectionAtPoint(x, y, threshold = 15) {
                     source: path.getAttribute('data-source'),
                     target: path.getAttribute('data-target'),
                     sourceOutput: parseInt(path.getAttribute('data-source-output') || '0'),
+                    targetInput: parseInt(path.getAttribute('data-target-input') || '0'),
                     path: path
                 };
             }
@@ -111,11 +112,11 @@ export function insertNodeIntoConnection(nodeId, connection) {
     // Delete the original connection
     deleteConnection(connection.source, connection.target, connection.sourceOutput);
     
-    // Create connection from original source to the new node
+    // Create connection from original source to the new node (input port 0)
     createConnection(connection.source, nodeId, connection.sourceOutput, 0);
     
-    // Create connection from the new node to the original target
-    createConnection(nodeId, connection.target, 0, 0);
+    // Create connection from the new node to the original target (preserve original target input port)
+    createConnection(nodeId, connection.target, 0, connection.targetInput || 0);
     
     return true;
 }

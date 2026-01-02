@@ -14,16 +14,18 @@ _info.add_header("Inputs")
 _info.add_bullets(
     ("Input 0:", "Image to detect blobs in")
 )
+_info.add_header("Normalized Output")
+_info.add_text("Blob positions and sizes are normalized (0.0-1.0) for resolution independence.")
 _info.add_header("Filter Parameters")
 _info.add_bullets(
-    ("Area:", "Min/max blob size in pixels"),
+    ("Area:", "Min/max blob area (normalized 0.0-1.0, relative to image area)"),
     ("Circularity:", "How circular the blob must be (1 = perfect circle)"),
     ("Convexity:", "How convex the blob must be"),
     ("Inertia:", "Shape elongation (1 = circle, 0 = line)"),
     ("Color:", "Filter for dark or light blobs")
 )
 _info.add_header("Output")
-_info.add_text("Outputs image with keypoints drawn (optional) and msg.payload.blobs containing detected blob data (x, y, size).")
+_info.add_text("Outputs image with keypoints drawn (optional) and msg.blobs containing detected blob data (normalized x, y, size).")
 
 
 class BlobDetectorNode(BaseNode):
@@ -42,8 +44,8 @@ class BlobDetectorNode(BaseNode):
     output_count = 1
     
     DEFAULT_CONFIG = {
-        'min_area': 100,
-        'max_area': 50000,
+        'min_area': 0.0001,
+        'max_area': 0.1,
         'min_circularity': 0.1,
         'min_convexity': 0.5,
         'min_inertia': 0.1,
@@ -57,16 +59,20 @@ class BlobDetectorNode(BaseNode):
             'label': 'Min Area',
             'type': 'number',
             'default': DEFAULT_CONFIG['min_area'],
-            'min': 1,
-            'help': 'Minimum blob area in pixels'
+            'min': 0.0,
+            'max': 1.0,
+            'step': 0.0001,
+            'help': 'Minimum blob area (normalized 0.0-1.0, relative to image area)'
         },
         {
             'name': 'max_area',
             'label': 'Max Area',
             'type': 'number',
             'default': DEFAULT_CONFIG['max_area'],
-            'min': 1,
-            'help': 'Maximum blob area in pixels'
+            'min': 0.0,
+            'max': 1.0,
+            'step': 0.001,
+            'help': 'Maximum blob area (normalized 0.0-1.0, relative to image area)'
         },
         {
             'name': 'min_circularity',
@@ -138,13 +144,16 @@ class BlobDetectorNode(BaseNode):
             self.send(msg)
             return
         
+        h, w = img.shape[:2]
+        total_area = h * w
+        
         # Setup SimpleBlobDetector parameters
         params = cv2.SimpleBlobDetector_Params()
         
-        # Area filter
+        # Area filter - convert normalized to pixels
         params.filterByArea = True
-        params.minArea = self.get_config_float('min_area', 100)
-        params.maxArea = self.get_config_float('max_area', 50000)
+        params.minArea = self.get_config_float('min_area', 0.0001) * total_area
+        params.maxArea = self.get_config_float('max_area', 0.1) * total_area
         
         # Circularity filter
         min_circularity = self.get_config_float('min_circularity', 0.1)
@@ -193,13 +202,16 @@ class BlobDetectorNode(BaseNode):
         # Detect blobs
         keypoints = detector.detect(gray)
         
-        # Build blob data
+        # Build blob data with normalized coordinates
         blobs = []
         for kp in keypoints:
             blobs.append({
-                'x': float(kp.pt[0]),
-                'y': float(kp.pt[1]),
-                'size': float(kp.size),
+                'x': float(kp.pt[0]) / w,
+                'y': float(kp.pt[1]) / h,
+                'size': float(kp.size) / w,
+                'x_px': float(kp.pt[0]),
+                'y_px': float(kp.pt[1]),
+                'size_px': float(kp.size),
                 'angle': float(kp.angle),
                 'response': float(kp.response)
             })

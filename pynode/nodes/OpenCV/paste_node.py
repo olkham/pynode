@@ -25,7 +25,15 @@ _info.add_text("The combined image with the foreground pasted onto the backgroun
 _info.add_header("Position Source")
 _info.add_bullets(
     ("From msg.bbox:", "Automatically uses bounding box coordinates from upstream nodes like CropNode"),
-    ("Manual:", "Specify X and Y coordinates in the properties")
+    ("Manual:", "Specify X and Y as normalized coordinates (0.0-1.0)")
+)
+
+_info.add_header("Normalized Coordinates")
+_info.add_text("When using manual mode:")
+_info.add_bullets(
+    ("0.0:", "Left/Top edge"),
+    ("0.5:", "Center"),
+    ("1.0:", "Right/Bottom edge")
 )
 
 _info.add_header("Typical Usage")
@@ -60,8 +68,8 @@ class PasteNode(BaseNode):
     
     DEFAULT_CONFIG = {
         'position_source': 'bbox',
-        'x': 0,
-        'y': 0,
+        'x': 0.0,
+        'y': 0.0,
         'resize_to_fit': 'true',
         'drop_messages': False  # Don't drop messages - we need both inputs to stay in sync
     }
@@ -83,14 +91,20 @@ class PasteNode(BaseNode):
             'label': 'X Position',
             'type': 'number',
             'default': DEFAULT_CONFIG['x'],
-            'help': 'X coordinate for manual positioning'
+            'min': 0.0,
+            'max': 1.0,
+            'step': 0.01,
+            'help': 'Normalized X coordinate (0.0-1.0)'
         },
         {
             'name': 'y',
             'label': 'Y Position',
             'type': 'number',
             'default': DEFAULT_CONFIG['y'],
-            'help': 'Y coordinate for manual positioning'
+            'min': 0.0,
+            'max': 1.0,
+            'step': 0.01,
+            'help': 'Normalized Y coordinate (0.0-1.0)'
         },
         {
             'name': 'resize_to_fit',
@@ -181,8 +195,10 @@ class PasteNode(BaseNode):
             x2 = int(bbox.get('x2', x1 + foreground.shape[1]))
             y2 = int(bbox.get('y2', y1 + foreground.shape[0]))
         else:
-            x1 = self.get_config_int('x', 0)
-            y1 = self.get_config_int('y', 0)
+            # Manual mode - use normalized coordinates
+            bg_h, bg_w = self._background.shape[:2]
+            x1 = int(self.get_config_float('x', 0.0) * bg_w)
+            y1 = int(self.get_config_float('y', 0.0) * bg_h)
             x2 = x1 + foreground.shape[1]
             y2 = y1 + foreground.shape[0]
         

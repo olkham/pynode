@@ -3,6 +3,7 @@ Base Node class for the Python Node-RED-like system.
 All custom nodes should inherit from this class.
 """
 
+from time import time
 import uuid
 import queue
 import threading
@@ -21,6 +22,20 @@ except ImportError:
     np = None
     cv2 = None
     _HAS_CV2 = False
+
+
+def sort_msg_keys(msg: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Sort message dict with underscore keys first, then alphabetically.
+    Useful for displaying debug messages with metadata fields first.
+    
+    Args:
+        msg: Message dictionary to sort
+        
+    Returns:
+        New dictionary with sorted keys
+    """
+    return dict(sorted(msg.items(), key=lambda x: (not x[0].startswith('_'), x[0])))
 
 
 class Info:
@@ -363,10 +378,11 @@ class BaseNode:
             **kwargs: Additional message properties
             
         Returns:
-            Message dictionary with _msgid and optional payload/topic
+            Message dictionary with _msgid, _timestamp, and optional payload/topic
         """
         msg = {
-            '_msgid': str(uuid.uuid4())
+            '_msgid': str(uuid.uuid4()),
+            '_timestamp_origin': time()
         }
         
         # Only include payload if explicitly provided (even if None was passed explicitly)
@@ -404,6 +420,10 @@ class BaseNode:
                     if target_node.output_count == 0 and hasattr(target_node, 'on_input_direct'):
                         # Deep copy for direct processing to prevent cross-talk
                         msg_to_send = copy.deepcopy(msg)
+                        msg_to_send['_timestamp_emit'] = time()
+                        msg_to_send['_age'] = msg_to_send['_timestamp_emit'] - msg_to_send.get('_timestamp_origin', msg_to_send['_timestamp_emit'])
+                        msg_to_send = sort_msg_keys(msg_to_send)
+                        
                         try:
                             target_node.on_input_direct(msg_to_send, target_input)
                         except Exception as e:
@@ -418,7 +438,10 @@ class BaseNode:
                         
                         # Deep copy message for each recipient to prevent cross-talk
                         msg_to_send = copy.deepcopy(msg)
-                        
+                        msg_to_send['_timestamp_emit'] = time()
+                        msg_to_send['_age'] = msg_to_send['_timestamp_emit'] - msg_to_send.get('_timestamp_origin', msg_to_send['_timestamp_emit'])
+                        msg_to_send = sort_msg_keys(msg_to_send)
+
                         # Add this node's drop count to message for monitoring
                         # (how many messages THIS node dropped before sending this one)
                         msg_to_send['drop_count'] = self.drop_count

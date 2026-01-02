@@ -15,13 +15,15 @@ _info.add_bullets(("Input 0:", "Binary or edge-detected image (grayscale recomme
 _info.add_header("Outputs")
 _info.add_bullets(
     ("Output 0:", "Image with contours drawn (if enabled)"),
-    ("msg.contours:", "List of contour data with area, perimeter, bbox, and centroid")
+    ("msg.contours:", "List of contour data with normalized coordinates (0.0-1.0)")
 )
+_info.add_header("Normalized Coordinates")
+_info.add_text("All coordinates and areas are normalized for resolution independence.")
 _info.add_header("Properties")
 _info.add_bullets(
     ("Retrieval Mode:", "External only, All (list), All (hierarchy), or Two-level"),
     ("Approximation:", "Contour point approximation method"),
-    ("Min/Max Area:", "Filter contours by area size")
+    ("Min/Max Area:", "Filter contours by area (normalized 0.0-1.0)")
 )
 
 
@@ -43,8 +45,8 @@ class ContoursNode(BaseNode):
     DEFAULT_CONFIG = {
         'mode': 'external',
         'approximation': 'simple',
-        'min_area': 100,
-        'max_area': 0,
+        'min_area': 0.001,
+        'max_area': 0.0,
         'draw_contours': 'yes',
         'draw_bboxes': 'no'
     }
@@ -81,16 +83,20 @@ class ContoursNode(BaseNode):
             'label': 'Min Area',
             'type': 'number',
             'default': DEFAULT_CONFIG['min_area'],
-            'min': 0,
-            'help': 'Minimum contour area to include'
+            'min': 0.0,
+            'max': 1.0,
+            'step': 0.001,
+            'help': 'Minimum contour area (normalized 0.0-1.0)'
         },
         {
             'name': 'max_area',
             'label': 'Max Area',
             'type': 'number',
             'default': DEFAULT_CONFIG['max_area'],
-            'min': 0,
-            'help': 'Maximum contour area (0 = no limit)'
+            'min': 0.0,
+            'max': 1.0,
+            'step': 0.001,
+            'help': 'Maximum contour area (normalized 0.0-1.0, 0 = no limit)'
         },
         {
             'name': 'draw_contours',
@@ -134,8 +140,14 @@ class ContoursNode(BaseNode):
         # Get parameters
         mode_str = self.config.get('mode', 'external')
         approx_str = self.config.get('approximation', 'simple')
-        min_area = self.get_config_float('min_area', 100)
-        max_area = self.get_config_float('max_area', 0)
+        
+        h, w = img.shape[:2]
+        total_area = h * w
+        
+        # Convert normalized area to pixels
+        min_area = self.get_config_float('min_area', 0.001) * total_area
+        max_area_norm = self.get_config_float('max_area', 0.0)
+        max_area = max_area_norm * total_area if max_area_norm > 0 else 0
         
         # Map mode string to OpenCV constant
         mode_map = {
@@ -181,7 +193,7 @@ class ContoursNode(BaseNode):
             
             # Calculate properties
             perimeter = cv2.arcLength(cnt, True)
-            x, y, w, h = cv2.boundingRect(cnt)
+            x, y, bw, bh = cv2.boundingRect(cnt)
             
             # Centroid
             M = cv2.moments(cnt)
@@ -189,7 +201,7 @@ class ContoursNode(BaseNode):
                 cx = int(M['m10'] / M['m00'])
                 cy = int(M['m01'] / M['m00'])
             else:
-                cx, cy = x + w // 2, y + h // 2
+                cx, cy = x + bw // 2, y + bh // 2
             
             # Circularity
             circularity = 0
@@ -198,12 +210,22 @@ class ContoursNode(BaseNode):
             
             contour_data.append({
                 'index': len(contour_data),
-                'area': float(area),
-                'perimeter': float(perimeter),
-                'bbox': {'x': int(x), 'y': int(y), 'width': int(w), 'height': int(h)},
-                'centroid': {'x': cx, 'y': cy},
+                'area': float(area) / total_area,
+                'area_px': float(area),
+                'perimeter': float(perimeter) / (w + h),
+                'perimeter_px': float(perimeter),
+                'bbox': {
+                    'x': float(x) / w, 'y': float(y) / h,
+                    'width': float(bw) / w, 'height': float(bh) / h,
+                    'x_px': int(x), 'y_px': int(y),
+                    'width_px': int(bw), 'height_px': int(bh)
+                },
+                'centroid': {
+                    'x': float(cx) / w, 'y': float(cy) / h,
+                    'x_px': cx, 'y_px': cy
+                },
                 'circularity': float(circularity),
-                'aspect_ratio': float(w) / float(h) if h > 0 else 0
+                'aspect_ratio': float(bw) / float(bh) if bh > 0 else 0
             })
         
         # Draw contours if requested
@@ -223,8 +245,8 @@ class ContoursNode(BaseNode):
             for data in contour_data:
                 bbox = data['bbox']
                 cv2.rectangle(output, 
-                              (bbox['x'], bbox['y']),
-                              (bbox['x'] + bbox['width'], bbox['y'] + bbox['height']),
+                              (bbox['x_px'], bbox['y_px']),
+                              (bbox['x_px'] + bbox['width_px'], bbox['y_px'] + bbox['height_px']),
                               (255, 0, 0), 2)
         
         # Encode back to original format

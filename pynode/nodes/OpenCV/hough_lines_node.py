@@ -14,20 +14,22 @@ _info.add_bullets(("Input 0:", "Edge-detected or binary image recommended"))
 _info.add_header("Outputs")
 _info.add_bullets(
     ("Output 0:", "Image with lines drawn (if enabled)"),
-    ("msg.lines:", "Array of detected lines with coordinates")
+    ("msg.lines:", "Array of detected lines with normalized coordinates (0.0-1.0)")
 )
+_info.add_header("Normalized Coordinates")
+_info.add_text("Line coordinates and parameters are normalized for resolution independence.")
 _info.add_header("Methods")
 _info.add_bullets(
     ("Standard:", "Returns lines in polar form (rho, theta)"),
-    ("Probabilistic:", "Returns line segments with endpoints (x1,y1,x2,y2)")
+    ("Probabilistic:", "Returns line segments with normalized endpoints (x1,y1,x2,y2)")
 )
 _info.add_header("Key Parameters")
 _info.add_bullets(
     ("Rho:", "Distance resolution in pixels (typically 1)"),
     ("Theta:", "Angle resolution in degrees (typically 1)"),
     ("Threshold:", "Minimum votes needed to detect a line"),
-    ("Min Length:", "Minimum line segment length (probabilistic only)"),
-    ("Max Gap:", "Maximum gap to connect line segments (probabilistic only)")
+    ("Min Length:", "Minimum line segment length (normalized 0.0-1.0, probabilistic only)"),
+    ("Max Gap:", "Maximum gap to connect segments (normalized 0.0-1.0, probabilistic only)")
 )
 
 
@@ -51,8 +53,8 @@ class HoughLinesNode(BaseNode):
         'rho': 1,
         'theta_degrees': 1,
         'threshold': 100,
-        'min_length': 50,
-        'max_gap': 10,
+        'min_length': 0.1,
+        'max_gap': 0.02,
         'draw_lines': 'yes',
         'line_color': '0,0,255'
     }
@@ -99,8 +101,10 @@ class HoughLinesNode(BaseNode):
             'label': 'Min Line Length',
             'type': 'number',
             'default': DEFAULT_CONFIG['min_length'],
-            'min': 1,
-            'help': 'Minimum line length (probabilistic only)',
+            'min': 0.01,
+            'max': 1.0,
+            'step': 0.01,
+            'help': 'Minimum line length (normalized 0.0-1.0, probabilistic only)',
             'showIf': {'method': 'probabilistic'}
         },
         {
@@ -108,8 +112,10 @@ class HoughLinesNode(BaseNode):
             'label': 'Max Line Gap',
             'type': 'number',
             'default': DEFAULT_CONFIG['max_gap'],
-            'min': 1,
-            'help': 'Maximum gap between line segments (probabilistic only)',
+            'min': 0.01,
+            'max': 1.0,
+            'step': 0.01,
+            'help': 'Maximum gap between line segments (normalized 0.0-1.0, probabilistic only)',
             'showIf': {'method': 'probabilistic'}
         },
         {
@@ -156,12 +162,16 @@ class HoughLinesNode(BaseNode):
             self.send(msg)
             return
         
+        h, w = img.shape[:2]
+        diag = np.sqrt(w*w + h*h)  # Diagonal for length normalization
+        
         method = self.config.get('method', 'probabilistic')
         rho = self.get_config_float('rho', 1)
         theta = self.get_config_float('theta_degrees', 1) * np.pi / 180
         threshold = self.get_config_int('threshold', 100)
-        min_length = self.get_config_int('min_length', 50)
-        max_gap = self.get_config_int('max_gap', 10)
+        # Convert normalized length/gap to pixels
+        min_length = int(self.get_config_float('min_length', 0.1) * diag)
+        max_gap = int(self.get_config_float('max_gap', 0.02) * diag)
         draw = self.get_config_bool('draw_lines', True)
         line_color = self._parse_color(self.config.get('line_color', '0,0,255'))
         
@@ -191,10 +201,14 @@ class HoughLinesNode(BaseNode):
                     x1, y1, x2, y2 = line[0]
                     length = np.sqrt((x2 - x1)**2 + (y2 - y1)**2)
                     angle = np.arctan2(y2 - y1, x2 - x1) * 180 / np.pi
+                    # Output normalized coordinates
                     lines_data.append({
-                        'x1': int(x1), 'y1': int(y1),
-                        'x2': int(x2), 'y2': int(y2),
-                        'length': float(length),
+                        'x1': float(x1) / w, 'y1': float(y1) / h,
+                        'x2': float(x2) / w, 'y2': float(y2) / h,
+                        'x1_px': int(x1), 'y1_px': int(y1),
+                        'x2_px': int(x2), 'y2_px': int(y2),
+                        'length': float(length) / diag,
+                        'length_px': float(length),
                         'angle': float(angle)
                     })
         

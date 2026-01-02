@@ -14,14 +14,17 @@ _info.add_bullets(("Input 0:", "Image (color or grayscale)"))
 _info.add_header("Outputs")
 _info.add_bullets(
     ("Output 0:", "Image with circles drawn (if enabled)"),
-    ("msg.circles:", "Array of detected circles with x, y, radius")
+    ("msg.circles:", "Array of detected circles with normalized x, y, radius (0.0-1.0)")
 )
+_info.add_header("Normalized Output")
+_info.add_text("Circle positions and radii are normalized (0.0-1.0) for resolution independence.")
 _info.add_header("Key Parameters")
 _info.add_bullets(
     ("DP:", "Accumulator resolution ratio (1 = same as image, 2 = half)"),
-    ("Min Distance:", "Minimum distance between detected circle centers"),
+    ("Min Distance:", "Minimum distance between circle centers (normalized 0.0-1.0)"),
     ("Canny Threshold:", "Higher threshold for internal Canny edge detection"),
-    ("Accumulator Threshold:", "Lower = more circles detected (may include false positives)")
+    ("Accumulator Threshold:", "Lower = more circles detected (may include false positives)"),
+    ("Min/Max Radius:", "Circle radius constraints (normalized 0.0-1.0, relative to image width)")
 )
 _info.add_header("Tips")
 _info.add_bullets(
@@ -46,11 +49,11 @@ class HoughCirclesNode(BaseNode):
     
     DEFAULT_CONFIG = {
         'dp': 1.2,
-        'min_dist': 50,
+        'min_dist': 0.1,
         'param1': 100,
         'param2': 30,
-        'min_radius': 10,
-        'max_radius': 0,
+        'min_radius': 0.02,
+        'max_radius': 0.0,
         'draw_circles': 'yes',
         'circle_color': '0,255,0'
     }
@@ -70,8 +73,10 @@ class HoughCirclesNode(BaseNode):
             'label': 'Min Distance',
             'type': 'number',
             'default': DEFAULT_CONFIG['min_dist'],
-            'min': 1,
-            'help': 'Minimum distance between circle centers'
+            'min': 0.01,
+            'max': 1.0,
+            'step': 0.01,
+            'help': 'Minimum distance between circle centers (normalized 0.0-1.0)'
         },
         {
             'name': 'param1',
@@ -94,16 +99,20 @@ class HoughCirclesNode(BaseNode):
             'label': 'Min Radius',
             'type': 'number',
             'default': DEFAULT_CONFIG['min_radius'],
-            'min': 0,
-            'help': 'Minimum circle radius (0 = no minimum)'
+            'min': 0.0,
+            'max': 1.0,
+            'step': 0.01,
+            'help': 'Minimum circle radius (normalized 0.0-1.0, 0 = no minimum)'
         },
         {
             'name': 'max_radius',
             'label': 'Max Radius',
             'type': 'number',
             'default': DEFAULT_CONFIG['max_radius'],
-            'min': 0,
-            'help': 'Maximum circle radius (0 = no maximum)'
+            'min': 0.0,
+            'max': 1.0,
+            'step': 0.01,
+            'help': 'Maximum circle radius (normalized 0.0-1.0, 0 = no maximum)'
         },
         {
             'name': 'draw_circles',
@@ -149,12 +158,18 @@ class HoughCirclesNode(BaseNode):
             self.send(msg)
             return
         
+        h, w = img.shape[:2]
+        
         dp = self.get_config_float('dp', 1.2)
-        min_dist = self.get_config_int('min_dist', 50)
+        # Convert normalized min_dist to pixels
+        min_dist = int(self.get_config_float('min_dist', 0.1) * w)
+        min_dist = max(1, min_dist)  # Ensure at least 1 pixel
         param1 = self.get_config_int('param1', 100)
         param2 = self.get_config_int('param2', 30)
-        min_radius = self.get_config_int('min_radius', 10)
-        max_radius = self.get_config_int('max_radius', 0)
+        # Convert normalized radius to pixels
+        min_radius = int(self.get_config_float('min_radius', 0.02) * w)
+        max_radius_norm = self.get_config_float('max_radius', 0.0)
+        max_radius = int(max_radius_norm * w) if max_radius_norm > 0 else 0
         draw = self.get_config_bool('draw_circles', True)
         circle_color = self._parse_color(self.config.get('circle_color', '0,255,0'))
         
@@ -177,10 +192,14 @@ class HoughCirclesNode(BaseNode):
             circles = np.uint16(np.around(circles))
             for circle in circles[0, :]:
                 cx, cy, radius = circle
+                # Output normalized coordinates
                 circles_data.append({
-                    'x': int(cx),
-                    'y': int(cy),
-                    'radius': int(radius),
+                    'x': float(cx) / w,
+                    'y': float(cy) / h,
+                    'radius': float(radius) / w,
+                    'x_px': int(cx),
+                    'y_px': int(cy),
+                    'radius_px': int(radius),
                     'area': float(np.pi * radius * radius)
                 })
             
