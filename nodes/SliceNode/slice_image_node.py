@@ -5,7 +5,7 @@ Based on SAHI (Slicing Aided Hyper Inference) methodology.
 
 import numpy as np
 from typing import Any, Dict, List, Tuple, Optional
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
 
 try:
     import cv2
@@ -13,6 +13,23 @@ try:
 except ImportError:
     cv2 = None
     _HAS_CV2 = False
+
+_info = Info()
+_info.add_text("Divides images into overlapping tiles for improved detection of small objects. Based on SAHI (Slicing Aided Hyper Inference) methodology.")
+_info.add_header("Inputs")
+_info.add_bullets(("Input 0:", "Image message with 'image' field"))
+_info.add_header("Outputs")
+_info.add_bullets(
+    ("Output 0:", "Array of image slices with offset metadata, or split messages per slice"),
+)
+_info.add_header("Configuration")
+_info.add_bullets(
+    ("Output Mode:", "Array (all slices in one message) or Split (separate messages)"),
+    ("Auto Slice:", "Automatically calculate slice size based on image resolution"),
+    ("Slice Width/Height:", "Manual slice dimensions in pixels"),
+    ("Overlap Ratios:", "Overlap between adjacent slices (0-1)"),
+    ("Include Full Image:", "Also include the original full image in output"),
+)
 
 
 class SliceImageNode(BaseNode):
@@ -24,6 +41,7 @@ class SliceImageNode(BaseNode):
     Outputs an array of image tiles with their offset information.
     """
     display_name = 'Slice Image'
+    info = str(_info)
     icon = '🔲'
     category = 'vision'
     color = '#4ECDC4'
@@ -298,7 +316,7 @@ class SliceImageNode(BaseNode):
         if include_full:
             full_encoded = self.encode_image(image, input_format)
             output_slices.append({
-                'image': full_encoded,
+                'payload': {'image': full_encoded},  # Standard payload.image format
                 'offset': [0, 0],
                 'bbox': [0, 0, image.shape[1], image.shape[0]],
                 'slice_index': 0,
@@ -312,7 +330,7 @@ class SliceImageNode(BaseNode):
         for i, slice_data in enumerate(slices):
             encoded = self.encode_image(slice_data['image'], input_format)
             output_slices.append({
-                'image': encoded,
+                'payload': {'image': encoded},  # Standard payload.image format
                 'offset': slice_data['offset'],
                 'bbox': slice_data['bbox'],
                 'slice_index': start_index + i,
@@ -327,7 +345,8 @@ class SliceImageNode(BaseNode):
             # Send each slice as a separate message with parts metadata
             for i, slice_info in enumerate(output_slices):
                 slice_msg = msg.copy()
-                slice_msg['payload'] = slice_info
+                # Put image directly in payload for YOLO compatibility
+                slice_msg['payload'] = slice_info['payload']
                 slice_msg['topic'] = msg.get('topic', 'slice')
                 
                 # Add parts metadata for SliceCollectorNode to track
@@ -337,8 +356,9 @@ class SliceImageNode(BaseNode):
                     'id': parent_msg_id
                 }
                 
-                # Also add slice metadata at message level for easier access
+                # Add slice metadata at message level for SliceCollector
                 slice_msg['slice_offset'] = slice_info['offset']
+                slice_msg['slice_bbox'] = slice_info['bbox']
                 slice_msg['slice_index'] = slice_info['slice_index']
                 slice_msg['is_full_image'] = slice_info['is_full_image']
                 slice_msg['original_width'] = slice_info['original_width']
@@ -346,16 +366,15 @@ class SliceImageNode(BaseNode):
                 
                 self.send(slice_msg)
         else:
-            # Array mode - send all slices in one message
+            # Array mode - send slices as array for Split node
+            # Each item has 'payload' key which Split will extract
             out_msg = msg.copy()
-            out_msg['payload'] = {
-                'slices': output_slices,
-                'slice_count': total_count,
-                'original_width': image.shape[1],
-                'original_height': image.shape[0],
-                'include_full_image': include_full
-            }
+            out_msg['payload'] = output_slices  # Direct array for Split node
             out_msg['topic'] = msg.get('topic', 'sliced')
+            out_msg['slice_count'] = total_count
+            out_msg['original_width'] = image.shape[1]
+            out_msg['original_height'] = image.shape[0]
+            out_msg['include_full_image'] = include_full
             
             self.send(out_msg)
 

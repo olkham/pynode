@@ -5,7 +5,25 @@ Designed to work with SliceImageNode in a slice-detect-merge workflow.
 
 import time
 from typing import Any, Dict, List, Optional
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
+
+_info = Info()
+_info.add_text("Collects detection predictions from multiple image slices sent as separate messages, then merges them into a unified result.")
+_info.add_header("Inputs")
+_info.add_bullets(("Input 0:", "Individual slice prediction messages with slice metadata (from split output mode)"))
+_info.add_header("Outputs")
+_info.add_bullets(
+    ("Output 0:", "Merged predictions after all slices collected and NMS applied"),
+)
+_info.add_header("Configuration")
+_info.add_bullets(
+    ("Timeout:", "Maximum time to wait for all slices before outputting partial results"),
+    ("NMS IoU Threshold:", "Threshold for Non-Maximum Suppression"),
+    ("Match Metric:", "IoU or IoS for duplicate detection matching"),
+    ("Class Agnostic NMS:", "Apply NMS across all classes vs per-class"),
+)
+_info.add_header("Usage")
+_info.add_text("Designed for workflows: SliceImageNode (split mode) → Inference → SliceCollectorNode")
 
 
 class SliceCollectorNode(BaseNode):
@@ -21,6 +39,7 @@ class SliceCollectorNode(BaseNode):
     collects all predictions, transforms coordinates, and applies NMS.
     """
     display_name = 'Slice Collector'
+    info = str(_info)
     icon = '📥'
     category = 'vision'
     color = '#FFA07A'
@@ -266,11 +285,12 @@ class SliceCollectorNode(BaseNode):
         expected_count = parts.get('count', 1)
         slice_index = parts.get('index', msg.get('slice_index', 0))
         
-        # Get slice metadata
-        offset = msg.get('slice_offset', payload.get('offset', [0, 0]))
-        is_full_image = msg.get('is_full_image', payload.get('is_full_image', False))
-        original_width = msg.get('original_width', payload.get('original_width', 0))
-        original_height = msg.get('original_height', payload.get('original_height', 0))
+        # Get slice metadata (check message level first, then payload)
+        offset = msg.get('slice_offset', payload.get('offset', [0, 0]) if isinstance(payload, dict) else [0, 0])
+        slice_bbox = msg.get('slice_bbox', payload.get('bbox', None) if isinstance(payload, dict) else None)
+        is_full_image = msg.get('is_full_image', payload.get('is_full_image', False) if isinstance(payload, dict) else False)
+        original_width = msg.get('original_width', payload.get('original_width', 0) if isinstance(payload, dict) else 0)
+        original_height = msg.get('original_height', payload.get('original_height', 0) if isinstance(payload, dict) else 0)
         
         # Get detections
         if isinstance(payload, dict):

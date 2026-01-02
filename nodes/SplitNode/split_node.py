@@ -3,7 +3,28 @@ Split Node - splits arrays or strings into separate messages.
 """
 
 from typing import Any, Dict
-from nodes.base_node import BaseNode
+from nodes.base_node import BaseNode, Info
+
+_info = Info()
+_info.add_text("Splits arrays, strings, or objects into separate messages. Each element becomes an individual message with parts metadata for reassembly.")
+_info.add_header("Inputs")
+_info.add_bullets(
+    ("Input 0:", "Message with array, string, or object payload")
+)
+_info.add_header("Outputs")
+_info.add_bullets(
+    ("Output 0:", "Multiple messages, one per element")
+)
+_info.add_header("Configuration")
+_info.add_bullets(
+    ("Split Type:", "Auto-detect, Array, String, or Object (key-value pairs)"),
+    ("Delimiter:", "Character to split strings on (default: comma)")
+)
+_info.add_header("Output Message")
+_info.add_code('msg.payload').text(" - Individual element from the split").end()
+_info.add_code('msg.parts.index').text(" - Position in the original sequence").end()
+_info.add_code('msg.parts.count').text(" - Total number of parts").end()
+_info.add_code('msg.parts.id').text(" - ID to group related parts").end()
 
 
 class SplitNode(BaseNode):
@@ -11,6 +32,7 @@ class SplitNode(BaseNode):
     Split Node - splits arrays or strings into separate messages.
     Similar to Node-RED's split node.
     """
+    info = str(_info)
     display_name = 'Split'
     icon = '✂️'
     category = 'function'
@@ -89,20 +111,31 @@ class SplitNode(BaseNode):
                 return
         
         # Send each item as a separate message
+        total_count = len(items)
+        original_msgid = msg.get('_msgid')
+        
         for i, item in enumerate(items):
+            # Create a fresh copy of the message for each item
+            out_msg = msg.copy()
+            
             # For object splits, item is a tuple (key, value)
             if isinstance(item, tuple) and len(item) == 2:
                 item_payload = {'key': item[0], 'value': item[1]}
+            # For slice objects with embedded payload (from SliceImageNode)
+            elif isinstance(item, dict) and 'payload' in item:
+                item_payload = item['payload']
+                # Copy other keys to message level (slice metadata)
+                for key, value in item.items():
+                    if key != 'payload':
+                        out_msg[key] = value
             else:
                 item_payload = item
             
-            # Preserve original message properties (like frame_count)
-            # Note: send() handles deep copying, so we modify msg directly
-            msg['payload'] = item_payload
-            msg['parts'] = {
+            out_msg['payload'] = item_payload
+            out_msg['parts'] = {
                 'index': i,
-                'count': len(items),
-                'id': msg.get('_msgid')
+                'count': total_count,
+                'id': original_msgid
             }
             
-            self.send(msg)
+            self.send(out_msg)
