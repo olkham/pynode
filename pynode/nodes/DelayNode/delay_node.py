@@ -51,7 +51,7 @@ class DelayNode(BaseNode):
     
     DEFAULT_CONFIG = {
         'mode': 'delay',
-        'timeout': 1,
+        'timeout': 0,
         'delay_count': 1,
         'rate': 1,
         'rate_time': 1,
@@ -76,7 +76,7 @@ class DelayNode(BaseNode):
             'type': 'number',
             'default': DEFAULT_CONFIG['timeout'],
             'help': 'Delay time in seconds (for time-based delay)',
-            'showIf': {'mode': ['delay', 'rate']}
+            'showIf': {'mode': ['delay']}
         },
         {
             'name': 'delay_count',

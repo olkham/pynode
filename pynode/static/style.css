@@ -893,8 +893,8 @@ body {
 
 /* Properties Panel */
 .properties {
-    width: 300px;
-    min-width: 300px;
+    width: 380px;
+    min-width: 380px;
     max-width: 800px;
     background: #252526;
     border-left: 1px solid #3e3e42;
@@ -1603,6 +1603,7 @@ body {
     display: flex;
     align-items: center;
     gap: 6px;
+    flex-wrap: wrap;
 }
 
 .change-rule-label {
@@ -1619,7 +1620,8 @@ body {
 }
 
 .change-rule-path {
-    flex: 1;
+    flex: 1 1 100px;
+    min-width: 80px;
     padding: 6px;
     background: #3e3e42;
     border: 1px solid #555;
@@ -1641,8 +1643,9 @@ body {
 }
 
 .change-rule-value-type {
-    flex: 0 0 75px;
-    padding: 6px;
+    flex: 0 0 70px;
+    min-width: 65px;
+    padding: 6px 4px;
     background: #3e3e42;
     border: 1px solid #555;
     border-radius: 3px;

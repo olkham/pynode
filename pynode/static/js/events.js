@@ -682,7 +682,7 @@ function setupPropertiesResize() {
         const newWidth = startWidth + deltaX;
         
         // Respect min and max width constraints
-        if (newWidth >= 250 && newWidth <= 800) {
+        if (newWidth >= 380 && newWidth <= 800) {
             propertiesPanel.style.width = `${newWidth}px`;
         }
     });
