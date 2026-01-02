@@ -2,6 +2,7 @@ flask==3.0.0
 flask-cors==4.0.0
 waitress
 opencv-python
+opencv-stubs==0.1.1
 paho-mqtt
 ultralytics
 torch

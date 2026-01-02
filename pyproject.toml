@@ -1,0 +1,68 @@
+[build-system]
+requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pynode"
+version = "0.1.0"
+description = "Python Node-RED-like visual workflow system for image and video processing"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "flask",
+    "numpy",
+    "opencv-python",
+]
+
+[project.optional-dependencies]
+dev = [
+    "opencv-stubs",
+    "types-flask",
+]
+
+[tool.pyright]
+# Type checking configuration
+typeCheckingMode = "basic"
+reportMissingImports = true
+reportMissingTypeStubs = false
+reportAttributeAccessIssue = "none"  # Suppress OpenCV attribute warnings
+reportUnknownMemberType = "none"
+reportUnknownArgumentType = "none"
+reportUnknownVariableType = "none"
+reportOptionalMemberAccess = "warning"
+reportOptionalSubscript = "warning"
+
+# Python version
+pythonVersion = "3.11"
+pythonPlatform = "Windows"
+
+# Include/exclude paths
+include = ["pynode"]
+exclude = [
+    "**/__pycache__",
+    "**/node_modules",
+    "**/.venv",
+    "**/venv",
+    "_backup",
+]
+
+[tool.pylint]
+max-line-length = 120
+disable = [
+    "C0111",  # missing-docstring
+    "C0103",  # invalid-name
+    "R0913",  # too-many-arguments
+    "R0914",  # too-many-locals
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501"]  # Line too long
+
+[tool.black]
+line-length = 120
+target-version = ["py311"]
