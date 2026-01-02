@@ -158,3 +158,21 @@ todo
 *.xml
 *.yaml
 todo
+
+# Media and data files
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.log
+*.csv
+*.db
+*.sqlite
+*.sqlite3
+*.h5
+*.ckpt
+*.tflite
+*.pb
+*.npy
+*.npz
+*.weights
