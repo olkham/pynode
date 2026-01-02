@@ -898,7 +898,10 @@ def clear_debug_messages(node_id):
 
 @app.route('/api/nodes/<node_id>/frame', methods=['GET'])
 def get_image_frame(node_id):
-    """Get the current frame from an image viewer node."""
+    """Get the current frame from an image viewer node.
+    
+    This is a single snapshot, not a stream. It has a lower latency for messages that are delivered slowly.
+    """
     try:
         node = deployed_engine.get_node(node_id)
         if not node:
@@ -918,7 +921,10 @@ def get_image_frame(node_id):
 
 @app.route('/api/nodes/<node_id>/stream')
 def get_image_stream(node_id):
-    """MJPEG stream from an image viewer node - can be opened in a browser tab."""
+    """MJPEG stream from an image viewer node - can be opened in a browser tab.
+    
+    It has a smoother frame rate and lower latency for video streams, but a higher latency for messages that are delivered slowly.
+    """
     import time
     import base64
     
