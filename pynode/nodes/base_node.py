@@ -12,16 +12,11 @@ import copy
 import html
 from functools import wraps
 from typing import Dict, List, Any, Optional, Tuple, Callable
+import numpy as np
 
 # Optional image processing dependencies
-try:
-    import numpy as np
-    import cv2
-    _HAS_CV2 = True
-except ImportError:
-    np = None
-    cv2 = None
-    _HAS_CV2 = False
+import cv2
+
 
 
 def sort_msg_keys(msg: Dict[str, Any]) -> Dict[str, Any]:
@@ -210,7 +205,9 @@ def process_image(payload_path: str = 'payload', output_path: Optional[str] = No
                 # Function handled send itself
                 return
             
-            extra_fields = {}
+            extra_fields: Dict[str, Any] = {}
+            result_image: np.ndarray | None = None  # Explicit type hint
+
             if isinstance(result, tuple):
                 result_image, extra_fields = result
             else:
@@ -423,7 +420,7 @@ class BaseNode:
                         msg_to_send['_timestamp_emit'] = time()
                         msg_to_send['_age'] = msg_to_send['_timestamp_emit'] - msg_to_send.get('_timestamp_origin', msg_to_send['_timestamp_emit'])
                         msg_to_send = sort_msg_keys(msg_to_send)
-                        
+
                         try:
                             target_node.on_input_direct(msg_to_send, target_input)
                         except Exception as e:
@@ -591,8 +588,8 @@ class BaseNode:
         Returns:
             Tuple of (image as numpy array or None, format_identifier string or None)
         """
-        if not _HAS_CV2:
-            return None, None
+        # if not _HAS_CV2:
+        #     return None, None
         
         try:
             # Handle nested payload.image structure
@@ -618,7 +615,7 @@ class BaseNode:
                     
                 elif img_format == 'jpeg' and encoding == 'base64':
                     # Base64 JPEG
-                    img_bytes = base64.b64decode(data)
+                    img_bytes = base64.b64decode(data) # type: ignore
                     nparr = np.frombuffer(img_bytes, np.uint8)
                     image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
                     return image, 'jpeg_base64_dict'
@@ -660,8 +657,8 @@ class BaseNode:
         Returns:
             Encoded image in the specified format, or None on error
         """
-        if not _HAS_CV2:
-            return None
+        # if not _HAS_CV2:
+        # #     return None
         
         try:
             if not isinstance(image, np.ndarray):
@@ -686,7 +683,7 @@ class BaseNode:
                 # JPEG base64 dict
                 ret, buffer = cv2.imencode('.jpg', image)
                 if ret:
-                    jpeg_base64 = base64.b64encode(buffer).decode('utf-8')
+                    jpeg_base64 = base64.b64encode(buffer.tobytes()).decode('utf-8')
                     return {
                         'format': 'jpeg',
                         'encoding': 'base64',
@@ -711,7 +708,7 @@ class BaseNode:
                 # Direct base64 string
                 ret, buffer = cv2.imencode('.jpg', image)
                 if ret:
-                    return base64.b64encode(buffer).decode('utf-8')
+                    return base64.b64encode(buffer.tobytes()).decode('utf-8')
                 self.report_error("Failed to encode image as base64 string")
                 return None
             

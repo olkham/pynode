@@ -196,17 +196,11 @@ class VideoWriterNode(BaseNode):
         self._actual_width = None
         self._actual_height = None
         
-    def _get_config(self, key, default=None):
-        """Get config value with fallback to DEFAULT_CONFIG"""
-        if default is None:
-            default = self.DEFAULT_CONFIG.get(key)
-        return self.config.get(key, default)
-        
     def _generate_filename(self):
         """Generate filename based on naming mode"""
-        naming_mode = self._get_config('naming_mode')
-        filename = self._get_config('filename')
-        counter_digits = self._get_config('counter_digits')
+        naming_mode = self.config.get('naming_mode', 'counter')
+        filename = self.config.get('filename', 'video_{counter}')
+        counter_digits = self.config.get('counter_digits', 4)
         
         if naming_mode == 'counter':
             self._file_counter += 1
@@ -226,13 +220,13 @@ class VideoWriterNode(BaseNode):
         
     def _get_file_extension(self):
         """Get the appropriate file extension for the selected codec"""
-        codec = self._get_config('codec')
+        codec = self.config.get('codec', 'mp4v')
         return self.CODECS.get(codec, self.CODECS['mp4v'])['ext']
         
     def _resize_frame(self, frame, target_width, target_height):
         """Resize frame according to the configured resize method"""
         h, w = frame.shape[:2]
-        resize_method = self._get_config('resize_method')
+        resize_method = self.config.get('resize_method', 'fit')
         
         if w == target_width and h == target_height:
             return frame
@@ -275,23 +269,23 @@ class VideoWriterNode(BaseNode):
     def _start_recording(self, frame, msg=None):
         """Start a new video recording"""
         # Determine output resolution
-        auto_resolution = self._get_config('auto_resolution')
+        auto_resolution = self.config.get('auto_resolution', False)
         
         if auto_resolution:
             self._actual_height, self._actual_width = frame.shape[:2]
         else:
-            self._actual_width = self._get_config('width')
-            self._actual_height = self._get_config('height')
+            self._actual_width = self.config.get('width', 1920)
+            self._actual_height = self.config.get('height', 1080)
             
         # Generate filename
-        naming_mode = self._get_config('naming_mode')
+        naming_mode = self.config.get('naming_mode', 'counter')
         if naming_mode == 'message' and msg and 'filename' in msg:
             filename = msg['filename']
         else:
             filename = self._generate_filename()
             
         # Ensure output directory exists
-        output_path = self._get_config('path')
+        output_path = self.config.get('path', './output')
         try:
             os.makedirs(output_path, exist_ok=True)
         except Exception as e:
@@ -305,12 +299,12 @@ class VideoWriterNode(BaseNode):
         self._current_file = os.path.abspath(os.path.join(output_path, filename))
         
         # Get codec fourcc
-        codec = self._get_config('codec')
+        codec = self.config.get('codec', 'mp4v')
         fourcc_str = self.CODECS.get(codec, self.CODECS['mp4v'])['fourcc']
-        fourcc = cv2.VideoWriter_fourcc(*fourcc_str)
+        fourcc = cv2.VideoWriter_fourcc(*fourcc_str) # type: ignore[attr-defined]
         
         # Get framerate
-        framerate = float(self._get_config('framerate'))
+        framerate = float(self.config.get('framerate', 30.0))
         
         # print(f"[VideoWriter] Creating: {self._current_file}, {fourcc_str}, {framerate}fps, {self._actual_width}x{self._actual_height}")
         
@@ -400,7 +394,7 @@ class VideoWriterNode(BaseNode):
         event_msg = None
         
         # Check if we need to start a new recording
-        clip_length = self._get_config('clip_length')
+        clip_length = self.config.get('clip_length', 0)
         
         if not self._recording:
             event_msg = self._start_recording(image, msg)

@@ -2,9 +2,9 @@
 Image Viewer node - displays images/frames in the web UI.
 """
 
-import base64
-import cv2
-import numpy as np
+# import base64
+# import cv2
+# import numpy as np
 from typing import Any, Dict
 from pynode.nodes.base_node import BaseNode, Info
 
