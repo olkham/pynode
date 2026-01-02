@@ -44,6 +44,7 @@ echo To activate the environment in the future, run:
 echo   appenv\Scripts\activate.bat
 echo.
 echo To start the PyNode server, run:
-echo   python main.py
+echo   python -m pynode
+echo   or after installing: pynode
 echo.
 pause

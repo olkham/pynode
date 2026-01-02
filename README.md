@@ -25,14 +25,16 @@ A Node-RED-like visual workflow editor with a Python backend. Create workflows b
 
 ## Quick Start
 
-1. **Install Python dependencies**:
+1. **Install PyNode**:
 ```bash
-pip install -r requirements.txt
+pip install -e .
 ```
 
 2. **Run the server**:
 ```bash
-python main.py
+pynode
+# or
+python -m pynode
 ```
 
 3. **Open your browser**:
@@ -49,27 +51,28 @@ PyNode is designed to be easily extended with custom nodes:
 ## Project Structure
 
 ```
-pynode/
-├── main.py              # Application entry point
-├── base_node.py         # BaseNode class (inherit from this)
-├── workflow_engine.py   # Workflow management and execution
-├── app.py              # Flask REST API
-├── requirements.txt    # Python dependencies
-├── nodes/              # Node implementations (modular)
+pynode/                  # Project root
+├── pynode/              # Main package
 │   ├── __init__.py
-│   ├── inject_node.py
-│   ├── function_node.py
-│   ├── debug_node.py
-│   ├── change_node.py
-│   ├── switch_node.py
-│   ├── delay_node.py
-│   └── template_node.py  # Example custom node
-├── static/
-│   ├── index.html      # Web UI
-│   ├── style.css       # Styling
-│   └── app.js          # Frontend JavaScript
-├── README.md           # This file
-└── CUSTOM_NODES.md     # Guide for creating custom nodes
+│   ├── __main__.py      # Entry point for 'python -m pynode'
+│   ├── main.py          # CLI application
+│   ├── server.py        # Flask REST API
+│   ├── workflow_engine.py  # Workflow management
+│   ├── nodes/           # Node implementations (plugins)
+│   │   ├── __init__.py
+│   │   ├── base_node.py # BaseNode class
+│   │   ├── inject_node.py
+│   │   ├── function_node.py
+│   │   └── ...          # Other node types
+│   └── static/          # Web UI
+│       ├── index.html
+│       ├── style.css
+│       └── app.js
+├── examples/            # Example workflows
+├── setup.py             # Package installation
+├── requirements.txt     # Dependencies
+├── README.md
+└── workflow.json        # Saved workflow
 ```
 
 ## Creating Custom Nodes
@@ -168,8 +171,8 @@ Messages follow the Node-RED format:
 ## Example Programmatic Usage
 
 ```python
-from workflow_engine import WorkflowEngine
-from nodes import InjectNode, FunctionNode, DebugNode
+from pynode.workflow_engine import WorkflowEngine
+from pynode.nodes import InjectNode, FunctionNode, DebugNode
 
 # Create and configure engine
 engine = WorkflowEngine()

@@ -12,12 +12,9 @@ import numpy as np
 import base64
 from typing import Dict, Any
 
-# Add parent directory to path to import modules
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from workflow_engine import WorkflowEngine
-from nodes.base_node import BaseNode
-import nodes
+from pynode.workflow_engine import WorkflowEngine
+from pynode.nodes.base_node import BaseNode
+from pynode import nodes
 
 
 class DisplayNode(BaseNode):
