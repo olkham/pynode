@@ -55,7 +55,8 @@ class VideoWriterNode(BaseNode):
     category = "output"
     icon = "🎥"
     color = "#87A980"
-    description = "Writes video files from incoming image frames"
+    border_color = '#5F7858'
+    text_color = '#000000'
     input_count = 1
     output_count = 1  # Output for recording start/end events
     info = str(_info)
