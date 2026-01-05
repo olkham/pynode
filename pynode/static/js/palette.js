@@ -165,12 +165,28 @@ export function renderNodePalette() {
             nodeEl.addEventListener('dragstart', (e) => {
                 e.dataTransfer.setData('nodeType', nodeType.type);
 
-                // Store the offset from the top-left corner of the element
+                // Center the node on the pointer
                 const rect = nodeEl.getBoundingClientRect();
-                const offsetX = e.clientX - rect.left;
-                const offsetY = e.clientY - rect.top;
+                const offsetX = rect.width / 2;
+                const offsetY = rect.height / 2;
                 e.dataTransfer.setData('dragOffsetX', offsetX.toString());
                 e.dataTransfer.setData('dragOffsetY', offsetY.toString());
+                
+                // Create a custom drag image that isn't faded
+                const dragImage = nodeEl.cloneNode(true);
+                dragImage.style.position = 'absolute';
+                dragImage.style.top = '-1000px';
+                dragImage.style.left = '-1000px';
+                dragImage.style.opacity = '1';
+                dragImage.style.transform = 'none';
+                dragImage.style.pointerEvents = 'none';
+                document.body.appendChild(dragImage);
+                e.dataTransfer.setDragImage(dragImage, offsetX, offsetY);
+                
+                // Clean up the drag image after a short delay
+                setTimeout(() => {
+                    document.body.removeChild(dragImage);
+                }, 0);
             });
 
             listEl.appendChild(nodeEl);
