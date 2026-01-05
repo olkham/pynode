@@ -85,8 +85,8 @@ class ErrorNode(BaseNode):
             self.errors = self.errors[-self.max_errors:]
     
     def get_errors(self):
-        """Get all captured errors."""
-        return self.errors
+        """Get all captured errors (returns a copy so clearing doesn't affect it)."""
+        return list(self.errors)
     
     def clear_errors(self):
         """Clear all captured errors."""
