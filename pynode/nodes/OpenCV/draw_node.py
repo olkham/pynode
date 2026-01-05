@@ -42,7 +42,7 @@ class DrawNode(BaseNode):
     Can draw rectangles, circles, lines, and text.
     """
     display_name = 'Draw'
-    icon = '✏'
+    icon = '✏️'
     category = 'opencv'
     color = '#4A90D9'
     border_color = '#2E6BB0'
@@ -60,6 +60,8 @@ class DrawNode(BaseNode):
         'color': '0,255,0',
         'thickness': 2,
         'text': 'Hello',
+        'text_source': 'manual',
+        'msg_path': 'payload.focus_score',
         'font_scale': 1.0
     }
     
@@ -149,12 +151,32 @@ class DrawNode(BaseNode):
             'help': 'Line thickness (-1 for filled)'
         },
         {
+            'name': 'text_source',
+            'label': 'Text Source',
+            'type': 'select',
+            'options': [
+                {'value': 'manual', 'label': 'Manual Text'},
+                {'value': 'from_msg', 'label': 'From Message Path'}
+            ],
+            'default': DEFAULT_CONFIG['text_source'],
+            'help': 'Source of text to draw',
+            'showIf': {'shape': 'text'}
+        },
+        {
             'name': 'text',
             'label': 'Text',
             'type': 'text',
             'default': DEFAULT_CONFIG['text'],
             'help': 'Text to draw',
-            'showIf': {'shape': 'text'}
+            'showIf': {'shape': 'text', 'text_source': 'manual'}
+        },
+        {
+            'name': 'msg_path',
+            'label': 'Message Path',
+            'type': 'text',
+            'default': DEFAULT_CONFIG['msg_path'],
+            'help': 'Path to value in message (e.g., payload.focus_score, focus_score)',
+            'showIf': {'shape': 'text', 'text_source': 'from_msg'}
         },
         {
             'name': 'font_scale',
@@ -180,6 +202,8 @@ class DrawNode(BaseNode):
             'color': '0,255,0',
             'thickness': 2,
             'text': 'Hello',
+            'text_source': 'manual',
+            'msg_path': 'payload.focus_score',
             'font_scale': 1.0
         })
     
@@ -193,7 +217,23 @@ class DrawNode(BaseNode):
         except:
             return (0, 255, 0)
     
-    def _draw_shape(self, img, shape_info):
+    def _get_value_from_path(self, msg, path):
+        """Extract value from message using dot-notation path."""
+        try:
+            parts = path.split('.')
+            value = msg
+            for part in parts:
+                if isinstance(value, dict):
+                    value = value.get(part)
+                else:
+                    value = getattr(value, part, None)
+                if value is None:
+                    return ''
+            return str(value)
+        except:
+            return ''
+    
+    def _draw_shape(self, img, shape_info, msg=None):
         """Draw a single shape on the image using normalized coordinates."""
         h, w = img.shape[:2]
         shape_type = shape_info.get('type', 'rectangle')
@@ -223,7 +263,15 @@ class DrawNode(BaseNode):
         elif shape_type == 'text':
             x = int(float(shape_info.get('x1', shape_info.get('x', 0.1))) * w)
             y = int(float(shape_info.get('y1', shape_info.get('y', 0.1))) * h)
-            text = str(shape_info.get('text', ''))
+            
+            # Get text from source
+            text_source = shape_info.get('text_source', 'manual')
+            if text_source == 'from_msg' and msg is not None:
+                msg_path = shape_info.get('msg_path', '')
+                text = self._get_value_from_path(msg, msg_path)
+            else:
+                text = str(shape_info.get('text', ''))
+            
             font_scale = float(shape_info.get('font_scale', 1.0))
             cv2.putText(img, text, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 
                        font_scale, color, thickness)
@@ -242,7 +290,7 @@ class DrawNode(BaseNode):
             # Draw shapes from message
             shapes = msg.get('shapes', [])
             for shape_info in shapes:
-                result = self._draw_shape(result, shape_info)
+                result = self._draw_shape(result, shape_info, msg)
         else:
             # Draw configured shape
             shape_info = {
@@ -255,8 +303,10 @@ class DrawNode(BaseNode):
                 'color': self.config.get('color', '0,255,0'),
                 'thickness': self.config.get('thickness', 2),
                 'text': self.config.get('text', 'Hello'),
+                'text_source': self.config.get('text_source', 'manual'),
+                'msg_path': self.config.get('msg_path', 'payload.focus_score'),
                 'font_scale': self.config.get('font_scale', 1.0)
             }
-            result = self._draw_shape(result, shape_info)
+            result = self._draw_shape(result, shape_info, msg)
         
         return result
