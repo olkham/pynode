@@ -494,6 +494,12 @@ function showMiniPalette(x, y, sourceId, outputIndex) {
     miniPalette.style.left = `${x}px`;
     miniPalette.style.top = `${y}px`;
     
+    // Store context for Enter key handling
+    miniPalette.dataset.x = x;
+    miniPalette.dataset.y = y;
+    miniPalette.dataset.sourceId = sourceId || '';
+    miniPalette.dataset.outputIndex = outputIndex !== null ? outputIndex : '';
+    
     // Add search field
     const searchContainer = document.createElement('div');
     searchContainer.className = 'mini-palette-search-container';
@@ -505,6 +511,21 @@ function showMiniPalette(x, y, sourceId, outputIndex) {
     searchInput.addEventListener('input', (e) => {
         const filter = e.target.value.toLowerCase().trim();
         filterMiniPaletteNodes(miniPalette, filter);
+    });
+    searchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Find the first visible item
+            const firstVisibleItem = miniPalette.querySelector('.mini-palette-item[style*="display: none"]') 
+                ? miniPalette.querySelector('.mini-palette-item:not([style*="display: none"])') 
+                : miniPalette.querySelector('.mini-palette-item');
+            
+            if (firstVisibleItem) {
+                firstVisibleItem.click();
+            }
+        }
     });
     searchContainer.appendChild(searchInput);
     miniPalette.appendChild(searchContainer);
@@ -656,6 +677,13 @@ function showMiniPaletteBackward(x, y, targetId, inputIndex) {
     miniPalette.style.left = `${x}px`;
     miniPalette.style.top = `${y}px`;
     
+    // Store context for Enter key handling (backward mode)
+    miniPalette.dataset.x = x;
+    miniPalette.dataset.y = y;
+    miniPalette.dataset.targetId = targetId || '';
+    miniPalette.dataset.inputIndex = inputIndex !== null ? inputIndex : '';
+    miniPalette.dataset.backward = 'true';
+    
     // Add search field
     const searchContainer = document.createElement('div');
     searchContainer.className = 'mini-palette-search-container';
@@ -667,6 +695,21 @@ function showMiniPaletteBackward(x, y, targetId, inputIndex) {
     searchInput.addEventListener('input', (e) => {
         const filter = e.target.value.toLowerCase().trim();
         filterMiniPaletteNodes(miniPalette, filter);
+    });
+    searchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Find the first visible item
+            const firstVisibleItem = miniPalette.querySelector('.mini-palette-item[style*="display: none"]') 
+                ? miniPalette.querySelector('.mini-palette-item:not([style*="display: none"])') 
+                : miniPalette.querySelector('.mini-palette-item');
+            
+            if (firstVisibleItem) {
+                firstVisibleItem.click();
+            }
+        }
     });
     searchContainer.appendChild(searchInput);
     miniPalette.appendChild(searchContainer);
