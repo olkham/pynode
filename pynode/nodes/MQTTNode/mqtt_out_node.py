@@ -108,7 +108,10 @@ class MqttOutNode(BaseNode):
         
         # Connect if not already connected
         if not self._service.connected:
-            self._service.connect()
+            success = self._service.connect()
+            if not success:
+                self.report_error(f"Failed to connect to MQTT broker {self._service.broker}:{self._service.port}")
+                return
     
     def on_stop(self):
         """Unregister from service when workflow stops."""
@@ -132,7 +135,7 @@ class MqttOutNode(BaseNode):
             return
         
         if not self._service.connected:
-            self.report_error("Not connected to broker")
+            self.report_error(f"Cannot publish: not connected to MQTT broker {self._service.broker}:{self._service.port}")
             return
         
         topic = self.config.get('topic', 'test/topic')

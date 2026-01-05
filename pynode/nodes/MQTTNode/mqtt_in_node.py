@@ -81,6 +81,11 @@ class MqttInNode(BaseNode):
     
     def _on_message(self, topic: str, payload: bytes):
         """Callback when message is received from the service."""
+        # Verify service is still connected
+        if not self._service or not self._service.connected:
+            self.report_error("Received message but MQTT broker is disconnected")
+            return
+        
         try:
             decoded = payload.decode('utf-8')
             # Try to parse as JSON
@@ -117,7 +122,10 @@ class MqttInNode(BaseNode):
         
         # Connect if not already connected
         if not self._service.connected:
-            self._service.connect()
+            success = self._service.connect()
+            if not success:
+                self.report_error(f"Failed to connect to MQTT broker {self._service.broker}:{self._service.port}")
+                return
         
         # Subscribe to topic
         self._subscribed_topic = self.config.get('topic', 'test/topic')

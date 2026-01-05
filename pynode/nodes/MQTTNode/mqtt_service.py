@@ -249,7 +249,9 @@ class MQTTServiceManager:
             return
         
         self._services: Dict[str, MQTTService] = {}
-        self._config_file = Path('mqtt_services.json')
+        # Use absolute path relative to the workspace root (3 levels up from this module)
+        module_dir = Path(__file__).parent.parent.parent.parent
+        self._config_file = module_dir / 'mqtt_services.json'
         self._initialized = True
         self._load_services()
     
