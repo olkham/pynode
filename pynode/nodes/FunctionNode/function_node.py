@@ -122,6 +122,26 @@ result = user_function(msg, node, time)
                     # Single output
                     self.send(result)
                     
+        except SyntaxError as e:
+            # Provide helpful syntax error messages with line numbers
+            line_num = e.lineno - 1 if e.lineno else 0  # Adjust for wrapper function
+            user_lines = func_code.split('\n')
+            
+            error_context = f"Syntax error on line {line_num}: {e.msg}\n"
+            if 0 <= line_num - 1 < len(user_lines):
+                error_context += f"  {line_num}: {user_lines[line_num - 1]}\n"
+            if 0 <= line_num < len(user_lines):
+                error_context += f"→ {line_num + 1}: {user_lines[line_num]}\n"
+            if line_num + 1 < len(user_lines):
+                error_context += f"  {line_num + 2}: {user_lines[line_num + 1]}\n"
+            
+            self.report_error(error_context)
+            error_msg = self.create_message(
+                payload={'error': error_context, 'type': 'SyntaxError'},
+                topic='error'
+            )
+            self.send(error_msg)
+            
         except Exception as e:
             # Provide more helpful error messages
             error_str = str(e)
