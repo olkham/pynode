@@ -113,6 +113,7 @@ class MQTTService:
             self._notify_error("paho-mqtt not installed. Install with: pip install paho-mqtt")
             return False
         
+        error_msg = None
         with self._lock:
             if self.client and self._connected:
                 return True
@@ -131,8 +132,12 @@ class MQTTService:
                 return True
                 
             except Exception as e:
-                self._notify_error(f"Failed to connect to {self.broker}:{self.port} - {e}")
-                return False
+                error_msg = f"Failed to connect to {self.broker}:{self.port} - {e}"
+        
+        # Call _notify_error outside the lock to avoid deadlock
+        if error_msg:
+            self._notify_error(error_msg)
+            return False
     
     def disconnect(self):
         """Disconnect from the MQTT broker."""
