@@ -19,7 +19,7 @@ echo "Installing node dependencies..."
 NODE_COUNT=0
 INSTALLED_COUNT=0
 
-for node_dir in nodes/*/; do
+for node_dir in pynode/nodes/*/; do
     if [ -d "$node_dir" ]; then
         node_name=$(basename "$node_dir")
         requirements_file="${node_dir}requirements.txt"
