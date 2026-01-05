@@ -35,7 +35,7 @@ class CounterNode(BaseNode):
     info = str(_info)
     display_name = 'Counter'
     icon = '🔢'
-    category = 'measurement'
+    category = 'analysis'
     color = '#B4D7FF'
     border_color = '#7BA7D7'
     text_color = '#000000'

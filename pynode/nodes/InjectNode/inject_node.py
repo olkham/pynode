@@ -39,7 +39,7 @@ class InjectNode(BaseNode):
     """
     display_name = 'Inject'
     icon = '⏱'
-    category = 'input'
+    category = 'common'
     color = '#C0DEED'
     border_color = '#87A9C1'
     text_color = '#000000'

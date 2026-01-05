@@ -35,7 +35,7 @@ class CameraNode(BaseNode):
     info = str(_info)
     display_name = 'Camera'
     icon = '📷'
-    category = 'sensors'
+    category = 'input'
     color = '#C0DEED'
     border_color = '#7FA7C9'
     text_color = '#000000'

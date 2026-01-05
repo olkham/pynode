@@ -265,6 +265,7 @@ class BaseNode:
     text_color = '#d4d4d4'
     input_count = 1  # Number of input ports (0 for input-only nodes)
     output_count = 1  # Number of output ports (0 for output-only nodes)
+    hidden = False  # If true, node is hidden from palette
     
     # Info text displayed in the Information panel when node is selected
     # Supports HTML for formatting

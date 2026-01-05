@@ -22,31 +22,85 @@ except ImportError:
 class MDNSServiceListener(ServiceListenerBase):  # type: ignore
     """Listener for mDNS service discovery events"""
     
-    def __init__(self, discovery_manager):
+    def __init__(self, discovery_manager=None, standalone_mode=False):
         self.discovery_manager = discovery_manager
+        self.standalone_mode = standalone_mode
         self.logger = logging.getLogger(self.__class__.__name__)
+        self.discovered_services = {}  # For standalone mode
     
     def add_service(self, zc, service_type: str, name: str) -> None:
         """Called when a service is discovered"""
         if not MDNS_AVAILABLE:
             return
         info = zc.get_service_info(service_type, name)
-
+        
+        if self.standalone_mode and info:
+            # Standalone mode - display service info
+            self.discovered_services[name] = info
+            self._display_service_info(name, info, "DISCOVERED")
+        elif self.discovery_manager and info:
+            # Managed mode - notify discovery manager
+            # (Existing discovery manager integration would go here)
+            pass
     
     def update_service(self, zc, service_type: str, name: str) -> None:
         """Called when a service is updated"""
         if not MDNS_AVAILABLE:
             return
         info = zc.get_service_info(service_type, name)
-
+        
+        if self.standalone_mode and info:
+            self.discovered_services[name] = info
+            self._display_service_info(name, info, "UPDATED")
+    
     def remove_service(self, zc, service_type: str, name: str) -> None:
         """Called when a service is removed"""
-        # Extract node_id from service name
-        node_id = name.split('.')[0] if '.' in name else name
-        if node_id in self.discovery_manager.discovered_nodes:
-            node_name = self.discovery_manager.discovered_nodes[node_id].node_name
-            self.discovery_manager.discovered_nodes[node_id].mark_offline()
-            self.logger.info(f"mDNS service removed: {node_name} ({node_id})")
+        if self.standalone_mode:
+            if name in self.discovered_services:
+                del self.discovered_services[name]
+            self.logger.info(f"[REMOVED] Service: {name}")
+        elif self.discovery_manager:
+            # Extract node_id from service name
+            node_id = name.split('.')[0] if '.' in name else name
+            if node_id in self.discovery_manager.discovered_nodes:
+                node_name = self.discovery_manager.discovered_nodes[node_id].node_name
+                self.discovery_manager.discovered_nodes[node_id].mark_offline()
+                self.logger.info(f"mDNS service removed: {node_name} ({node_id})")
+    
+    def _display_service_info(self, name: str, info, status: str):
+        """Display service information in standalone mode"""
+        self.logger.info(f"\n[{status}] Service: {name}")
+        
+        # Display addresses
+        if info.addresses:
+            addresses = [socket.inet_ntoa(addr) for addr in info.addresses]
+            self.logger.info(f"  Address: {', '.join(addresses)}")
+        
+        # Display port
+        self.logger.info(f"  Port: {info.port}")
+        
+        # Display server
+        if info.server:
+            self.logger.info(f"  Server: {info.server}")
+        
+        # Display properties
+        if info.properties:
+            self.logger.info("  Properties:")
+            for key, value in info.properties.items():
+                # Try to decode bytes to string
+                try:
+                    if isinstance(value, bytes):
+                        decoded_value = value.decode('utf-8')
+                        # Try to parse as JSON for better display
+                        try:
+                            parsed = json.loads(decoded_value)
+                            self.logger.info(f"    {key}: {json.dumps(parsed, indent=6)}")
+                        except:
+                            self.logger.info(f"    {key}: {decoded_value}")
+                    else:
+                        self.logger.info(f"    {key}: {value}")
+                except:
+                    self.logger.info(f"    {key}: {value}")
     
 
 class MDNSBroadcaster:
@@ -186,11 +240,15 @@ if __name__ == "__main__":
                     namespace.properties[key] = val
     
     parser = argparse.ArgumentParser(
-        description='mDNS service broadcaster for device discovery',
+        description='mDNS service broadcaster and listener for device discovery',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog='''
 Examples:
-  # Basic usage
+  # Listen mode - discover services on the network
+  python mdns_manager.py --listen
+  python mdns_manager.py --listen --service-type _http._tcp.local.
+  
+  # Broadcast mode - advertise this service
   python mdns_manager.py --node-id my-node --node-name "My Node" --port 5000
   
   # Add custom properties with key=value pairs
@@ -209,17 +267,14 @@ Examples:
         '''
     )
     
-    # Required arguments
+    # Arguments (required only for broadcast mode)
     parser.add_argument('--node-id', 
-                        required=True,
-                        help='Unique identifier for this node')
+                        help='Unique identifier for this node (required for broadcast)')
     parser.add_argument('--node-name', 
-                        required=True,
-                        help='Human-readable name for this node')
+                        help='Human-readable name for this node (required for broadcast)')
     parser.add_argument('--port', 
                         type=int, 
-                        required=True,
-                        help='Service port number')
+                        help='Service port number (required for broadcast)')
     parser.add_argument('--service-type',
                         type=str,
                         default='_http._tcp.local.',
@@ -240,7 +295,17 @@ Examples:
                         action='store_true',
                         help='Suppress all but error messages')
     
+    # Listen mode
+    parser.add_argument('--listen',
+                        action='store_true',
+                        help='Listen for mDNS services instead of broadcasting')
+    
     args = parser.parse_args()
+    
+    # Validate arguments - in broadcast mode, node-id, node-name, and port are required
+    if not args.listen:
+        if not args.node_id or not args.node_name or not args.port:
+            parser.error("--node-id, --node-name, and --port are required when not in listen mode")
     
     # Configure logging
     if args.debug:
@@ -262,6 +327,33 @@ Examples:
         logger.error("zeroconf package not installed. Install with: pip install zeroconf")
         sys.exit(1)
     
+    # Listen mode
+    if args.listen:
+        from zeroconf import Zeroconf, ServiceBrowser
+        
+        logger.info("Starting mDNS listener...")
+        logger.info(f"Listening for service type: {args.service_type}")
+        logger.info("Press Ctrl+C to stop\n")
+        
+        zeroconf = Zeroconf()
+        listener = MDNSServiceListener(standalone_mode=True)
+        browser = ServiceBrowser(zeroconf, args.service_type, listener)
+        
+        try:
+            # Keep running until interrupted
+            while True:
+                import time
+                time.sleep(1)
+        except KeyboardInterrupt:
+            logger.info("\n\nReceived interrupt signal")
+        finally:
+            logger.info("Stopping mDNS listener...")
+            zeroconf.close()
+            logger.info("mDNS listener stopped")
+        
+        sys.exit(0)
+    
+    # Broadcast mode (default)
     # Build node info dictionary from properties
     node_info = {
         'node_name': args.node_name,

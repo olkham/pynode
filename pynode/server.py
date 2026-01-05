@@ -48,10 +48,23 @@ def _build_node_types_cache():
     from pynode.nodes.base_node import BaseNode
     base_properties = getattr(BaseNode, 'properties', [])
     
+    # Define category ordering
+    category_order = [
+        'common',
+        'logic',
+        'function',
+        'input',
+        'output',
+        'vision',
+        'analysis',
+        'network',
+        'OpenCV'
+    ]
+    
     node_types = []
     for name, node_class in working_engine.node_types.items():
         # Skip ErrorNode - it's a system node that shouldn't be manually added
-        if name == 'ErrorNode':
+        if node_class.hidden:
             continue
             
         display_name = getattr(node_class, 'display_name', name)
@@ -96,6 +109,19 @@ def _build_node_types_cache():
             'uiComponentConfig': ui_component_config,
             'info': info
         })
+    
+    # Sort node types by category order, then by name within each category
+    def get_category_sort_key(node_type):
+        category = node_type['category']
+        try:
+            # Categories in the order list get their index
+            order_index = category_order.index(category)
+        except ValueError:
+            # Categories not in the list go to the end (third party)
+            order_index = len(category_order)
+        return (order_index, node_type['name'])
+    
+    node_types.sort(key=get_category_sort_key)
     
     _node_types_cache = node_types
     return _node_types_cache

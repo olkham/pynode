@@ -34,9 +34,10 @@ class TemplateNode(BaseNode):
     color = '#FFA07A'
     border_color = '#FF7F50'
     text_color = '#000000'
-    input_count = 1
-    output_count = 1
+    input_count = 0
+    output_count = 0
     info = str(_info)
+    hidden = True  # Hide this template node from the palette
     
     # Property schema for the properties panel
     # This defines what fields appear in the UI when the node is selected

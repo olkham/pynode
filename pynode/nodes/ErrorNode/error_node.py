@@ -33,6 +33,7 @@ class ErrorNode(BaseNode):
     input_count = 0  # No input - errors come automatically
     output_count = 0  # No output - errors are displayed only
     info = str(_info)
+    hidden = True  # Hide from palette; it's a system node
     
     properties = [
         {
