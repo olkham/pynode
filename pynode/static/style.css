@@ -730,18 +730,18 @@ body {
 }
 
 .node-icon-container {
-    background: rgba(0, 0, 0, 0.2);
     display: flex;
-    align-items: center;
     justify-content: center;
-    padding: 0 10px;
-    flex-shrink: 0;
-    align-self: stretch;
+    align-items: center;
+    width: 40px; /* Fixed width for the icon container */
+    background-color: rgba(0, 0, 0, 0.2); /* Optional background */
 }
 
 .node-icon {
-    font-size: 16px;
+    font-size: 16px; /* Adjust icon size */
     line-height: 1;
+    text-align: center;
+    color: inherit; /* Inherit text color */
 }
 
 .node-title {
@@ -961,16 +961,13 @@ body {
     background: transparent;
     border: none;
     color: #888;
-    font-size: 18px;
+    font-size: 24px;
     cursor: pointer;
-    padding: 4px 8px;
+    padding: 0;
     line-height: 1;
-    border-radius: 3px;
-    transition: all 0.2s;
 }
 
 .properties-close-btn:hover {
-    background: #3e3e42;
     color: #d4d4d4;
 }
 
