@@ -181,7 +181,7 @@ class InferenceNode(BaseNode):
         ]
     
     properties = property(lambda self: self.get_properties())
-    print(properties)
+    # print(properties)
     
     @staticmethod
     def _get_default_device():

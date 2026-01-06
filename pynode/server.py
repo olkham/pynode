@@ -82,6 +82,10 @@ def _build_node_types_cache():
         else:
             node_properties = getattr(node_class, 'properties', [])
         
+        # Ensure node_properties is iterable (list or tuple)
+        if not isinstance(node_properties, (list, tuple)):
+            node_properties = []
+        
         # Get property names from node-specific properties to avoid duplicates
         node_prop_names = {prop.get('name') for prop in node_properties if isinstance(prop, dict)}
         
