@@ -1414,7 +1414,7 @@ body {
 
 /* Rules Editor */
 .rules-editor {
-    margin-top: 10px;
+    margin-top: 6px;
 }
 
 .rule-item {
@@ -1458,12 +1458,21 @@ body {
 
 .rule-config {
     display: flex;
-    gap: 6px;
     align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.rule-config-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
 }
 
 .rule-operator {
-    flex: 0 0 140px;
+    flex: 0 0 auto;
     padding: 6px;
     background: #3e3e42;
     border: 1px solid #555;
@@ -1474,6 +1483,7 @@ body {
 
 .rule-value {
     flex: 1;
+    min-width: 60px;
     padding: 6px;
     background: #3e3e42;
     border: 1px solid #555;
@@ -1483,7 +1493,7 @@ body {
 }
 
 .rule-type {
-    flex: 0 0 80px;
+    flex: 0 0 auto;
     padding: 6px;
     background: #3e3e42;
     border: 1px solid #555;

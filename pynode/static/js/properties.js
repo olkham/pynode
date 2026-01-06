@@ -379,7 +379,7 @@ function renderRulesEditor(nodeId, propName, rules) {
     });
     
     html += `
-        <button class="btn btn-secondary" onclick="window.addRule('${nodeId}', '${propName}')">+ Add Rule</button>
+        <button class="btn btn-secondary btn-sm" onclick="window.addRule('${nodeId}', '${propName}')">+ Add Rule</button>
     </div>`;
     
     return html;

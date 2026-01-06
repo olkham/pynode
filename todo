@@ -1,8 +1,5 @@
-
 TODO
 - resolve sahi splitting / joining
-- fix UI spacing for Switch node properties panel
-- 
 
 MESSAGES
 - check the inputs / outputs / arrays etc. are a standard form so node can be easily connected with little to no config
@@ -10,4 +7,3 @@ MESSAGES
     - msg.label = 'person' will use the label in the filter node
     - likewise the output message from nodes will contain the properties
     - msg.payload will contain the actual data
-    
