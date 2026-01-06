@@ -20,7 +20,7 @@ echo Installing node dependencies...
 set /a NODE_COUNT=0
 set /a INSTALLED_COUNT=0
 
-for /d %%D in (nodes\*) do (
+for /d %%D in (pynode\nodes\*) do (
     set "node_dir=%%D"
     set "requirements_file=%%D\requirements.txt"
     
