@@ -46,10 +46,17 @@ class DebugNode(BaseNode):
     
     DEFAULT_CONFIG = {
         'console': True,
-        'complete': 'payload'
+        'complete': 'payload',
+        'drop_messages': False
     }
     
     properties = [
+        {
+            'name': 'drop_messages',
+            'label': 'Drop Messages When Busy',
+            'type': 'checkbox',
+            'default': False
+        },
         {
             'name': 'complete',
             'label': 'Output',

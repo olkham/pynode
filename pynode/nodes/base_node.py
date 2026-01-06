@@ -304,6 +304,10 @@ class BaseNode:
         # Configuration for the node
         self.config: Dict[str, Any] = {}
         
+        # Initialize drop_while_busy to default (will be overridden by configure if needed)
+        self.drop_while_busy = True
+        self.drop_count = 0
+        
         # Auto-apply DEFAULT_CONFIG if defined by subclass
         if self.DEFAULT_CONFIG:
             self.configure(self.DEFAULT_CONFIG)
@@ -316,10 +320,6 @@ class BaseNode:
         self._worker_thread = None
         self._stop_worker_flag = False
         self._processing = False  # True when actively processing a message
-        
-        # Initialize drop_while_busy flag from config (defaults to True)
-        self.drop_while_busy = True
-        self.drop_count = 0
         
         # Error handling
         self._workflow_engine = None  # Will be set by workflow engine

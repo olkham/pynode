@@ -143,11 +143,21 @@ export function createNode(type, x, y) {
         saveState('create node');
     });
     
+    // Initialize config with default values from properties
+    const config = {};
+    if (nodeType && nodeType.properties) {
+        for (const prop of nodeType.properties) {
+            if (prop.default !== undefined) {
+                config[prop.name] = prop.default;
+            }
+        }
+    }
+    
     const nodeData = {
         id: generateNodeId(),
         type: type,
         name: uniqueName,
-        config: {},
+        config: config,
         x: x,
         y: y
     };

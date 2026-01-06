@@ -41,7 +41,7 @@ body {
 /* Header */
 .header {
     background: #252526;
-    padding: 10px 20px;
+    padding: 5px 20px;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -51,6 +51,15 @@ body {
 .header h1 {
     font-size: 20px;
     font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.header-logo {
+    height: 48px;
+    width: 48px;
+    vertical-align: middle;
 }
 
 .header-actions {
