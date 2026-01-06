@@ -828,7 +828,7 @@ def upload_model():
             return jsonify({'success': False, 'error': 'No file provided'}), 400
         
         file = request.files['file']
-        if file.filename == '':
+        if not file.filename or file.filename == '':
             return jsonify({'success': False, 'error': 'No file selected'}), 400
         
         # Create models directory if it doesn't exist
