@@ -1,6 +1,8 @@
 
 TODO
 - resolve sahi splitting / joining
+- fix UI spacing for Switch node properties panel
+- 
 
 MESSAGES
 - check the inputs / outputs / arrays etc. are a standard form so node can be easily connected with little to no config

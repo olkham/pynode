@@ -1382,7 +1382,7 @@ body {
 
 .ti.c > .tc { display: none; }
 
-.tc { /* tree-children */ }
+/* .tc { tree-children } */
 
 .tk { color: #9cdcfe; } /* tree-key */
 .tl { color: #888; font-style: italic; } /* tree-label (type) */
