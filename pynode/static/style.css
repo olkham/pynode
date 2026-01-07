@@ -1051,6 +1051,45 @@ body {
     font-size: 13px;
 }
 
+/* Multiselect property - checkbox list */
+.property-multiselect {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px;
+    background: #2d2d30;
+    border: 1px solid #555;
+    border-radius: 3px;
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.multiselect-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 3px;
+    font-size: 13px;
+    color: #d4d4d4;
+}
+
+.multiselect-option:hover {
+    background: #3e3e42;
+}
+
+.multiselect-option input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+    accent-color: #0e639c;
+}
+
+.multiselect-option span {
+    flex: 1;
+}
+
 /* File property with browse button */
 .property-file-container {
     display: flex;

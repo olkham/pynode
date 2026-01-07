@@ -187,6 +187,29 @@ export function renderProperties(nodeData) {
                         </button>
                     </div>
                 `;
+            } else if (prop.type === 'multiselect') {
+                // Multiselect - allows selecting multiple options with checkboxes
+                const selectedValues = nodeData.config[prop.name] || prop.default || [];
+                html += `<label class="property-label">${prop.label}</label>`;
+                html += `<div class="property-multiselect" data-prop="${prop.name}">`;
+                
+                prop.options.forEach(option => {
+                    const optValue = typeof option === 'object' ? option.value : option;
+                    const optLabel = typeof option === 'object' ? option.label : option;
+                    const isChecked = Array.isArray(selectedValues) ? selectedValues.includes(optValue) : selectedValues === optValue;
+                    
+                    html += `
+                        <label class="multiselect-option">
+                            <input type="checkbox" 
+                                   value="${optValue}"
+                                   ${isChecked ? 'checked' : ''}
+                                   onchange="window.updateMultiselectConfig('${nodeData.id}', '${prop.name}', this)">
+                            <span>${optLabel}</span>
+                        </label>
+                    `;
+                });
+                
+                html += '</div>';
             }
             
             if (prop.help) {
@@ -234,6 +257,35 @@ export function updateNodeConfig(nodeId, key, value) {
     markNodeModified(nodeId);
     setModified(true);
 }
+
+/**
+ * Update multiselect config - collects all checked values into an array
+ */
+export function updateMultiselectConfig(nodeId, propName, checkbox) {
+    const nodeData = state.nodes.get(nodeId);
+    if (!nodeData) return;
+    
+    // Get the parent multiselect container
+    const container = checkbox.closest('.property-multiselect');
+    if (!container) return;
+    
+    // Collect all checked values
+    const checkedValues = [];
+    container.querySelectorAll('input[type="checkbox"]:checked').forEach(cb => {
+        checkedValues.push(cb.value);
+    });
+    
+    nodeData.config[propName] = checkedValues;
+    
+    // Update property visibility since config changed
+    window.updatePropertyVisibility(nodeId);
+    
+    markNodeModified(nodeId);
+    setModified(true);
+}
+
+// Make it available globally
+window.updateMultiselectConfig = updateMultiselectConfig;
 
 export async function triggerNodeAction(nodeId, action) {
     try {

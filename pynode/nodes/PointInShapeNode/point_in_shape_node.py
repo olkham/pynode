@@ -1,31 +1,23 @@
 """
-PointInShapeNode - Check if points are inside shapes
+PointInShapeNode - Check if a point is inside a shape
 
-This node checks if points/coordinates are inside rectangles or polygons.
+This node tests whether a point (x, y coordinate) is inside a shape.
+Supported shapes: rectangle, polygon, circle
+
+Shapes can be:
+- Manually defined in node properties
+- Read from the incoming message
+
 Useful for:
-- Region of interest filtering
-- Zone detection
-- Spatial filtering of detections
-- Click/touch detection in shapes
-
-Input format:
-    msg['point'] - Single point [x, y]
-    OR
-    msg['points'] - List of points [[x1, y1], [x2, y2], ...]
-    
-    AND one of:
-    msg['rect'] - Rectangle [x1, y1, x2, y2]
-    msg['polygon'] - Polygon [[x1, y1], [x2, y2], ...]
-    msg['detections'] - Detections with bbox/polygon to check against
-
-Output format:
-    msg['inside'] - Boolean or list of booleans
-    msg['filtered_points'] - Points that are inside (if filtering enabled)
-    msg['filtered_detections'] - Detections that contain the point(s)
+- Region of interest detection
+- Zone/boundary testing
+- Spatial filtering
+- Click/touch detection in UI regions
 """
 
 import sys
 import os
+import json
 from typing import Any, Dict
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
@@ -35,20 +27,24 @@ import numpy as np
 import cv2
 
 _info = Info()
-_info.add_text("Check if points are inside shapes (rectangles, polygons, or detection bboxes).")
-_info.add_header("Inputs")
+_info.add_text("Check if a point is inside a shape (rectangle, polygon, or circle).")
+_info.add_header("Configuration")
 _info.add_bullets(
-    ("point:", "Single point [x, y]"),
-    ("points:", "List of points [[x1, y1], [x2, y2], ...]"),
-    ("rect:", "Rectangle [x1, y1, x2, y2]"),
-    ("polygon:", "Polygon [[x1, y1], [x2, y2], ...]"),
-    ("detections:", "Detections with bbox/polygon")
+    ("Shape Source:", "Manual (define in properties) or From Message (read from msg)"),
+    ("Shape Type:", "Rectangle, Polygon, or Circle"),
+    ("Point Path:", "Path to point in message (e.g., 'payload.point' or 'click')"),
+    ("Shape Path:", "Path to shape in message (when using From Message)")
 )
-_info.add_header("Outputs")
+_info.add_header("Input")
 _info.add_bullets(
-    ("inside:", "Boolean or list of booleans"),
-    ("filtered_points:", "Points inside (if filtering enabled)"),
-    ("filtered_detections:", "Detections containing the point(s)")
+    ("Point:", "Point coordinates [x, y] at configured path"),
+    ("Shape:", "Shape data at configured path (when using From Message)")
+)
+_info.add_header("Output")
+_info.add_bullets(
+    ("payload.inside:", "Boolean - true if point is inside shape"),
+    ("payload.point:", "The tested point [x, y]"),
+    ("payload.shape_type:", "Type of shape tested against")
 )
 
 
@@ -64,23 +60,76 @@ class PointInShapeNode(BaseNode):
     text_color = '#000000'
     
     DEFAULT_CONFIG = {
-        'filter_mode': False,
-        'check_type': 'any'
+        'point_path': 'payload.point',
+        'shape_source': 'manual',
+        'shape_type': 'rect',
+        'shape_path': 'payload.shape',
+        'rect': '100,100,300,300',
+        'polygon': '[[100,100],[300,100],[300,300],[100,300]]',
+        'circle': '200,200,100'
     }
     
     properties = [
         {
-            'name': 'filter_mode',
-            'label': 'Filter Mode (only pass matching)',
-            'type': 'checkbox',
-            'default': DEFAULT_CONFIG['filter_mode']
+            'name': 'point_path',
+            'label': 'Point Path',
+            'type': 'text',
+            'default': DEFAULT_CONFIG['point_path'],
+            'help': 'Path to point in message (e.g., "payload.point", "click")'
         },
         {
-            'name': 'check_type',
-            'label': 'Check Type (for multiple points)',
+            'name': 'shape_source',
+            'label': 'Shape Source',
             'type': 'select',
-            'options': ['any', 'all'],
-            'default': DEFAULT_CONFIG['check_type']
+            'options': [
+                {'value': 'manual', 'label': 'Manual (define below)'},
+                {'value': 'message', 'label': 'From Message'}
+            ],
+            'default': DEFAULT_CONFIG['shape_source']
+        },
+        {
+            'name': 'shape_type',
+            'label': 'Shape Type',
+            'type': 'select',
+            'options': [
+                {'value': 'rect', 'label': 'Rectangle'},
+                {'value': 'polygon', 'label': 'Polygon'},
+                {'value': 'circle', 'label': 'Circle'}
+            ],
+            'default': DEFAULT_CONFIG['shape_type'],
+            'showIf': {'shape_source': 'manual'}
+        },
+        {
+            'name': 'shape_path',
+            'label': 'Shape Path',
+            'type': 'text',
+            'default': DEFAULT_CONFIG['shape_path'],
+            'help': 'Path to shape in message',
+            'showIf': {'shape_source': 'message'}
+        },
+        {
+            'name': 'rect',
+            'label': 'Rectangle (x1,y1,x2,y2)',
+            'type': 'text',
+            'default': DEFAULT_CONFIG['rect'],
+            'help': 'Format: x1,y1,x2,y2',
+            'showIf': {'shape_source': 'manual', 'shape_type': 'rect'}
+        },
+        {
+            'name': 'polygon',
+            'label': 'Polygon Points',
+            'type': 'text',
+            'default': DEFAULT_CONFIG['polygon'],
+            'help': 'Format: [[x1,y1],[x2,y2],[x3,y3],...]',
+            'showIf': {'shape_source': 'manual', 'shape_type': 'polygon'}
+        },
+        {
+            'name': 'circle',
+            'label': 'Circle (x,y,radius)',
+            'type': 'text',
+            'default': DEFAULT_CONFIG['circle'],
+            'help': 'Format: center_x,center_y,radius',
+            'showIf': {'shape_source': 'manual', 'shape_type': 'circle'}
         }
     ]
     
@@ -131,163 +180,157 @@ class PointInShapeNode(BaseNode):
         result = cv2.pointPolygonTest(polygon, (float(point[0]), float(point[1])), False)
         return result >= 0
     
-    def _check_point_in_shape(self, point, shape_type, shape_data):
+    def _point_in_circle(self, point, circle):
         """
-        Check if point is in shape
+        Check if a point is inside a circle
         
         Args:
             point: [x, y]
-            shape_type: 'rect' or 'polygon'
-            shape_data: Rectangle or polygon data
+            circle: [center_x, center_y, radius]
         
         Returns:
             Boolean
         """
-        if shape_type == 'rect':
-            return self._point_in_rect(point, shape_data)
-        elif shape_type == 'polygon':
-            return self._point_in_polygon(point, shape_data)
-        else:
-            return False
+        x, y = point
+        cx, cy, radius = circle
+        
+        # Calculate distance from center
+        distance = np.sqrt((x - cx) ** 2 + (y - cy) ** 2)
+        
+        return distance <= radius
+    
+    def _get_nested_value(self, obj, path):
+        """
+        Get a value from a nested path like 'payload.point' or 'click'
+        
+        Args:
+            obj: The object to get value from
+            path: Dot-separated path string
+        
+        Returns:
+            The value at the path, or None if not found
+        """
+        if not path:
+            return None
+            
+        parts = path.split('.')
+        current = obj
+        
+        for part in parts:
+            if isinstance(current, dict) and part in current:
+                current = current[part]
+            else:
+                return None
+        
+        return current
+    
+    def _parse_manual_shape(self, shape_type, shape_str):
+        """
+        Parse manually configured shape from string
+        
+        Args:
+            shape_type: 'rect', 'polygon', or 'circle'
+            shape_str: String representation of the shape
+        
+        Returns:
+            Parsed shape data
+        """
+        try:
+            if shape_type == 'rect':
+                # Format: "x1,y1,x2,y2"
+                parts = [float(x.strip()) for x in shape_str.split(',')]
+                if len(parts) == 4:
+                    return parts
+            
+            elif shape_type == 'polygon':
+                # Format: "[[x1,y1],[x2,y2],...]"
+                return json.loads(shape_str)
+            
+            elif shape_type == 'circle':
+                # Format: "cx,cy,radius"
+                parts = [float(x.strip()) for x in shape_str.split(',')]
+                if len(parts) == 3:
+                    return parts
+        
+        except Exception as e:
+            self.report_error(f"Error parsing shape: {str(e)}")
+        
+        return None
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
-        """Check if points are inside shapes"""
+        """Check if a point is inside a shape"""
         try:
-            filter_mode = self.config.get('filter_mode', False)
-            check_type = self.config.get('check_type', 'any')
+            # Get configuration
+            point_path = self.config.get('point_path', 'payload.point')
+            shape_source = self.config.get('shape_source', 'manual')
+            shape_type = self.config.get('shape_type', 'rect')
             
-            # Check both top level and payload for data
-            data_source = msg.get('payload', msg)
+            # Get the point from the message
+            point = self._get_nested_value(msg, point_path)
             
-            # Determine shape type and data
-            shape_type = None
+            if point is None:
+                self.report_error(f"Point not found at path: {point_path}")
+                return
+            
+            # Validate point format
+            if not isinstance(point, (list, tuple)) or len(point) != 2:
+                self.report_error(f"Point must be [x, y], got: {point}")
+                return
+            
+            # Get the shape
             shape_data = None
             
-            if 'rect' in data_source or 'bbox' in data_source:
-                shape_type = 'rect'
-                shape_data = data_source.get('rect', data_source.get('bbox'))
-            elif 'polygon' in data_source:
-                shape_type = 'polygon'
-                shape_data = data_source['polygon']
+            if shape_source == 'manual':
+                # Parse manually configured shape
+                shape_str = self.config.get(shape_type, '')
+                shape_data = self._parse_manual_shape(shape_type, shape_str)
+                
+                if shape_data is None:
+                    self.report_error(f"Invalid {shape_type} configuration: {shape_str}")
+                    return
             
-            # Check single point
-            if 'point' in data_source:
-                point = data_source['point']
+            else:  # from message
+                shape_path = self.config.get('shape_path', 'payload.shape')
+                shape_data = self._get_nested_value(msg, shape_path)
                 
-                if shape_type and shape_data:
-                    # Check against provided shape
-                    inside = self._check_point_in_shape(point, shape_type, shape_data)
-                    data_source['inside'] = inside
-                    
-                    if not filter_mode or inside:
-                        self.send(msg)
+                if shape_data is None:
+                    self.report_error(f"Shape not found at path: {shape_path}")
+                    return
                 
-                elif 'detections' in data_source:
-                    # Check against all detections
-                    filtered_detections = []
-                    inside_list = []
-                    
-                    for det in data_source['detections']:
-                        inside = False
-                        
-                        if 'bbox' in det or 'box' in det:
-                            bbox = det.get('bbox', det.get('box'))
-                            inside = self._point_in_rect(point, bbox)
-                        elif 'polygon' in det:
-                            inside = self._point_in_polygon(point, det['polygon'])
-                        
-                        inside_list.append(inside)
-                        if inside:
-                            filtered_detections.append(det)
-                    
-                    data_source['inside'] = inside_list
-                    data_source['filtered_detections'] = filtered_detections
-                    data_source['any_inside'] = any(inside_list)
-                    data_source['all_inside'] = all(inside_list)
-                    
-                    self.send(msg)
+                # Try to determine shape type from data if it's a dict with type info
+                if isinstance(shape_data, dict):
+                    if 'rect' in shape_data or 'bbox' in shape_data:
+                        shape_type = 'rect'
+                        shape_data = shape_data.get('rect', shape_data.get('bbox'))
+                    elif 'polygon' in shape_data:
+                        shape_type = 'polygon'
+                        shape_data = shape_data['polygon']
+                    elif 'circle' in shape_data:
+                        shape_type = 'circle'
+                        shape_data = shape_data['circle']
             
-            # Check multiple points
-            elif 'points' in data_source:
-                points = data_source['points']
-                
-                if shape_type and shape_data:
-                    # Check all points against provided shape
-                    inside_list = []
-                    filtered_points = []
-                    
-                    for point in points:
-                        inside = self._check_point_in_shape(point, shape_type, shape_data)
-                        inside_list.append(inside)
-                        if inside:
-                            filtered_points.append(point)
-                    
-                    data_source['inside'] = inside_list
-                    data_source['filtered_points'] = filtered_points
-                    data_source['any_inside'] = any(inside_list)
-                    data_source['all_inside'] = all(inside_list)
-                    
-                    if not filter_mode or (check_type == 'any' and data_source['any_inside']) or (check_type == 'all' and data_source['all_inside']):
-                        self.send(msg)
-                
-                elif 'detections' in data_source:
-                    # For each detection, check which points are inside
-                    for det in data_source['detections']:
-                        inside_list = []
-                        
-                        if 'bbox' in det or 'box' in det:
-                            bbox = det.get('bbox', det.get('box'))
-                            for point in points:
-                                inside_list.append(self._point_in_rect(point, bbox))
-                        elif 'polygon' in det:
-                            for point in points:
-                                inside_list.append(self._point_in_polygon(point, det['polygon']))
-                        
-                        det['points_inside'] = inside_list
-                        det['num_points_inside'] = sum(inside_list)
-                        det['any_points_inside'] = any(inside_list)
-                        det['all_points_inside'] = all(inside_list)
-                    
-                    # Filter detections if requested
-                    if filter_mode:
-                        if check_type == 'any':
-                            data_source['detections'] = [d for d in data_source['detections'] if d.get('any_points_inside', False)]
-                        else:  # 'all'
-                            data_source['detections'] = [d for d in data_source['detections'] if d.get('all_points_inside', False)]
-                    
-                    self.send(msg)
+            # Test the point against the shape
+            inside = False
             
-            # Check detections against a reference shape
-            elif 'detections' in data_source and shape_type and shape_data:
-                filtered_detections = []
-                
-                for det in data_source['detections']:
-                    # Get center point of detection
-                    center = None
-                    
-                    if 'bbox' in det or 'box' in det:
-                        bbox = det.get('bbox', det.get('box'))
-                        center = [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2]
-                    elif 'polygon' in det:
-                        polygon = np.array(det['polygon'])
-                        center = [float(np.mean(polygon[:, 0])), float(np.mean(polygon[:, 1]))]
-                    
-                    if center:
-                        inside = self._check_point_in_shape(center, shape_type, shape_data)
-                        det['center_inside'] = inside
-                        
-                        if inside:
-                            filtered_detections.append(det)
-                
-                if filter_mode:
-                    data_source['detections'] = filtered_detections
-                else:
-                    data_source['filtered_detections'] = filtered_detections
-                
-                self.send(msg)
-            
+            if shape_type == 'rect':
+                inside = self._point_in_rect(point, shape_data)
+            elif shape_type == 'polygon':
+                inside = self._point_in_polygon(point, shape_data)
+            elif shape_type == 'circle':
+                inside = self._point_in_circle(point, shape_data)
             else:
-                self.report_error("No valid point/shape combination found in message")
+                self.report_error(f"Unknown shape type: {shape_type}")
+                return
+            
+            # Create output
+            if 'payload' not in msg:
+                msg['payload'] = {}
+            
+            msg['payload']['inside'] = inside
+            msg['payload']['point'] = list(point)
+            msg['payload']['shape_type'] = shape_type
+            
+            self.send(msg)
                 
         except Exception as e:
             self.report_error(f"Error checking point in shape: {str(e)}")
