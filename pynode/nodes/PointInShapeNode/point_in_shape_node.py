@@ -199,31 +199,6 @@ class PointInShapeNode(BaseNode):
         
         return distance <= radius
     
-    def _get_nested_value(self, obj, path):
-        """
-        Get a value from a nested path like 'payload.point' or 'click'
-        
-        Args:
-            obj: The object to get value from
-            path: Dot-separated path string
-        
-        Returns:
-            The value at the path, or None if not found
-        """
-        if not path:
-            return None
-            
-        parts = path.split('.')
-        current = obj
-        
-        for part in parts:
-            if isinstance(current, dict) and part in current:
-                current = current[part]
-            else:
-                return None
-        
-        return current
-    
     def _parse_manual_shape(self, shape_type, shape_str):
         """
         Parse manually configured shape from string

@@ -90,17 +90,6 @@ class ConfidenceFilterNode(BaseNode):
     def __init__(self, node_id=None, name="confidence filter"):
         super().__init__(node_id, name)
     
-    def _get_nested_value(self, obj: Dict, path: str) -> Any:
-        """Get a nested value from a dictionary using dot notation."""
-        parts = path.split('.')
-        current = obj
-        for part in parts:
-            if isinstance(current, dict) and part in current:
-                current = current[part]
-            else:
-                return None
-        return current
-    
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """
         Filter messages based on detection confidence.

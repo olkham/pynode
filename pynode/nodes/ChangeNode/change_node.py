@@ -80,44 +80,6 @@ class ChangeNode(BaseNode):
     def __init__(self, node_id=None, name="change"):
         super().__init__(node_id, name)
     
-    def _get_nested_value(self, obj: Dict, path: str) -> Any:
-        """
-        Get a value from a nested path like 'payload.image.width'
-        
-        Args:
-            obj: The object to get the value from
-            path: Dot-separated path string
-            
-        Returns:
-            The value at the path, or None if not found
-        """
-        # Handle msg. prefix
-        if path.startswith('msg.'):
-            path = path[4:]
-        
-        parts = path.split('.')
-        current = obj
-        
-        for part in parts:
-            # Handle array indexing like 'items[0]'
-            match = re.match(r'(\w+)\[(\d+)\]', part)
-            if match:
-                key, index = match.groups()
-                if isinstance(current, dict) and key in current:
-                    current = current[key]
-                    if isinstance(current, (list, tuple)) and int(index) < len(current):
-                        current = current[int(index)]
-                    else:
-                        return None
-                else:
-                    return None
-            elif isinstance(current, dict) and part in current:
-                current = current[part]
-            else:
-                return None
-        
-        return current
-    
     def _set_nested_value(self, obj: Dict, path: str, value: Any) -> bool:
         """
         Set a value at a nested path like 'payload.image.width'

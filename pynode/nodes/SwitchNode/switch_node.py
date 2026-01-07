@@ -96,20 +96,6 @@ class SwitchNode(BaseNode):
         rules = self.config.get('rules', [])
         self.output_count = max(1, len(rules))
     
-    def _get_nested_value(self, msg: Dict[str, Any], property_path: str) -> Any:
-        """
-        Get a nested property from message using dot notation.
-        e.g., 'payload.temperature' or just 'payload'
-        """
-        parts = property_path.split('.')
-        value = msg
-        for part in parts:
-            if isinstance(value, dict):
-                value = value.get(part)
-            else:
-                return None
-        return value
-    
     def _convert_value(self, value_str: str, value_type: str) -> Any:
         """
         Convert string value to the appropriate type.

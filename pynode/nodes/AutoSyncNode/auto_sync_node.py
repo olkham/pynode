@@ -83,17 +83,6 @@ class AutoSyncNode(BaseNode):
         super().on_start()
         self._buffers = {i: None for i in range(self.input_count)}
     
-    def _get_nested_value(self, obj: Dict, path: str) -> Any:
-        """Get a nested value from a dictionary using dot notation."""
-        parts = path.split('.')
-        current = obj
-        for part in parts:
-            if isinstance(current, dict) and part in current:
-                current = current[part]
-            else:
-                return None
-        return current
-    
     def _get_sync_value(self, msg: Dict[str, Any]) -> Optional[float]:
         """Extract the sync property value from a message."""
         sync_property = self.config.get('sync_property', 'frame_count')

@@ -572,6 +572,59 @@ class BaseNode:
         """
         return float(self.config.get(key, default))
     
+    def _get_nested_value(self, obj: Dict, path: str) -> Any:
+        """
+        Get a value from a nested path using dot notation.
+        Supports array indexing like 'items[0]' and optional 'msg.' prefix.
+        
+        Args:
+            obj: The object to get the value from (usually a message dict)
+            path: Dot-separated path string (e.g., 'payload.data', 'items[0].name')
+            
+        Returns:
+            The value at the path, or None if not found
+        
+        Examples:
+            self._get_nested_value(msg, 'payload')  # msg['payload']
+            self._get_nested_value(msg, 'payload.data')  # msg['payload']['data']
+            self._get_nested_value(msg, 'items[0].name')  # msg['items'][0]['name']
+            self._get_nested_value(msg, 'msg.payload')  # msg['payload'] (msg. prefix stripped)
+        """
+        import re
+        
+        if not path:
+            return None
+        
+        # Handle msg. prefix for compatibility
+        if path.startswith('msg.'):
+            path = path[4:]
+        
+        parts = path.split('.')
+        current = obj
+        
+        for part in parts:
+            if current is None:
+                return None
+            
+            # Handle array indexing like 'items[0]'
+            match = re.match(r'(\w+)\[(\d+)\]', part)
+            if match:
+                key, index = match.groups()
+                if isinstance(current, dict) and key in current:
+                    current = current[key]
+                    if isinstance(current, (list, tuple)) and int(index) < len(current):
+                        current = current[int(index)]
+                    else:
+                        return None
+                else:
+                    return None
+            elif isinstance(current, dict) and part in current:
+                current = current[part]
+            else:
+                return None
+        
+        return current
+    
     # Image processing helper methods
     def decode_image(self, payload: Any) -> Tuple[Any, Optional[str]]:
         """

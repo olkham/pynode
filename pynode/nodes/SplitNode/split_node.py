@@ -45,10 +45,17 @@ class SplitNode(BaseNode):
     DEFAULT_CONFIG = {
         'split_type': 'auto',
         'delimiter': ',',
-        'drop_messages': False
+        'drop_messages': False,
+        'split_path': 'payload'
     }
     
     properties = [
+        {
+            'name': 'split_path',
+            'label': 'Message Path',
+            'type': 'text',
+            'default': DEFAULT_CONFIG['split_path']
+        },
         {
             'name': 'split_type',
             'label': 'Split Type',
@@ -65,7 +72,8 @@ class SplitNode(BaseNode):
             'name': 'delimiter',
             'label': 'String Delimiter',
             'type': 'text',
-            'default': DEFAULT_CONFIG['delimiter']
+            'default': DEFAULT_CONFIG['delimiter'],
+            'showIf': {'split_type': 'string'},
         }
     ]
     
@@ -74,7 +82,13 @@ class SplitNode(BaseNode):
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """Split incoming message into multiple messages."""
-        payload = msg.get('payload')
+        split_path = self.config.get('split_path', 'payload')
+        payload = self._get_nested_value(msg, split_path)
+        
+        if payload is None:
+            self.report_error(f"No value found at path: {split_path}")
+            return
+        
         split_type = self.config.get('split_type', 'auto')
         
         items = []
