@@ -169,6 +169,7 @@ class SupervisionTrackerNode(BaseNode):
                 xyxy = []
                 confidence = []
                 class_id = []
+                class_name = []
                 
                 for d in detections_list:
                     bbox = d.get('bbox')
@@ -176,6 +177,7 @@ class SupervisionTrackerNode(BaseNode):
                         xyxy.append(bbox)
                         confidence.append(d.get('confidence', 0.0))
                         class_id.append(d.get('class_id', 0))
+                        class_name.append(d.get('class_name', ''))
                 
                 if xyxy:
                     detections = sv.Detections(
@@ -199,10 +201,12 @@ class SupervisionTrackerNode(BaseNode):
                     cls_id = int(detections.class_id[i])
                     conf = float(detections.confidence[i]) if detections.confidence is not None else 0.0
                     bbox = detections.xyxy[i].tolist()
+                    cls_name = class_name[i]
                     
                     tracks.append({
                         'track_id': track_id,
                         'class_id': cls_id,
+                        'class_name': cls_name,
                         'confidence': conf,
                         'bbox': bbox,
                         'bbox_wh': [bbox[0], bbox[1], bbox[2]-bbox[0], bbox[3]-bbox[1]]
