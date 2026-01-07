@@ -156,9 +156,7 @@ class BBoxMetricsNode(BaseNode):
             'height': height,
             'area': area,
             'aspect_ratio': aspect_ratio,
-            'center': [center_x, center_y],
-            'center_x': center_x,
-            'center_y': center_y,
+            'center': {'x': center_x, 'y': center_y},
             'diagonal': diagonal,
             'bbox': [x1, y1, x2, y2],
             'bbox_format': 'xyxy'  # Output is always normalized to xyxy
