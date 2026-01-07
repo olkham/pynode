@@ -118,6 +118,23 @@ export function renderProperties(nodeData) {
                 html += `
                     <button class="btn btn-primary" onclick="window.triggerNodeAction('${nodeData.id}', '${prop.action}')">${prop.label}</button>
                 `;
+            } else if (prop.type === 'toggle') {
+                // Toggle switch with action - syncs with node's uiComponent toggle
+                const stateField = prop.stateField || 'drawingEnabled';  // Default for backward compat
+                const isChecked = nodeData[stateField] !== false;  // Default to true if undefined
+                html += `
+                    <div class="property-toggle-row">
+                        <span class="property-label">${prop.label}</span>
+                        <label class="gate-switch">
+                            <input type="checkbox" 
+                                   id="prop-toggle-${nodeData.id}-${prop.name}"
+                                   data-state-field="${stateField}"
+                                   ${isChecked ? 'checked' : ''}
+                                   onchange="window.triggerToggleAction('${nodeData.id}', '${prop.action}', '${stateField}', this.checked)">
+                            <span class="gate-slider"></span>
+                        </label>
+                    </div>
+                `;
             } else if (prop.type === 'file') {
                 const value = nodeData.config[prop.name] !== undefined ? nodeData.config[prop.name] : (prop.default || '');
                 const accept = prop.accept || '';
@@ -290,6 +307,36 @@ window.updateMultiselectConfig = updateMultiselectConfig;
 export async function triggerNodeAction(nodeId, action) {
     try {
         await fetch(`${API_BASE}/nodes/${nodeId}/${action}`, { method: 'POST' });
+    } catch (error) {
+        console.error(`Failed to trigger ${action} on node:`, error);
+    }
+}
+
+/**
+ * Trigger a toggle action and sync state between properties panel and node UI.
+ * @param {string} nodeId - The node ID
+ * @param {string} action - The action to call (e.g., 'toggle_drawing')
+ * @param {string} stateField - The field in nodeData to update (e.g., 'drawingEnabled')
+ * @param {boolean} checked - The new toggle state
+ */
+export async function triggerToggleAction(nodeId, action, stateField, checked) {
+    try {
+        // Call the action endpoint
+        const response = await fetch(`${API_BASE}/nodes/${nodeId}/${action}`, { method: 'POST' });
+        
+        if (response.ok) {
+            // Update nodeData state
+            const nodeData = state.nodes.get(nodeId);
+            if (nodeData) {
+                nodeData[stateField] = checked;
+            }
+            
+            // Sync the toggle on the node itself (if it has one)
+            const nodeToggle = document.getElementById(`toggle-${nodeId}`);
+            if (nodeToggle && nodeToggle.checked !== checked) {
+                nodeToggle.checked = checked;
+            }
+        }
     } catch (error) {
         console.error(`Failed to trigger ${action} on node:`, error);
     }

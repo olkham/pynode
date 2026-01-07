@@ -1090,6 +1090,18 @@ body {
     flex: 1;
 }
 
+/* Toggle property row - label on left, toggle on right */
+.property-toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.property-toggle-row .property-label {
+    margin-bottom: 0;
+}
+
 /* File property with browse button */
 .property-file-container {
     display: flex;

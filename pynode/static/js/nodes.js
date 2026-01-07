@@ -753,12 +753,32 @@ window.toggleDrawPredictions = async function(nodeId, enabled) {
                 nodeData.drawingEnabled = enabled;
             }
             
+            // Sync toggle in properties panel if it exists
+            syncPropertiesPanelToggle(nodeId, 'drawingEnabled', enabled);
+            
             console.log(`Draw predictions ${enabled ? 'enabled' : 'disabled'} for node ${nodeId}`);
         }
     } catch (error) {
         console.error('Failed to toggle draw predictions:', error);
     }
 };
+
+/**
+ * Sync a toggle in the properties panel with the node's state.
+ * Called when a toggle on the node itself is changed.
+ * @param {string} nodeId - The node ID
+ * @param {string} stateField - The state field name (e.g., 'drawingEnabled')
+ * @param {boolean} enabled - The new state
+ */
+function syncPropertiesPanelToggle(nodeId, stateField, enabled) {
+    // Find any toggle in the properties panel with matching state field
+    const propToggles = document.querySelectorAll(`#properties-panel input[type="checkbox"][data-state-field="${stateField}"]`);
+    propToggles.forEach(toggle => {
+        if (toggle.id.includes(nodeId) && toggle.checked !== enabled) {
+            toggle.checked = enabled;
+        }
+    });
+}
 
 // Toggle debug node enabled state - delegates to toggleNodeState
 window.toggleDebug = async function(nodeId, enabled) {

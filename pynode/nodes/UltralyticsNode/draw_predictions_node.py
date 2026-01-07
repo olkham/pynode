@@ -64,9 +64,10 @@ class DrawPredictionsNode(BaseNode):
     properties = [
         {
             'name': 'enabled',
-            'label': 'Draw Enabled',
-            'type': 'button',
+            'label': 'Drawing Enabled',
+            'type': 'toggle',
             'action': 'toggle_drawing',
+            'stateField': 'drawingEnabled',
             'help': 'Toggle drawing on/off'
         },
         {
