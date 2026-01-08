@@ -238,7 +238,7 @@ class ChangeNode(BaseNode):
                 continue
                 
             rule_type = rule.get('type', rule.get('t', 'set'))
-            property_path = rule.get('path', rule.get('p', rule.get('property', 'msg.payload')))
+            property_path = rule.get('path', rule.get('p', rule.get('property', f'msg.{MessageKeys.PAYLOAD}')))
             
             try:
                 if rule_type == 'set':

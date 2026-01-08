@@ -93,12 +93,12 @@ class CounterNode(BaseNode):
         
         # Preserve original message properties (like frame_count) and update payload
         # Note: send() handles deep copying, so we modify msg directly
-        msg['payload'] = {
+        msg[MessageKeys.PAYLOAD] = {
             'count': self.count,
-            'original_payload': msg.get('payload'),
+            'original_payload': msg.get(MessageKeys.PAYLOAD),
             'display': f'{self.count}'
         }
-        msg['topic'] = msg.get('topic', 'counter')
+        msg[MessageKeys.TOPIC] = msg.get(MessageKeys.TOPIC, 'counter')
         
         self.send(msg)
     

@@ -143,10 +143,10 @@ class PasteNode(BaseNode):
         - Input 1: Store as foreground
         Output is produced whenever either input updates (if both are available)
         """
-        if 'payload' not in msg:
+        if MessageKeys.PAYLOAD not in msg:
             return
         
-        img, format_type = self.decode_image(msg['payload'])
+        img, format_type = self.decode_image(msg[MessageKeys.PAYLOAD])
         if img is None:
             return
         
@@ -184,8 +184,8 @@ class PasteNode(BaseNode):
             if 'bbox' in fg_msg and isinstance(fg_msg['bbox'], dict):
                 bbox = fg_msg['bbox']
             # Try msg.payload.bbox (list format from CropNode)
-            elif isinstance(fg_msg.get('payload'), dict) and 'bbox' in fg_msg['payload']:
-                bbox_list = fg_msg['payload']['bbox']
+            elif isinstance(fg_msg.get(MessageKeys.PAYLOAD), dict) and 'bbox' in fg_msg[MessageKeys.PAYLOAD]:
+                bbox_list = fg_msg[MessageKeys.PAYLOAD]['bbox']
                 if isinstance(bbox_list, list) and len(bbox_list) >= 4:
                     bbox = {'x1': bbox_list[0], 'y1': bbox_list[1], 'x2': bbox_list[2], 'y2': bbox_list[3]}
         
@@ -239,6 +239,6 @@ class PasteNode(BaseNode):
         
         # Build output message
         out_msg = self._background_msg.copy() if self._background_msg else {}
-        out_msg['payload']['image'] = self.encode_image(result, self._format_type or 'numpy_array')
+        out_msg[MessageKeys.PAYLOAD][MessageKeys.IMAGE.PATH] = self.encode_image(result, self._format_type or 'numpy_array')
         
         self.send(out_msg)

@@ -143,9 +143,9 @@ class InjectNode(BaseNode):
             msg = {}
             
             # Set topic if configured
-            topic = self.config.get('topic', '')
+            topic = self.config.get(MessageKeys.TOPIC, '')
             if topic:
-                msg['topic'] = topic
+                msg[MessageKeys.TOPIC] = topic
             
             # Process all configured properties
             props = self.config.get('props', [])
@@ -155,7 +155,7 @@ class InjectNode(BaseNode):
                 props = []
             
             for prop in props:
-                property_path = prop.get('property', 'payload')
+                property_path = prop.get('property', MessageKeys.PAYLOAD)
                 value = self._get_property_value(prop)
                 self._set_nested_property(msg, property_path, value)
             

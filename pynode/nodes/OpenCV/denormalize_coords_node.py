@@ -100,9 +100,9 @@ class DenormalizeCoordsNode(BaseNode):
             return msg['image_width'], msg['image_height']
         
         # Try to get from payload.image
-        payload = msg.get('payload', {})
+        payload = msg.get(MessageKeys.PAYLOAD, {})
         if isinstance(payload, dict):
-            img_data = payload.get('image', payload)
+            img_data = payload.get(MessageKeys.IMAGE.PATH, payload)
             if isinstance(img_data, dict):
                 w = img_data.get('width', 0)
                 h = img_data.get('height', 0)
@@ -288,7 +288,7 @@ class DenormalizeCoordsNode(BaseNode):
         msg['image_height'] = h
         
         # Handle payload.detections
-        payload = msg.get('payload', {})
+        payload = msg.get(MessageKeys.PAYLOAD, {})
         if isinstance(payload, dict) and 'detections' in payload:
             payload['detections'] = [
                 self._denormalize_detection(d, w, h, as_int)

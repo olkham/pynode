@@ -183,13 +183,13 @@ class FileSystemNode(BaseNode):
                         'reason': 'file_exists',
                         'path': full_path
                     },
-                    topic=msg.get('topic', 'filesystem')
+                    topic=msg.get(MessageKeys.TOPIC, 'filesystem')
                 )
                 self.send(output_msg)
                 return
             
             # Get payload data
-            payload = msg.get('payload')
+            payload = msg.get(MessageKeys.PAYLOAD)
             if payload is None:
                 self.report_error("No payload in message")
                 return
@@ -209,7 +209,7 @@ class FileSystemNode(BaseNode):
                     'bytes': bytes_written,
                     'counter': self._counter
                 },
-                topic=msg.get('topic', 'filesystem')
+                topic=msg.get(MessageKeys.TOPIC, 'filesystem')
             )
             self.send(output_msg)
             
@@ -220,7 +220,7 @@ class FileSystemNode(BaseNode):
                     'status': 'error',
                     'error': str(e)
                 },
-                topic=msg.get('topic', 'filesystem/error')
+                topic=msg.get(MessageKeys.TOPIC, 'filesystem/error')
             )
             self.send(output_msg)
     

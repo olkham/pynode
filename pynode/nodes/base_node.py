@@ -132,28 +132,35 @@ class Info:
     def __repr__(self) -> str:
         return f'Info({len(self._content)} elements)'
 
-
+#Message key definitions to standardize message strings across all nodes
 @dataclass(frozen=True)
 class MessageKeys:
 
+    # Image-specific keys
     @dataclass(frozen=True)
     class IMAGE:
-        PATH = 'image'
+        PATH: str = 'image'
         FORMAT: str = 'format'
         ENCODING: str = 'encoding'
         DATA: str = 'data'
         WIDTH: str = 'width'
         HEIGHT: str = 'height'
         JPEG_QUALITY: str = 'jpeg_quality'
+        ENCODE_JPEG: str = 'encode_jpeg'
 
+    # Camera-specific keys
+    @dataclass(frozen=True)
     class CAMERA:
         DEVICE_INDEX: str = 'device_index'
+        SOURCE: str = 'source'
+        SOURCE_TYPE: str = 'source_type'
         FPS: str = 'fps'
         WIDTH: str = 'width'
         HEIGHT: str = 'height'
         JPEG_QUALITY: str = 'jpeg_quality'
         ENCODE_JPEG: str = 'encode_jpeg'
 
+    # Message-level keys
     MSG_ID: str = '_msgid'
     TIMESTAMP_ORIG: str = '_timestamp_orig'
     TIMESTAMP_EMIT: str = '_timestamp_emit'

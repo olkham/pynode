@@ -95,13 +95,13 @@ class RateProbeNode(BaseNode):
         
         # Preserve original message properties (like frame_count) and add rate info
         # Note: send() handles deep copying, so we modify msg directly
-        msg['payload'] = {
+        msg[MessageKeys.PAYLOAD] = {
             'rate': self._current_rate,
             'display': self.get_rate_display(),
             'window_size': window_size,
             'message_count': len(self._timestamps)
         }
-        msg['topic'] = msg.get('topic', 'rate')
+        msg[MessageKeys.TOPIC] = msg.get(MessageKeys.TOPIC, 'rate')
         self.send(msg)
     
     def get_rate(self) -> float:

@@ -182,15 +182,15 @@ class LabelFilterNode(BaseNode):
             # Modify msg directly - send() handles deep copying
             if filter_detections and matching_detections:
                 # Replace detections with only matching ones
-                if 'payload' in msg and isinstance(msg['payload'], dict):
+                if MessageKeys.PAYLOAD in msg and isinstance(msg[MessageKeys.PAYLOAD], dict):
                     # For single detection, keep as single; for array, keep as array
                     if is_single:
                         self._set_nested_value(msg, detections_path, matching_detections[0])
                     else:
                         self._set_nested_value(msg, detections_path, matching_detections)
                         # Update detection count if present
-                        if 'detection_count' in msg['payload']:
-                            msg['payload']['detection_count'] = len(matching_detections)
+                        if 'detection_count' in msg[MessageKeys.PAYLOAD]:
+                            msg[MessageKeys.PAYLOAD]['detection_count'] = len(matching_detections)
             
             self.send(msg, 0)
         else:

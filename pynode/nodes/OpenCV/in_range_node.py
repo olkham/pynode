@@ -124,11 +124,11 @@ class InRangeNode(BaseNode):
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """Apply color range filter to the input image."""
-        if 'payload' not in msg:
+        if MessageKeys.PAYLOAD not in msg:
             self.send(msg)
             return
         
-        img, format_type = self.decode_image(msg['payload'])
+        img, format_type = self.decode_image(msg[MessageKeys.PAYLOAD])
         if img is None:
             self.send(msg)
             return
@@ -167,20 +167,20 @@ class InRangeNode(BaseNode):
         msg['mask_pixels'] = pixel_count
         msg['mask_coverage'] = coverage
         
-        if 'payload' not in msg or not isinstance(msg['payload'], dict):
-            msg['payload'] = {}
+        if MessageKeys.PAYLOAD not in msg or not isinstance(msg[MessageKeys.PAYLOAD], dict):
+            msg[MessageKeys.PAYLOAD] = {}
         
         if output_mode == 'mask':
-            msg['payload']['image'] = self.encode_image(mask, format_type)
+            msg[MessageKeys.PAYLOAD][MessageKeys.IMAGE.PATH] = self.encode_image(mask, format_type)
             self.send(msg, 0)
         elif output_mode == 'masked':
-            msg['payload']['image'] = self.encode_image(masked, format_type)
+            msg[MessageKeys.PAYLOAD][MessageKeys.IMAGE.PATH] = self.encode_image(masked, format_type)
             self.send(msg, 0)
         else:  # both
-            msg['payload']['image'] = self.encode_image(mask, format_type)
-            msg['payload']['masked_image'] = self.encode_image(masked, format_type)
+            msg[MessageKeys.PAYLOAD][MessageKeys.IMAGE.PATH] = self.encode_image(mask, format_type)
+            msg[MessageKeys.PAYLOAD]['masked_image'] = self.encode_image(masked, format_type)
             self.send(msg, 0)
             
             msg2 = msg.copy()
-            msg2['payload'] = {'image': self.encode_image(masked, format_type)}
+            msg2[MessageKeys.PAYLOAD] = {MessageKeys.IMAGE.PATH: self.encode_image(masked, format_type)}
             self.send(msg2, 1)

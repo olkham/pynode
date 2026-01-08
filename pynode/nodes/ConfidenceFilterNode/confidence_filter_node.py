@@ -10,7 +10,7 @@ _info = Info()
 _info.add_text("Filters messages based on detection confidence scores, routing to different outputs based on threshold.")
 _info.add_header("Input")
 _info.add_bullets(
-    ("payload.detection:", "Detection object containing a confidence score."),
+    (f"{MessageKeys.PAYLOAD}.detection:", "Detection object containing a confidence score."),
 )
 _info.add_header("Outputs")
 _info.add_bullets(
@@ -45,7 +45,7 @@ class ConfidenceFilterNode(BaseNode):
     DEFAULT_CONFIG = {
         'threshold': 0.5,
         'threshold_source': 'config',
-        'detection_path': 'payload.detection',
+        'detection_path': f'{MessageKeys.PAYLOAD}.detection',
         'confidence_field': 'confidence'
     }
     
@@ -76,7 +76,7 @@ class ConfidenceFilterNode(BaseNode):
             'label': 'Detection Path',
             'type': 'text',
             'default': DEFAULT_CONFIG['detection_path'],
-            'help': 'Path to detection object in message (e.g., "payload.detection")'
+            'help': f'Path to detection object in message (e.g., "{MessageKeys.PAYLOAD}.detection")'
         },
         {
             'name': 'confidence_field',
@@ -106,7 +106,7 @@ class ConfidenceFilterNode(BaseNode):
         else:
             threshold = self.get_config_float('threshold', 0.5)
         
-        detection_path = self.config.get('detection_path', 'payload.detection')
+        detection_path = self.config.get('detection_path', f'{MessageKeys.PAYLOAD}.detection')
         confidence_field = self.config.get('confidence_field', 'confidence')
         
         # Get detection from message

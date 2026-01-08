@@ -298,12 +298,12 @@ class PointInShapeNode(BaseNode):
                 return
             
             # Create output
-            if 'payload' not in msg:
-                msg['payload'] = {}
+            if MessageKeys.PAYLOAD not in msg:
+                msg[MessageKeys.PAYLOAD] = {}
             
-            msg['payload']['inside'] = inside
-            msg['payload']['point'] = list(point)
-            msg['payload']['shape_type'] = shape_type
+            msg[MessageKeys.PAYLOAD]['inside'] = inside
+            msg[MessageKeys.PAYLOAD]['point'] = list(point)
+            msg[MessageKeys.PAYLOAD]['shape_type'] = shape_type
             
             self.send(msg)
                 

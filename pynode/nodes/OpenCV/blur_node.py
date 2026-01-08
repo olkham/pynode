@@ -5,7 +5,7 @@ OpenCV Blur Node - applies various blur/smoothing filters to images.
 import cv2
 import numpy as np
 from typing import Any, Dict
-from pynode.nodes.base_node import BaseNode, process_image, Info
+from pynode.nodes.base_node import BaseNode, process_image, Info, MessageKeys
 
 _info = Info()
 _info.add_text("Applies blur/smoothing filters to images for noise reduction or artistic effects.")
@@ -132,8 +132,8 @@ class BlurNode(BaseNode):
         
         # Preserve bbox if present (for crop workflows)
         extra_fields = {}
-        if isinstance(msg.get('payload'), dict):
-            bbox = msg['payload'].get('bbox')
+        if isinstance(msg.get(MessageKeys.PAYLOAD), dict):
+            bbox = msg[MessageKeys.PAYLOAD].get('bbox')
             if bbox is not None:
                 # Keep bbox in payload and add to msg level for PasteNode
                 extra_fields['bbox'] = {'x1': bbox[0], 'y1': bbox[1], 'x2': bbox[2], 'y2': bbox[3]}

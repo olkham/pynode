@@ -136,7 +136,7 @@ class SyncNode(BaseNode):
         Buffer message by index or release buffered messages.
         """
         try:
-            payload = msg.get('payload')
+            payload = msg.get(MessageKeys.PAYLOAD)
             release_trigger = self.config.get('release_payload', 'release')
             
             # Check if this is a release command
@@ -196,7 +196,7 @@ class SyncNode(BaseNode):
                         'status': 'empty',
                         'message': 'No messages in buffer'
                     },
-                    topic=trigger_msg.get('topic', 'sync/release')
+                    topic=trigger_msg.get(MessageKeys.TOPIC, 'sync/release')
                 )
                 self.send(output_msg)
                 return
@@ -219,7 +219,7 @@ class SyncNode(BaseNode):
                         'released_count': len(indices),
                         'indices': indices
                     },
-                    topic=trigger_msg.get('topic', 'sync/complete')
+                    topic=trigger_msg.get(MessageKeys.TOPIC, 'sync/complete')
                 )
                 self.send(completion_msg)
                 
@@ -233,7 +233,7 @@ class SyncNode(BaseNode):
                         'count': len(messages),
                         'indices': indices
                     },
-                    topic=trigger_msg.get('topic', 'sync/array')
+                    topic=trigger_msg.get(MessageKeys.TOPIC, 'sync/array')
                 )
                 self.send(array_msg)
             

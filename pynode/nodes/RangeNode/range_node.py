@@ -87,7 +87,7 @@ class RangeNode(BaseNode):
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """Map payload value from input range to output range."""
         try:
-            payload = msg.get('payload')
+            payload = msg.get(MessageKeys.PAYLOAD)
             value = float(payload)
             
             min_in = self.get_config_float('min_in', 0)
@@ -108,7 +108,7 @@ class RangeNode(BaseNode):
             
             # Preserve original message properties (like frame_count)
             # Note: send() handles deep copying, so we modify msg directly
-            msg['payload'] = mapped
+            msg[MessageKeys.PAYLOAD] = mapped
             self.send(msg)
             
         except (ValueError, TypeError) as e:

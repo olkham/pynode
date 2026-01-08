@@ -126,12 +126,12 @@ class JoinNode(BaseNode):
         try:
             if combine_type == 'array':
                 # Combine into array of payloads
-                combined_payload = [msg.get('payload') for msg in self.message_buffer]
+                combined_payload = [msg.get(MessageKeys.PAYLOAD) for msg in self.message_buffer]
             elif combine_type == 'object':
                 # Merge all messages into one object
                 combined_payload = {}
                 for msg in self.message_buffer:
-                    payload = msg.get('payload')
+                    payload = msg.get(MessageKeys.PAYLOAD)
                     if isinstance(payload, dict):
                         combined_payload.update(payload)
                     else:
@@ -139,11 +139,11 @@ class JoinNode(BaseNode):
                         combined_payload[f'msg_{len(combined_payload)}'] = payload
             else:  # string
                 # Concatenate payloads as strings
-                combined_payload = ' '.join(str(msg.get('payload', '')) for msg in self.message_buffer)
+                combined_payload = ' '.join(str(msg.get(MessageKeys.PAYLOAD, '')) for msg in self.message_buffer)
             
             output_msg = self.create_message(
                 payload=combined_payload,
-                topic=self.message_buffer[0].get('topic', ''),
+                topic=self.message_buffer[0].get(MessageKeys.TOPIC, ''),
                 message_count=len(self.message_buffer)
             )
             

@@ -138,11 +138,11 @@ class MqttOutNode(BaseNode):
             self.report_error(f"Cannot publish: not connected to MQTT broker {self._service.broker}:{self._service.port}")
             return
         
-        topic = self.config.get('topic', 'test/topic')
+        topic = self.config.get(MessageKeys.TOPIC, 'test/topic')
         
         # Allow msg.topic to override configured topic
-        if 'topic' in msg and msg['topic']:
-            topic = msg['topic']
+        if MessageKeys.TOPIC in msg and msg[MessageKeys.TOPIC]:
+            topic = msg[MessageKeys.TOPIC]
         
         # Validate topic
         if not topic or topic.strip() == '':
@@ -151,7 +151,7 @@ class MqttOutNode(BaseNode):
         
         qos = self.get_config_int('qos', 0)
         retain = self.get_config_bool('retain', False)
-        payload = msg.get('payload', '')
+        payload = msg.get(MessageKeys.PAYLOAD, '')
         
         if not self._service.publish(topic, payload, qos, retain):
             self.report_error(f"Failed to publish to '{topic}'")

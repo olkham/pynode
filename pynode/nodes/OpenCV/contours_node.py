@@ -127,12 +127,12 @@ class ContoursNode(BaseNode):
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """Find contours in the input image."""
-        if 'payload' not in msg:
+        if MessageKeys.PAYLOAD not in msg:
             self.send(msg)
             return
         
         # Decode image from any supported format
-        img, format_type = self.decode_image(msg['payload'])
+        img, format_type = self.decode_image(msg[MessageKeys.PAYLOAD])
         if img is None:
             self.send(msg)
             return
@@ -250,9 +250,9 @@ class ContoursNode(BaseNode):
                               (255, 0, 0), 2)
         
         # Encode back to original format
-        if 'payload' not in msg or not isinstance(msg['payload'], dict):
-            msg['payload'] = {}
-        msg['payload']['image'] = self.encode_image(output, format_type)
+        if MessageKeys.PAYLOAD not in msg or not isinstance(msg[MessageKeys.PAYLOAD], dict):
+            msg[MessageKeys.PAYLOAD] = {}
+        msg[MessageKeys.PAYLOAD][MessageKeys.IMAGE.PATH] = self.encode_image(output, format_type)
         msg['contours'] = contour_data
         msg['contour_count'] = len(contour_data)
         self.send(msg)

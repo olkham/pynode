@@ -272,14 +272,14 @@ class PolygonMetricsNode(BaseNode):
             img_h = self.get_config_int('image_height', 1080)
             
             # Check both top level and payload for data
-            data_source = msg.get('payload', msg)
+            data_source = msg.get(MessageKeys.PAYLOAD, msg)
             
             # Try to get image dimensions from message
-            if 'image' in data_source and hasattr(data_source['image'], 'shape'):
-                img_h, img_w = data_source['image'].shape[:2]
-            elif 'image' in data_source and isinstance(data_source['image'], dict):
-                img_w = data_source['image'].get('width', img_w)
-                img_h = data_source['image'].get('height', img_h)
+            if MessageKeys.IMAGE.PATH in data_source and hasattr(data_source[MessageKeys.IMAGE.PATH], 'shape'):
+                img_h, img_w = data_source[MessageKeys.IMAGE.PATH].shape[:2]
+            elif MessageKeys.IMAGE.PATH in data_source and isinstance(data_source[MessageKeys.IMAGE.PATH], dict):
+                img_w = data_source[MessageKeys.IMAGE.PATH].get('width', img_w)
+                img_h = data_source[MessageKeys.IMAGE.PATH].get('height', img_h)
             elif 'image_width' in data_source:
                 img_w = data_source['image_width']
                 img_h = data_source.get('image_height', img_h)

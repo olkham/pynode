@@ -69,11 +69,11 @@ class BitwiseNode(BaseNode):
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """Perform bitwise operation."""
-        if 'payload' not in msg:
+        if MessageKeys.PAYLOAD not in msg:
             self.send(msg)
             return
         
-        img, format_type = self.decode_image(msg['payload'])
+        img, format_type = self.decode_image(msg[MessageKeys.PAYLOAD])
         if img is None:
             self.send(msg)
             return
@@ -89,9 +89,9 @@ class BitwiseNode(BaseNode):
         # NOT operation only needs one image
         if operation == 'not' and self._image1 is not None:
             result = cv2.bitwise_not(self._image1)
-            if 'payload' not in msg or not isinstance(msg['payload'], dict):
-                msg['payload'] = {}
-            msg['payload']['image'] = self.encode_image(result, self._format_type)
+            if MessageKeys.PAYLOAD not in msg or not isinstance(msg[MessageKeys.PAYLOAD], dict):
+                msg[MessageKeys.PAYLOAD] = {}
+            msg[MessageKeys.PAYLOAD][MessageKeys.IMAGE.PATH] = self.encode_image(result, self._format_type)
             self.send(msg)
             return
         
@@ -121,7 +121,7 @@ class BitwiseNode(BaseNode):
         else:
             result = self._image1
         
-        if 'payload' not in msg or not isinstance(msg['payload'], dict):
-            msg['payload'] = {}
-        msg['payload']['image'] = self.encode_image(result, self._format_type)
+        if MessageKeys.PAYLOAD not in msg or not isinstance(msg[MessageKeys.PAYLOAD], dict):
+            msg[MessageKeys.PAYLOAD] = {}
+        msg[MessageKeys.PAYLOAD][MessageKeys.IMAGE.PATH] = self.encode_image(result, self._format_type)
         self.send(msg)

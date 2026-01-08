@@ -53,7 +53,7 @@ class SwitchNode(BaseNode):
     output_count = 1  # Will be dynamically updated based on rules
     
     DEFAULT_CONFIG = {
-        'property': 'payload',
+        'property': MessageKeys.PAYLOAD,
         'checkall': False,
         'rules': [
             {'operator': 'eq', 'value': '', 'valueType': 'str'}
@@ -232,7 +232,7 @@ class SwitchNode(BaseNode):
         Route message based on rules.
         Each rule is checked in order, and messages are sent to matching output(s).
         """
-        property_path = self.config.get('property', 'payload')
+        property_path = self.config.get('property', MessageKeys.PAYLOAD)
         check_all = self.config.get('checkall', False)
         rules = self.config.get('rules', [])
         

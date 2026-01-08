@@ -277,11 +277,11 @@ class SliceCollectorNode(BaseNode):
         """
         self._cleanup_expired()
         
-        payload = msg.get('payload', {})
+        payload = msg.get(MessageKeys.PAYLOAD, {})
         parts = msg.get('parts', {})
         
         # Get collection ID (from parts or generate one)
-        collection_id = parts.get('id', msg.get('_msgid', 'default'))
+        collection_id = parts.get('id', msg.get(MessageKeys.MSG_ID, 'default'))
         expected_count = parts.get('count', 1)
         slice_index = parts.get('index', msg.get('slice_index', 0))
         
@@ -295,7 +295,7 @@ class SliceCollectorNode(BaseNode):
         # Get detections
         if isinstance(payload, dict):
             detections = payload.get('detections', [])
-            image = payload.get('image')
+            image = payload.get(MessageKeys.IMAGE.PATH)
         else:
             detections = []
             image = None
@@ -337,8 +337,8 @@ class SliceCollectorNode(BaseNode):
             
             if result:
                 out_msg = collection['original_msg'].copy()
-                out_msg['payload'] = result
-                out_msg['topic'] = out_msg.get('topic', 'merged_predictions')
+                out_msg[MessageKeys.PAYLOAD] = result
+                out_msg[MessageKeys.TOPIC] = out_msg.get(MessageKeys.TOPIC, 'merged_predictions')
                 
                 # Clean up parts since we've merged
                 out_msg.pop('parts', None)

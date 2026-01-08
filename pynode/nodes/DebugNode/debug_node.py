@@ -81,17 +81,17 @@ class DebugNode(BaseNode):
         if not self.enabled:
             return
         
-        complete = self.config.get('complete', 'payload')
+        complete = self.config.get('complete', MessageKeys.PAYLOAD)
         
         if complete == 'msg':
             output = msg
             display_key = 'Complete msg'
-        elif complete == 'payload':
-            output = msg.get('payload')
-            display_key = 'msg.payload'
+        elif complete == MessageKeys.PAYLOAD:
+            output = msg.get(MessageKeys.PAYLOAD)
+            display_key = f'msg.{MessageKeys.PAYLOAD}'
         else:
             # Try to get nested property (only top-level for now)
-            output = msg.get(complete, msg.get('payload'))
+            output = msg.get(complete, msg.get(MessageKeys.PAYLOAD))
             display_key = f"msg.{complete}"
 
 

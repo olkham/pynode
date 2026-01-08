@@ -245,12 +245,12 @@ class EquirectangularNode(BaseNode):
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """Convert equirectangular image to pinhole projection."""
-        if 'payload' not in msg:
+        if MessageKeys.PAYLOAD not in msg:
             self.send(msg)
             return
         
         # Decode image from any supported format
-        img, format_type = self.decode_image(msg['payload'])
+        img, format_type = self.decode_image(msg[MessageKeys.PAYLOAD])
         if img is None:
             self.report_error("Could not decode image from payload")
             self.send(msg)
@@ -307,9 +307,9 @@ class EquirectangularNode(BaseNode):
         result = cv2.remap(img, pixel_x, pixel_y, interpolation, borderMode=cv2.BORDER_WRAP)
         
         # Encode back to original format
-        if 'payload' not in msg or not isinstance(msg['payload'], dict):
-            msg['payload'] = {}
-        msg['payload']['image'] = self.encode_image(result, format_type)
+        if MessageKeys.PAYLOAD not in msg or not isinstance(msg[MessageKeys.PAYLOAD], dict):
+            msg[MessageKeys.PAYLOAD] = {}
+        msg[MessageKeys.PAYLOAD][MessageKeys.IMAGE.PATH] = self.encode_image(result, format_type)
         
         # Add projection info to message
         msg['projection'] = {

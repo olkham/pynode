@@ -71,7 +71,7 @@ class FilterNode(BaseNode):
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """Filter messages based on configured mode."""
         mode = self.config.get('mode', 'dedupe')
-        payload = msg.get('payload')
+        payload = msg.get(MessageKeys.PAYLOAD)
         
         should_send = False
         

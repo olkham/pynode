@@ -124,11 +124,11 @@ class TemplateMatchNode(BaseNode):
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """Process template matching."""
-        if 'payload' not in msg:
+        if MessageKeys.PAYLOAD not in msg:
             self.send(msg)
             return
         
-        img, format_type = self.decode_image(msg['payload'])
+        img, format_type = self.decode_image(msg[MessageKeys.PAYLOAD])
         if img is None:
             self.send(msg)
             return
@@ -218,9 +218,9 @@ class TemplateMatchNode(BaseNode):
                 pt2 = (match['x'] + w, match['y'] + h)
                 cv2.rectangle(output, pt1, pt2, match_color, 2)
             
-            if 'payload' not in msg or not isinstance(msg['payload'], dict):
-                msg['payload'] = {}
-            msg['payload']['image'] = self.encode_image(output, format_type)
+            if MessageKeys.PAYLOAD not in msg or not isinstance(msg[MessageKeys.PAYLOAD], dict):
+                msg[MessageKeys.PAYLOAD] = {}
+            msg[MessageKeys.PAYLOAD][MessageKeys.IMAGE.PATH] = self.encode_image(output, format_type)
         
         msg['matches'] = matches
         msg['match_count'] = len(matches)

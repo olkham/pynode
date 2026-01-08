@@ -113,11 +113,11 @@ class PerspectiveNode(BaseNode):
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """Apply perspective transform."""
-        if 'payload' not in msg:
+        if MessageKeys.PAYLOAD not in msg:
             self.send(msg)
             return
         
-        img, format_type = self.decode_image(msg['payload'])
+        img, format_type = self.decode_image(msg[MessageKeys.PAYLOAD])
         if img is None:
             self.send(msg)
             return
@@ -167,8 +167,8 @@ class PerspectiveNode(BaseNode):
         # Apply warp
         result = cv2.warpPerspective(img, M, (output_w, output_h))
         
-        if 'payload' not in msg or not isinstance(msg['payload'], dict):
-            msg['payload'] = {}
-        msg['payload']['image'] = self.encode_image(result, format_type)
+        if MessageKeys.PAYLOAD not in msg or not isinstance(msg[MessageKeys.PAYLOAD], dict):
+            msg[MessageKeys.PAYLOAD] = {}
+        msg[MessageKeys.PAYLOAD][MessageKeys.IMAGE.PATH] = self.encode_image(result, format_type)
         msg['transform_matrix'] = M.tolist()
         self.send(msg)

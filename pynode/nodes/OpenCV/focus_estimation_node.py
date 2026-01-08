@@ -5,7 +5,7 @@ OpenCV Focus Estimation Node - measures image sharpness using various focus oper
 import cv2
 import numpy as np
 from typing import Any, Dict
-from pynode.nodes.base_node import BaseNode, process_image, Info
+from pynode.nodes.base_node import BaseNode, process_image, Info, MessageKeys
 
 _info = Info()
 _info.add_text("Estimates image focus/sharpness using various computational methods. Outputs a focus score indicating how sharp the image is.")
@@ -170,17 +170,17 @@ class FocusEstimationNode(BaseNode):
             focus_score = self._compute_laplacian(gray)
         
         # Create output message with focus score
-        output_msg = {'payload': {}}
+        output_msg = {MessageKeys.PAYLOAD: {}}
 
         # Store the focus estimation results in msg.payload
-        output_msg['payload'] = {
+        output_msg[MessageKeys.PAYLOAD] = {
             'focus_score': focus_score,
             'method': method
         }
         
         # Include image if requested
         if include_image:
-            output_msg['payload']['image'] = image
+            output_msg[MessageKeys.PAYLOAD][MessageKeys.IMAGE.PATH] = image
         
         # Send the message with focus information
         self.send(output_msg, 0)

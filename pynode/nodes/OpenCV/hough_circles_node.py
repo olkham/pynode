@@ -149,11 +149,11 @@ class HoughCirclesNode(BaseNode):
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """Detect circles in the input image."""
-        if 'payload' not in msg:
+        if MessageKeys.PAYLOAD not in msg:
             self.send(msg)
             return
         
-        img, format_type = self.decode_image(msg['payload'])
+        img, format_type = self.decode_image(msg[MessageKeys.PAYLOAD])
         if img is None:
             self.send(msg)
             return
@@ -215,9 +215,9 @@ class HoughCirclesNode(BaseNode):
                     cv2.circle(output, (cx, cy), radius, circle_color, 2)
                     cv2.circle(output, (cx, cy), 2, (0, 0, 255), 3)  # center
                 
-                if 'payload' not in msg or not isinstance(msg['payload'], dict):
-                    msg['payload'] = {}
-                msg['payload']['image'] = self.encode_image(output, format_type)
+                if MessageKeys.PAYLOAD not in msg or not isinstance(msg[MessageKeys.PAYLOAD], dict):
+                    msg[MessageKeys.PAYLOAD] = {}
+                msg[MessageKeys.PAYLOAD][MessageKeys.IMAGE.PATH] = self.encode_image(output, format_type)
         
         msg['circles'] = circles_data
         msg['circle_count'] = len(circles_data)

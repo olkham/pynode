@@ -153,11 +153,11 @@ class HoughLinesNode(BaseNode):
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """Detect lines in the input image."""
-        if 'payload' not in msg:
+        if MessageKeys.PAYLOAD not in msg:
             self.send(msg)
             return
         
-        img, format_type = self.decode_image(msg['payload'])
+        img, format_type = self.decode_image(msg[MessageKeys.PAYLOAD])
         if img is None:
             self.send(msg)
             return
@@ -234,9 +234,9 @@ class HoughLinesNode(BaseNode):
                     x1, y1, x2, y2 = line[0]
                     cv2.line(output, (x1, y1), (x2, y2), line_color, 2)
             
-            if 'payload' not in msg or not isinstance(msg['payload'], dict):
-                msg['payload'] = {}
-            msg['payload']['image'] = self.encode_image(output, format_type)
+            if MessageKeys.PAYLOAD not in msg or not isinstance(msg[MessageKeys.PAYLOAD], dict):
+                msg[MessageKeys.PAYLOAD] = {}
+            msg[MessageKeys.PAYLOAD][MessageKeys.IMAGE.PATH] = self.encode_image(output, format_type)
         
         msg['lines'] = lines_data
         msg['line_count'] = len(lines_data)

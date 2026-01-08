@@ -96,9 +96,9 @@ class NormalizeCoordsNode(BaseNode):
             return w, h
         
         # Try to get from payload.image
-        payload = msg.get('payload', {})
+        payload = msg.get(MessageKeys.PAYLOAD, {})
         if isinstance(payload, dict):
-            img_data = payload.get('image', payload)
+            img_data = payload.get(MessageKeys.IMAGE.PATH, payload)
             if isinstance(img_data, dict):
                 w = img_data.get('width', 0)
                 h = img_data.get('height', 0)
@@ -267,7 +267,7 @@ class NormalizeCoordsNode(BaseNode):
         msg['image_height'] = h
         
         # Handle payload.detections
-        payload = msg.get('payload', {})
+        payload = msg.get(MessageKeys.PAYLOAD, {})
         if isinstance(payload, dict) and 'detections' in payload:
             payload['detections'] = [
                 self._normalize_detection(d, w, h, preserve)

@@ -333,7 +333,7 @@ class MDNSDiscoveryNode(BaseNode):
         Expected message formats:
         - Control: {'payload': {'action': 'start'|'stop'|'refresh'}}
         """
-        payload = msg.get('payload', {})
+        payload = msg.get(MessageKeys.PAYLOAD, {})
         
         if isinstance(payload, dict):
             action = payload.get('action', '').lower()

@@ -349,7 +349,7 @@ class MergeSlicePredictionsNode(BaseNode):
             }
         }
         """
-        payload = msg.get('payload', {})
+        payload = msg.get(MessageKeys.PAYLOAD, {})
         
         if not isinstance(payload, dict):
             self.report_error("Payload must be a dictionary")
@@ -426,7 +426,7 @@ class MergeSlicePredictionsNode(BaseNode):
         original_height = payload.get('original_height', 0)
         
         out_msg = msg.copy()
-        out_msg['payload'] = {
+        out_msg[MessageKeys.PAYLOAD] = {
             'detections': final_detections,
             'detection_count': len(final_detections),
             'original_width': original_width,
@@ -436,9 +436,9 @@ class MergeSlicePredictionsNode(BaseNode):
         }
         
         # Preserve image if present
-        if 'image' in payload:
-            out_msg['payload']['image'] = payload['image']
+        if MessageKeys.IMAGE.PATH in payload:
+            out_msg[MessageKeys.PAYLOAD][MessageKeys.IMAGE.PATH] = payload[MessageKeys.IMAGE.PATH]
         
-        out_msg['topic'] = msg.get('topic', 'merged_predictions')
+        out_msg[MessageKeys.TOPIC] = msg.get(MessageKeys.TOPIC, 'merged_predictions')
         
         self.send(out_msg)

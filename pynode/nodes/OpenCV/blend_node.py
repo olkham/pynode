@@ -84,11 +84,11 @@ class BlendNode(BaseNode):
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """Blend two images."""
-        if 'payload' not in msg:
+        if MessageKeys.PAYLOAD not in msg:
             self.send(msg)
             return
         
-        img, format_type = self.decode_image(msg['payload'])
+        img, format_type = self.decode_image(msg[MessageKeys.PAYLOAD])
         if img is None:
             self.send(msg)
             return
@@ -121,7 +121,7 @@ class BlendNode(BaseNode):
         
         result = cv2.addWeighted(self._image1, alpha, self._image2, beta, gamma)
         
-        if 'payload' not in msg or not isinstance(msg['payload'], dict):
-            msg['payload'] = {}
-        msg['payload']['image'] = self.encode_image(result, self._format_type)
+        if MessageKeys.PAYLOAD not in msg or not isinstance(msg[MessageKeys.PAYLOAD], dict):
+            msg[MessageKeys.PAYLOAD] = {}
+        msg[MessageKeys.PAYLOAD][MessageKeys.IMAGE.PATH] = self.encode_image(result, self._format_type)
         self.send(msg)

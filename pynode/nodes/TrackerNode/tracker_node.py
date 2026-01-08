@@ -667,7 +667,7 @@ class TrackerNode(BaseNode):
             
     def on_input(self, msg, input_index=0):
         try:
-            payload = msg.get('payload', {})
+            payload = msg.get(MessageKeys.PAYLOAD, {})
             if not isinstance(payload, dict):
                 self.send(msg)
                 return
@@ -711,10 +711,10 @@ class TrackerNode(BaseNode):
             payload['track_count'] = len(tracks)
             
             # Draw tracks if requested
-            if self.get_config_bool('draw_tracks', True) and 'image' in payload:
+            if self.get_config_bool('draw_tracks', True) and MessageKeys.IMAGE.PATH in payload:
                 try:
                     import cv2
-                    image, fmt = self.decode_image(payload['image'])
+                    image, fmt = self.decode_image(payload[MessageKeys.IMAGE.PATH])
                     if image is not None and fmt is not None:
                         for t in tracks:
                             bbox = [int(x) for x in t['bbox']]
@@ -732,7 +732,7 @@ class TrackerNode(BaseNode):
                         # Encode back
                         encoded = self.encode_image(image, fmt)
                         if encoded:
-                            payload['image'] = encoded
+                            payload[MessageKeys.IMAGE.PATH] = encoded
                 except Exception as e:
                     self.report_error(f"Error drawing tracks: {e}")
                     

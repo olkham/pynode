@@ -169,7 +169,7 @@ class ColormapNode(BaseNode):
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """Apply colormap to input image/depth data."""
-        payload = msg.get('payload')
+        payload = msg.get(MessageKeys.PAYLOAD)
         if not payload:
             self.report_error("No payload found")
             return
@@ -186,7 +186,7 @@ class ColormapNode(BaseNode):
                     input_image = depth_data
                 elif isinstance(depth_data, dict) and 'data' in depth_data:
                     input_image = np.array(depth_data['data'])
-            elif 'image' in payload:
+            elif MessageKeys.IMAGE.PATH in payload:
                 # Get image data
                 img, format_type = self.decode_image(payload)
                 if img is not None:
@@ -245,10 +245,10 @@ class ColormapNode(BaseNode):
         colorized = cv2.applyColorMap(normalized, colormap)
         
         # Prepare output
-        if not isinstance(msg.get('payload'), dict):
-            msg['payload'] = {}
+        if not isinstance(msg.get(MessageKeys.PAYLOAD), dict):
+            msg[MessageKeys.PAYLOAD] = {}
         
-        msg['payload']['image'] = self.encode_image(colorized, format_type)
+        msg[MessageKeys.PAYLOAD][MessageKeys.IMAGE.PATH] = self.encode_image(colorized, format_type)
         
         # Add metadata
         msg['colormap'] = {

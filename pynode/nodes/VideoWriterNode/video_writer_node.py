@@ -361,9 +361,9 @@ class VideoWriterNode(BaseNode):
     def on_input(self, msg: dict, input_index: int = 0):
         """Process incoming message with image frame - does NOT forward messages"""
         # Get image from payload
-        payload = msg.get('payload', {})
+        payload = msg.get(MessageKeys.PAYLOAD, {})
         if isinstance(payload, dict):
-            image_data = payload.get('image')
+            image_data = payload.get(MessageKeys.IMAGE.PATH)
         else:
             image_data = payload if isinstance(payload, np.ndarray) else None
             
@@ -371,7 +371,7 @@ class VideoWriterNode(BaseNode):
             return
         
         # Decode image using base node helper (handles dict format, base64, numpy, etc.)
-        image, format_type = self.decode_image({'image': image_data})
+        image, format_type = self.decode_image({MessageKeys.IMAGE.PATH: image_data})
         
         if image is None:
             self.report_error("Failed to decode image from payload")
@@ -401,8 +401,8 @@ class VideoWriterNode(BaseNode):
             if event_msg:
                 # Send start event (status only, no image)
                 self.send({
-                    '_msgid': msg.get('_msgid'),
-                    'payload': event_msg
+                    MessageKeys.MSG_ID: msg.get(MessageKeys.MSG_ID),
+                    MessageKeys.PAYLOAD: event_msg
                 })
                 
         # Check clip length limit
@@ -411,15 +411,15 @@ class VideoWriterNode(BaseNode):
             if end_event:
                 # Send end event (status only, no image)
                 self.send({
-                    '_msgid': msg.get('_msgid'),
-                    'payload': end_event
+                    MessageKeys.MSG_ID: msg.get(MessageKeys.MSG_ID),
+                    MessageKeys.PAYLOAD: end_event
                 })
             # Start new recording
             event_msg = self._start_recording(image, msg)
             if event_msg:
                 self.send({
-                    '_msgid': msg.get('_msgid'),
-                    'payload': event_msg
+                    MessageKeys.MSG_ID: msg.get(MessageKeys.MSG_ID),
+                    MessageKeys.PAYLOAD: event_msg
                 })
                 
         # Write frame

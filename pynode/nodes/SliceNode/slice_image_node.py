@@ -288,7 +288,7 @@ class SliceImageNode(BaseNode):
             self.report_error("OpenCV (cv2) is required for image slicing")
             return
         
-        payload = msg.get('payload')
+        payload = msg.get(MessageKeys.PAYLOAD)
         if payload is None:
             self.report_error("No payload in message")
             return
@@ -307,7 +307,7 @@ class SliceImageNode(BaseNode):
         output_mode = self.config.get('output_mode', 'array')
         
         # Get original message ID for tracking
-        parent_msg_id = msg.get('_msgid', '')
+        parent_msg_id = msg.get(MessageKeys.MSG_ID, '')
         
         # Prepare output slices
         output_slices = []
@@ -316,7 +316,7 @@ class SliceImageNode(BaseNode):
         if include_full:
             full_encoded = self.encode_image(image, input_format)
             output_slices.append({
-                'payload': {'image': full_encoded},  # Standard payload.image format
+                MessageKeys.PAYLOAD: {MessageKeys.IMAGE.PATH: full_encoded},  # Standard payload.image format
                 'offset': [0, 0],
                 'bbox': [0, 0, image.shape[1], image.shape[0]],
                 'slice_index': 0,
@@ -328,9 +328,9 @@ class SliceImageNode(BaseNode):
         # Add slices
         start_index = 1 if include_full else 0
         for i, slice_data in enumerate(slices):
-            encoded = self.encode_image(slice_data['image'], input_format)
+            encoded = self.encode_image(slice_data[MessageKeys.IMAGE.PATH], input_format)
             output_slices.append({
-                'payload': {'image': encoded},  # Standard payload.image format
+                MessageKeys.PAYLOAD: {MessageKeys.IMAGE.PATH: encoded},  # Standard payload.image format
                 'offset': slice_data['offset'],
                 'bbox': slice_data['bbox'],
                 'slice_index': start_index + i,
@@ -346,8 +346,8 @@ class SliceImageNode(BaseNode):
             for i, slice_info in enumerate(output_slices):
                 slice_msg = msg.copy()
                 # Put image directly in payload for YOLO compatibility
-                slice_msg['payload'] = slice_info['payload']
-                slice_msg['topic'] = msg.get('topic', 'slice')
+                slice_msg[MessageKeys.PAYLOAD] = slice_info[MessageKeys.PAYLOAD]
+                slice_msg[MessageKeys.TOPIC] = msg.get(MessageKeys.TOPIC, 'slice')
                 
                 # Add parts metadata for SliceCollectorNode to track
                 slice_msg['parts'] = {
@@ -369,8 +369,8 @@ class SliceImageNode(BaseNode):
             # Array mode - send slices as array for Split node
             # Each item has 'payload' key which Split will extract
             out_msg = msg.copy()
-            out_msg['payload'] = output_slices  # Direct array for Split node
-            out_msg['topic'] = msg.get('topic', 'sliced')
+            out_msg[MessageKeys.PAYLOAD] = output_slices  # Direct array for Split node
+            out_msg[MessageKeys.TOPIC] = msg.get(MessageKeys.TOPIC, 'sliced')
             out_msg['slice_count'] = total_count
             out_msg['original_width'] = image.shape[1]
             out_msg['original_height'] = image.shape[0]

@@ -118,11 +118,11 @@ class RealsenseDepthNode(BaseNode):
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """Process RealSense depth camera frames."""
-        if 'payload' not in msg:
+        if MessageKeys.PAYLOAD not in msg:
             self.send(msg)
             return
         
-        payload = msg['payload']
+        payload = msg[MessageKeys.PAYLOAD]
         
         # Handle different input formats
         color_image = None
@@ -182,12 +182,12 @@ class RealsenseDepthNode(BaseNode):
             depth_colorized = cv2.applyColorMap(depth_8bit, colormap)
         
         # Prepare output based on format
-        if 'payload' not in msg or not isinstance(msg['payload'], dict):
-            msg['payload'] = {}
+        if MessageKeys.PAYLOAD not in msg or not isinstance(msg[MessageKeys.PAYLOAD], dict):
+            msg[MessageKeys.PAYLOAD] = {}
         
         if output_format == 'rgb':
             if color_image is not None:
-                msg['payload']['image'] = self.encode_image(color_image, format_type)
+                msg[MessageKeys.PAYLOAD][MessageKeys.IMAGE.PATH] = self.encode_image(color_image, format_type)
             else:
                 self.report_error("No color image available for RGB output")
                 return
@@ -195,8 +195,8 @@ class RealsenseDepthNode(BaseNode):
         elif output_format == 'depth':
             if depth_image is not None:
                 # Output raw depth as-is (16-bit typically)
-                msg['payload']['depth'] = depth_image
-                msg['payload']['depth_info'] = {
+                msg[MessageKeys.PAYLOAD]['depth'] = depth_image
+                msg[MessageKeys.PAYLOAD]['depth_info'] = {
                     'width': depth_image.shape[1],
                     'height': depth_image.shape[0],
                     'dtype': str(depth_image.dtype)
@@ -207,7 +207,7 @@ class RealsenseDepthNode(BaseNode):
         
         elif output_format == 'depth_colorized':
             if depth_colorized is not None:
-                msg['payload']['image'] = self.encode_image(depth_colorized, format_type)
+                msg[MessageKeys.PAYLOAD][MessageKeys.IMAGE.PATH] = self.encode_image(depth_colorized, format_type)
             else:
                 self.report_error("No depth image available for colorization")
                 return
@@ -222,7 +222,7 @@ class RealsenseDepthNode(BaseNode):
                         interpolation=cv2.INTER_AREA
                     )
                 combined = np.hstack((color_image, depth_colorized))
-                msg['payload']['image'] = self.encode_image(combined, format_type)
+                msg[MessageKeys.PAYLOAD][MessageKeys.IMAGE.PATH] = self.encode_image(combined, format_type)
             else:
                 self.report_error("Both color and depth required for side-by-side output")
                 return
@@ -230,16 +230,16 @@ class RealsenseDepthNode(BaseNode):
         elif output_format == 'both':
             # Output both RGB and depth in payload
             if color_image is not None:
-                msg['payload']['image'] = self.encode_image(color_image, format_type)
+                msg[MessageKeys.PAYLOAD][MessageKeys.IMAGE.PATH] = self.encode_image(color_image, format_type)
             if depth_image is not None:
-                msg['payload']['depth'] = depth_image
-                msg['payload']['depth_info'] = {
+                msg[MessageKeys.PAYLOAD]['depth'] = depth_image
+                msg[MessageKeys.PAYLOAD]['depth_info'] = {
                     'width': depth_image.shape[1],
                     'height': depth_image.shape[0],
                     'dtype': str(depth_image.dtype)
                 }
             if depth_colorized is not None:
-                msg['payload']['depth_colorized'] = self.encode_image(depth_colorized, format_type)
+                msg[MessageKeys.PAYLOAD]['depth_colorized'] = self.encode_image(depth_colorized, format_type)
         
         # Add metadata
         msg['realsense'] = {

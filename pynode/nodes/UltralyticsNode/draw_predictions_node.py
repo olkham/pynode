@@ -227,15 +227,15 @@ class DrawPredictionsNode(BaseNode):
         detections_path = self.config.get('detections_path', self.DEFAULT_CONFIG['detections_path'])
 
         detections = self._get_nested_value(msg, detections_path)
-        payload = msg.get('payload', {})
-        image_data = payload.get('image')
+        payload = msg.get(MessageKeys.PAYLOAD, {})
+        image_data = payload.get(MessageKeys.IMAGE.PATH)
 
         if image_data is None:
-            self.report_error("No image data in message. Expected msg.payload.image")
+            self.report_error(f"No image data in message. Expected msg.{MessageKeys.PAYLOAD}.{MessageKeys.IMAGE.PATH}")
             return
 
         # Decode image using base node helper and make a copy to avoid modifying upstream data
-        img, input_format = self.decode_image({'image': image_data})
+        img, input_format = self.decode_image({MessageKeys.IMAGE.PATH: image_data})
         if img is None or input_format is None:
             self.report_error("Failed to decode image from payload")
             return
@@ -338,9 +338,9 @@ class DrawPredictionsNode(BaseNode):
         # Encode image back to same format as input using base node helper
         encoded_image = self.encode_image(img, input_format)
         if encoded_image is not None:
-            if not isinstance(msg.get('payload'), dict):
-                msg['payload'] = {}
-            msg['payload']['image'] = encoded_image
+            if not isinstance(msg.get(MessageKeys.PAYLOAD), dict):
+                msg[MessageKeys.PAYLOAD] = {}
+            msg[MessageKeys.PAYLOAD][MessageKeys.IMAGE.PATH] = encoded_image
         else:
             self.report_error("Failed to encode output image")
             return

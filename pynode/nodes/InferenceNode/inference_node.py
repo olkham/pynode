@@ -329,7 +329,7 @@ class InferenceNode(BaseNode):
             return
         
         # Get image from message
-        payload = msg.get('payload')
+        payload = msg.get(MessageKeys.PAYLOAD)
         if payload is None:
             error_msg = "No payload in message"
             self.report_error(error_msg)
@@ -381,7 +381,7 @@ class InferenceNode(BaseNode):
                 # Encode image back to same format as input using base node helper
                 encoded_image = self.encode_image(output_image, input_format)
                 if encoded_image is not None:
-                    payload_out['image'] = encoded_image
+                    payload_out[MessageKeys.IMAGE.PATH] = encoded_image
                 else:
                     self.report_error("Failed to encode output image")
                     return
@@ -402,8 +402,8 @@ class InferenceNode(BaseNode):
             payload_out['device'] = self._current_device
             
             # Preserve original message properties and update payload
-            msg['payload'] = payload_out
-            msg['topic'] = msg.get('topic', 'inference')
+            msg[MessageKeys.PAYLOAD] = payload_out
+            msg[MessageKeys.TOPIC] = msg.get(MessageKeys.TOPIC, 'inference')
             
             # Send the message
             self.send(msg)

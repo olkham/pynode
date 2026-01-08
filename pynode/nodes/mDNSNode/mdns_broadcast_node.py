@@ -159,7 +159,7 @@ class MDNSBroadcastNode(BaseNode):
         - Broadcast data: {'broadcast': {'key': 'value', ...}}
         - Update broadcast: {'payload': {...}} - updates broadcast_info with payload contents
         """
-        payload = msg.get('payload', {})
+        payload = msg.get(MessageKeys.PAYLOAD, {})
         
         # Check for broadcast data in message
         if 'broadcast' in msg:

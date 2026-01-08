@@ -46,7 +46,7 @@ class SplitNode(BaseNode):
         'split_type': 'auto',
         'delimiter': ',',
         'drop_messages': False,
-        'split_path': 'payload'
+        'split_path': MessageKeys.PAYLOAD
     }
     
     properties = [
@@ -82,7 +82,7 @@ class SplitNode(BaseNode):
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """Split incoming message into multiple messages."""
-        split_path = self.config.get('split_path', 'payload')
+        split_path = self.config.get('split_path', MessageKeys.PAYLOAD)
         payload = self._get_nested_value(msg, split_path)
         
         if payload is None:
@@ -126,7 +126,7 @@ class SplitNode(BaseNode):
         
         # Send each item as a separate message
         total_count = len(items)
-        original_msgid = msg.get('_msgid')
+        original_msgid = msg.get(MessageKeys.MSG_ID)
         
         for i, item in enumerate(items):
             # Create a fresh copy of the message for each item
@@ -136,16 +136,16 @@ class SplitNode(BaseNode):
             if isinstance(item, tuple) and len(item) == 2:
                 item_payload = {'key': item[0], 'value': item[1]}
             # For slice objects with embedded payload (from SliceImageNode)
-            elif isinstance(item, dict) and 'payload' in item:
-                item_payload = item['payload']
+            elif isinstance(item, dict) and MessageKeys.PAYLOAD in item:
+                item_payload = item[MessageKeys.PAYLOAD]
                 # Copy other keys to message level (slice metadata)
                 for key, value in item.items():
-                    if key != 'payload':
+                    if key != MessageKeys.PAYLOAD:
                         out_msg[key] = value
             else:
                 item_payload = item
             
-            out_msg['payload'] = item_payload
+            out_msg[MessageKeys.PAYLOAD] = item_payload
             out_msg['parts'] = {
                 'index': i,
                 'count': total_count,

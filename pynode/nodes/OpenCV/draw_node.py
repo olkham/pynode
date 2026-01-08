@@ -5,7 +5,7 @@ OpenCV Draw Node - draws shapes and annotations on images.
 import cv2
 import numpy as np
 from typing import Any, Dict, List
-from pynode.nodes.base_node import BaseNode, process_image, Info
+from pynode.nodes.base_node import BaseNode, process_image, Info, MessageKeys
 
 _info = Info()
 _info.add_text("Draws shapes, text, and annotations on images. Supports rectangles, circles, lines, and text.")
@@ -61,7 +61,7 @@ class DrawNode(BaseNode):
         'thickness': 2,
         'text': 'Hello',
         'text_source': 'manual',
-        'msg_path': 'payload.focus_score',
+        'msg_path': f'{MessageKeys.PAYLOAD}.focus_score',
         'font_scale': 1.0
     }
     
@@ -175,7 +175,7 @@ class DrawNode(BaseNode):
             'label': 'Message Path',
             'type': 'text',
             'default': DEFAULT_CONFIG['msg_path'],
-            'help': 'Path to value in message (e.g., payload.focus_score, focus_score)',
+            'help': f'Path to value in message (e.g., {MessageKeys.PAYLOAD}.focus_score, focus_score)',
             'showIf': {'shape': 'text', 'text_source': 'from_msg'}
         },
         {
@@ -203,7 +203,7 @@ class DrawNode(BaseNode):
             'thickness': 2,
             'text': 'Hello',
             'text_source': 'manual',
-            'msg_path': 'payload.focus_score',
+            'msg_path': f'{MessageKeys.PAYLOAD}.focus_score',
             'font_scale': 1.0
         })
     
@@ -304,7 +304,7 @@ class DrawNode(BaseNode):
                 'thickness': self.config.get('thickness', 2),
                 'text': self.config.get('text', 'Hello'),
                 'text_source': self.config.get('text_source', 'manual'),
-                'msg_path': self.config.get('msg_path', 'payload.focus_score'),
+                'msg_path': self.config.get('msg_path', f'{MessageKeys.PAYLOAD}.focus_score'),
                 'font_scale': self.config.get('font_scale', 1.0)
             }
             result = self._draw_shape(result, shape_info, msg)

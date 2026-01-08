@@ -145,13 +145,13 @@ result = user_function(msg, node, time)
         except Exception as e:
             # Provide more helpful error messages
             error_str = str(e)
-            payload_type = type(msg.get('payload')).__name__
+            payload_type = type(msg.get(MessageKeys.PAYLOAD)).__name__
             
             # Add context-specific hints
             if "does not support item assignment" in error_str:
-                hint = f"Hint: msg['payload'] is a {payload_type}, not a dict. "
+                hint = f"Hint: msg['{MessageKeys.PAYLOAD}'] is a {payload_type}, not a dict. "
                 if payload_type in ['float', 'int', 'str', 'bool']:
-                    hint += "To add an index, wrap it: msg['payload'] = {'value': msg['payload'], 'index': 0}"
+                    hint += f"To add an index, wrap it: msg['{MessageKeys.PAYLOAD}'] = {{'value': msg['{MessageKeys.PAYLOAD}'], 'index': 0}}"
                 error_str = hint + " Error: " + error_str
             
             # Report error to the error system
@@ -160,7 +160,7 @@ result = user_function(msg, node, time)
             error_msg = self.create_message(
                 payload={
                     'error': error_str,
-                    'original_payload': msg.get('payload'),
+                    'original_payload': msg.get(MessageKeys.PAYLOAD),
                     'payload_type': payload_type
                 },
                 topic='error'

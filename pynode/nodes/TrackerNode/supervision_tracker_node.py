@@ -155,7 +155,7 @@ class SupervisionTrackerNode(BaseNode):
         try:
             import supervision as sv
             
-            payload = msg.get('payload', {})
+            payload = msg.get(MessageKeys.PAYLOAD, {})
             if not isinstance(payload, dict):
                 self.send(msg)
                 return
@@ -216,8 +216,8 @@ class SupervisionTrackerNode(BaseNode):
             payload['track_count'] = len(tracks)
             
             # Draw tracks if requested
-            if self.get_config_bool('draw_tracks', True) and 'image' in payload:
-                image, fmt = self.decode_image(payload['image'])
+            if self.get_config_bool('draw_tracks', True) and MessageKeys.IMAGE.PATH in payload:
+                image, fmt = self.decode_image(payload[MessageKeys.IMAGE.PATH])
                 if image is not None and fmt is not None:
                     # Use supervision annotators
                     labels = [
@@ -238,7 +238,7 @@ class SupervisionTrackerNode(BaseNode):
                     
                     encoded = self.encode_image(annotated_image, fmt)
                     if encoded:
-                        payload['image'] = encoded
+                        payload[MessageKeys.IMAGE.PATH] = encoded
                         
             self.send(msg)
             

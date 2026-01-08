@@ -31,9 +31,9 @@ _info.add_bullets(
 )
 _info.add_header("Output Format")
 _info.add_bullets(
-    ("payload.image:", "Image data as numpy array or base64 JPEG"),
-    ("payload.frame_count:", "Frame sequence number"),
-    ("payload.width/height:", "Frame dimensions")
+    (f"{MessageKeys.PAYLOAD}.image:", "Image data as numpy array or base64 JPEG"),
+    (f"{MessageKeys.PAYLOAD}.frame_count:", "Frame sequence number"),
+    (f"{MessageKeys.PAYLOAD}.width/height:", "Frame dimensions")
 )
 
 # Add FrameSource package to path
@@ -59,18 +59,18 @@ class FrameSourceNode(BaseNode):
     info = str(_info)
 
     DEFAULT_CONFIG = {
-        'source_type': 'webcam',
-        'source': 0,
-        'fps': 30,
-        'width': 640,
-        'height': 480,
-        'encode_jpeg': False,
-        'jpeg_quality': 75
+        MessageKeys.CAMERA.SOURCE_TYPE: 'webcam',
+        MessageKeys.CAMERA.SOURCE: 0,
+        MessageKeys.CAMERA.FPS: 30,
+        MessageKeys.CAMERA.WIDTH: 640,
+        MessageKeys.CAMERA.HEIGHT: 480,
+        MessageKeys.CAMERA.ENCODE_JPEG: False,
+        MessageKeys.CAMERA.JPEG_QUALITY: 75
     }
 
     properties = [
         {
-            'name': 'source_type',
+            'name': MessageKeys.CAMERA.SOURCE_TYPE,
             'label': 'Source Type',
             'type': 'select',
             'options': [
@@ -84,43 +84,43 @@ class FrameSourceNode(BaseNode):
                 {'value': 'genicam', 'label': 'GenICam Camera'},
                 {'value': 'audio_spectrogram', 'label': 'Audio Spectrogram'}
             ],
-            'default': DEFAULT_CONFIG['source_type'],
+            'default': DEFAULT_CONFIG[MessageKeys.CAMERA.SOURCE_TYPE],
         },
         {
-            'name': 'source',
+            'name': MessageKeys.CAMERA.SOURCE,
             'label': 'Source',
             'type': 'text',
-            'default': str(DEFAULT_CONFIG['source'])
+            'default': str(DEFAULT_CONFIG[MessageKeys.CAMERA.SOURCE])
         },
         {
-            'name': 'fps',
+            'name': MessageKeys.CAMERA.FPS,
             'label': 'Frame Rate (FPS)',
             'type': 'number',
-            'default': DEFAULT_CONFIG['fps']
+            'default': DEFAULT_CONFIG[MessageKeys.CAMERA.FPS]
         },
         {
-            'name': 'width',
+            'name': MessageKeys.CAMERA.WIDTH,
             'label': 'Width',
             'type': 'number',
-            'default': DEFAULT_CONFIG['width']
+            'default': DEFAULT_CONFIG[MessageKeys.CAMERA.WIDTH]
         },
         {
-            'name': 'height',
+            'name': MessageKeys.CAMERA.HEIGHT,
             'label': 'Height',
             'type': 'number',
-            'default': DEFAULT_CONFIG['height']
+            'default': DEFAULT_CONFIG[MessageKeys.CAMERA.HEIGHT]
         },
         {
-            'name': 'encode_jpeg',
+            'name': MessageKeys.CAMERA.ENCODE_JPEG,
             'label': 'Encode as JPEG',
             'type': 'checkbox',
-            'default': DEFAULT_CONFIG['encode_jpeg']
+            'default': DEFAULT_CONFIG[MessageKeys.CAMERA.ENCODE_JPEG]
         },
         {
-            'name': 'jpeg_quality',
+            'name': MessageKeys.CAMERA.JPEG_QUALITY,
             'label': 'JPEG Quality (1-100)',
             'type': 'number',
-            'default': DEFAULT_CONFIG['jpeg_quality']
+            'default': DEFAULT_CONFIG[MessageKeys.CAMERA.JPEG_QUALITY]
         }
     ]
     
@@ -135,11 +135,11 @@ class FrameSourceNode(BaseNode):
         """Start the camera capture when workflow starts."""
         super().on_start()  # Start base node worker thread
         
-        source_type = self.config.get('source_type', 'webcam')
-        source = self.config.get('source', 0)
-        fps = self.get_config_int('fps', 30)
-        width = self.get_config_int('width', 640)
-        height = self.get_config_int('height', 480)
+        source_type = self.config.get(MessageKeys.CAMERA.SOURCE_TYPE, 'webcam')
+        source = self.config.get(MessageKeys.CAMERA.SOURCE, 0)
+        fps = self.get_config_int(MessageKeys.CAMERA.FPS, 30)
+        width = self.get_config_int(MessageKeys.CAMERA.WIDTH, 640)
+        height = self.get_config_int(MessageKeys.CAMERA.HEIGHT, 480)
         
         try:
             # Create camera with config including resolution and fps
@@ -186,7 +186,7 @@ class FrameSourceNode(BaseNode):
     def _capture_loop(self, fps):
         """Capture frames in a loop and send them as messages."""
         frame_interval = 1.0 / fps
-        encode_jpeg = self.config.get('encode_jpeg', False)
+        encode_jpeg = self.config.get(MessageKeys.CAMERA.ENCODE_JPEG, False)
         
         while self.running and self.camera and self.camera.isOpened():
             start_time = time.time()
@@ -213,7 +213,7 @@ class FrameSourceNode(BaseNode):
                 # Prepare the payload
                 if encode_jpeg:
                     # Encode frame as JPEG with quality setting
-                    jpeg_quality = self.get_config_int('jpeg_quality', 75)
+                    jpeg_quality = self.get_config_int(MessageKeys.IMAGE.JPEG_QUALITY, 75)
                     encode_params = [cv2.IMWRITE_JPEG_QUALITY, jpeg_quality]
                     ret, buffer = cv2.imencode('.jpg', frame, encode_params)
                     if ret:
@@ -222,11 +222,11 @@ class FrameSourceNode(BaseNode):
                         # Convert to base64 for JSON transmission
                         jpeg_base64 = base64.b64encode(jpeg_bytes).decode('utf-8')
                         payload = {
-                            'format': 'jpeg',
-                            'encoding': 'base64',
-                            'data': jpeg_base64,
-                            'width': frame.shape[1],
-                            'height': frame.shape[0]
+                            MessageKeys.IMAGE.FORMAT: 'jpeg',
+                            MessageKeys.IMAGE.ENCODING: 'base64',
+                            MessageKeys.IMAGE.DATA: jpeg_base64,
+                            MessageKeys.IMAGE.WIDTH: frame.shape[1],
+                            MessageKeys.IMAGE.HEIGHT: frame.shape[0]
                         }
                     else:
                         self.report_error("Failed to encode JPEG")
@@ -234,15 +234,15 @@ class FrameSourceNode(BaseNode):
                 else:
                     # Send raw frame as numpy array
                     payload = {
-                        'format': 'bgr',
-                        'encoding': 'numpy',
-                        'data': frame,
-                        'width': frame.shape[1],
-                        'height': frame.shape[0]
+                        MessageKeys.IMAGE.FORMAT: 'bgr',
+                        MessageKeys.IMAGE.ENCODING: 'numpy',
+                        MessageKeys.IMAGE.DATA: frame,
+                        MessageKeys.IMAGE.WIDTH: frame.shape[1],
+                        MessageKeys.IMAGE.HEIGHT: frame.shape[0]
                     }
                 
                 # Create message payload
-                message_payload: Dict[str, Any] = {'image': payload}
+                message_payload: Dict[str, Any] = {MessageKeys.IMAGE.PATH: payload}
                 
                 # Add depth data if available (compatible with RealsenseDepthNode)
                 if has_depth:

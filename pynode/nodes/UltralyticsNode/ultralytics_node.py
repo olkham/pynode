@@ -206,7 +206,7 @@ class UltralyticsNode(BaseNode):
             return
         
         # Get image from message
-        payload = msg.get('payload')
+        payload = msg.get(MessageKeys.PAYLOAD)
         if payload is None:
             error_msg = "No image in payload"
             self.report_error(error_msg)
@@ -271,7 +271,7 @@ class UltralyticsNode(BaseNode):
                 # Encode image back to same format as input using base node helper
                 encoded_image = self.encode_image(output_image, input_format)
                 if encoded_image is not None:
-                    payload_out['image'] = encoded_image
+                    payload_out[MessageKeys.IMAGE.PATH] = encoded_image
                 else:
                     self.report_error("Failed to encode output image")
                     return
@@ -284,8 +284,8 @@ class UltralyticsNode(BaseNode):
             
             # Preserve original message properties (like frame_count) and update payload
             # Note: send() handles deep copying, so we modify msg directly
-            msg['payload'] = payload_out
-            msg['topic'] = msg.get('topic', 'yolo')
+            msg[MessageKeys.PAYLOAD] = payload_out
+            msg[MessageKeys.TOPIC] = msg.get(MessageKeys.TOPIC, 'yolo')
             
             # Send the message
             self.send(msg)

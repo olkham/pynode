@@ -168,7 +168,7 @@ class CropNode(BaseNode):
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """Process incoming image and crop based on bounding boxes."""
-        payload = msg.get('payload')
+        payload = msg.get(MessageKeys.PAYLOAD)
         if not payload or not isinstance(payload, dict):
             self.report_error("No image payload found")
             return
@@ -201,7 +201,7 @@ class CropNode(BaseNode):
                         # Store both pixel and normalized bbox
                         bbox_normalized = [x1 / img_w, y1 / img_h, x2 / img_w, y2 / img_h]
                         crops.append({
-                            'image': crop,
+                            MessageKeys.IMAGE.PATH: crop,
                             'bbox': [x1, y1, x2, y2],
                             'bbox_normalized': bbox_normalized,
                             'detection': detection,
@@ -222,7 +222,7 @@ class CropNode(BaseNode):
             crop = self._crop_image(image, x1, y1, x2, y2)
             if crop is not None:
                 crops.append({
-                    'image': crop,
+                    MessageKeys.IMAGE.PATH: crop,
                     'bbox': [x1, y1, x2, y2],
                     'bbox_normalized': [norm_x1, norm_y1, norm_x2, norm_y2],
                     'index': 0
@@ -237,25 +237,25 @@ class CropNode(BaseNode):
         # For manual mode with single crop, output as single object not array
         if bbox_source == 'manual' and len(crops) == 1:
             crop_data = crops[0]
-            encoded = self._encode_image(crop_data['image'], input_format)
+            encoded = self._encode_image(crop_data[MessageKeys.IMAGE.PATH], input_format)
             if encoded:
                 # Single crop output
-                msg['payload'] = {
-                    'image': encoded,
+                msg[MessageKeys.PAYLOAD] = {
+                    MessageKeys.IMAGE.PATH: encoded,
                     'bbox': crop_data['bbox'],
                     'bbox_normalized': crop_data.get('bbox_normalized'),
                     'index': crop_data['index']
                 }
-                msg['topic'] = msg.get('topic', 'crop')
+                msg[MessageKeys.TOPIC] = msg.get(MessageKeys.TOPIC, 'crop')
                 self.send(msg)
         elif output_mode == 'separate':
             # Send each crop as a separate message
             for crop_data in crops:
-                encoded = self._encode_image(crop_data['image'], input_format)
+                encoded = self._encode_image(crop_data[MessageKeys.IMAGE.PATH], input_format)
                 if encoded:
                     msg_copy = msg.copy()
                     crop_info = {
-                        'image': encoded,
+                        MessageKeys.IMAGE.PATH: encoded,
                         'bbox': crop_data['bbox'],
                         'bbox_normalized': crop_data.get('bbox_normalized'),
                         'index': crop_data['index']
@@ -263,19 +263,19 @@ class CropNode(BaseNode):
                     if 'detection' in crop_data:
                         crop_info['detection'] = crop_data['detection']
                     
-                    msg_copy['payload'] = crop_info
-                    msg_copy['topic'] = msg.get('topic', 'crop')
+                    msg_copy[MessageKeys.PAYLOAD] = crop_info
+                    msg_copy[MessageKeys.TOPIC] = msg.get(MessageKeys.TOPIC, 'crop')
                     msg_copy['crop_count'] = len(crops)
-                    msg_copy['parts'] = {'index': crop_data['index'], 'count': len(crops), 'id': msg.get('_msgid')}
+                    msg_copy['parts'] = {'index': crop_data['index'], 'count': len(crops), 'id': msg.get(MessageKeys.MSG_ID)}
                     self.send(msg_copy)
         else:
             # Output all crops in one message as array
             encoded_crops = []
             for crop_data in crops:
-                encoded = self._encode_image(crop_data['image'], input_format)
+                encoded = self._encode_image(crop_data[MessageKeys.IMAGE.PATH], input_format)
                 if encoded:
                     crop_info = {
-                        'image': encoded,
+                        MessageKeys.IMAGE.PATH: encoded,
                         'bbox': crop_data['bbox'],
                         'bbox_normalized': crop_data.get('bbox_normalized'),
                         'index': crop_data['index']
@@ -284,8 +284,8 @@ class CropNode(BaseNode):
                         crop_info['detection'] = crop_data['detection']
                     encoded_crops.append(crop_info)
 
-            msg['payload'] = encoded_crops
-            msg['topic'] = msg.get('topic', 'crops')
+            msg[MessageKeys.PAYLOAD] = encoded_crops
+            msg[MessageKeys.TOPIC] = msg.get(MessageKeys.TOPIC, 'crops')
             msg['crop_count'] = len(encoded_crops)
             self.send(msg)
     
