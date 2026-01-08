@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pynode"
-version = "0.1.0"
-description = "Python Node-RED-like visual workflow system for image and video processing"
+dynamic = ["version"]
+description = "Python based Node-RED-like visual workflow system"
 readme = "README.md"
 requires-python = ">=3.8"
 dependencies = [
@@ -69,3 +69,7 @@ ignore = ["E501"]  # Line too long
 [tool.black]
 line-length = 120
 target-version = ["py311"]
+
+
+[tool.setuptools.dynamic]
+version = {attr = "pynode._version.__version__"}
