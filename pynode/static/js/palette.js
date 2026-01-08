@@ -19,12 +19,31 @@ export async function loadNodeTypes() {
 
 function setupPaletteSearch() {
     const searchInput = document.getElementById('palette-search');
+    const clearBtn = document.getElementById('palette-clear-btn');
     if (!searchInput) return;
     
+    const updateClearVisibility = () => {
+        if (!clearBtn) return;
+        clearBtn.style.display = searchInput.value.trim() ? 'block' : 'none';
+    };
+
     searchInput.addEventListener('input', (e) => {
         const filter = e.target.value.toLowerCase().trim();
         filterPaletteNodes(filter);
+        updateClearVisibility();
     });
+
+    if (clearBtn) {
+        clearBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            searchInput.value = '';
+            filterPaletteNodes('');
+            updateClearVisibility();
+            searchInput.focus();
+        });
+        // Initialize visibility
+        updateClearVisibility();
+    }
 }
 
 function filterPaletteNodes(filter) {

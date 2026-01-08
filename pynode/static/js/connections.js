@@ -515,7 +515,25 @@ function showMiniPalette(x, y, sourceId, outputIndex) {
             }
         }
     });
+    // Clear button for mini palette search
+    const clearBtn = document.createElement('button');
+    clearBtn.className = 'search-clear-btn mini-search-clear-btn';
+    clearBtn.setAttribute('aria-label', 'Clear search');
+    clearBtn.textContent = '✕';
+    clearBtn.style.display = 'none';
+    clearBtn.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        searchInput.value = '';
+        filterMiniPaletteNodes(miniPalette, '');
+        clearBtn.style.display = 'none';
+        searchInput.focus();
+    });
+    searchInput.addEventListener('input', (e) => {
+        clearBtn.style.display = e.target.value.trim() ? 'block' : 'none';
+    });
     searchContainer.appendChild(searchInput);
+    searchContainer.appendChild(clearBtn);
     miniPalette.appendChild(searchContainer);
     
     // Create content container for categories
@@ -699,7 +717,25 @@ function showMiniPaletteBackward(x, y, targetId, inputIndex) {
             }
         }
     });
+    // Clear button for mini palette search (backward)
+    const clearBtnBack = document.createElement('button');
+    clearBtnBack.className = 'search-clear-btn mini-search-clear-btn';
+    clearBtnBack.setAttribute('aria-label', 'Clear search');
+    clearBtnBack.textContent = '✕';
+    clearBtnBack.style.display = 'none';
+    clearBtnBack.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        searchInput.value = '';
+        filterMiniPaletteNodes(miniPalette, '');
+        clearBtnBack.style.display = 'none';
+        searchInput.focus();
+    });
+    searchInput.addEventListener('input', (e) => {
+        clearBtnBack.style.display = e.target.value.trim() ? 'block' : 'none';
+    });
     searchContainer.appendChild(searchInput);
+    searchContainer.appendChild(clearBtnBack);
     miniPalette.appendChild(searchContainer);
     
     // Create content container for categories

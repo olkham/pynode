@@ -1851,6 +1851,29 @@ body {
     box-sizing: border-box;
 }
 
+/* Clear button inside the palette search */
+.palette-search-container {
+    position: relative;
+}
+
+.search-clear-btn {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    color: #888;
+    font-size: 14px;
+    cursor: pointer;
+    padding: 2px 6px;
+    display: none;
+}
+
+.search-clear-btn:hover {
+    color: #fff;
+}
+
 .palette-search:focus {
     border-color: #0e639c;
     background: #1e1e1e;
@@ -1879,6 +1902,7 @@ body {
     padding: 8px;
     border-bottom: 1px solid #3e3e42;
     position: sticky;
+    position: relative;
     top: 0;
     background: #252526;
     z-index: 2;
