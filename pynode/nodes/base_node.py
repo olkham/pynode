@@ -246,6 +246,25 @@ def process_image(payload_path: str = 'payload', output_path: Optional[str] = No
     return decorator
 
 
+
+
+
+from dataclasses import dataclass
+
+# Centralized class for all message dict keys ("magic strings")
+@dataclass(frozen=True)
+class MessageKeys:
+    MSG_ID: str = '_msgid'
+    TIMESTAMP_ORIG: str = '_timestamp_orig'
+    TIMESTAMP_EMIT: str = '_timestamp_emit'
+    AGE: str = '_age'
+    DROP_COUNT: str = 'drop_count'
+    DROP_MESSAGES: str = 'drop_messages'
+    PAYLOAD: str = 'payload'
+    IMAGE: str = 'image'
+    TOPIC: str = 'topic'
+
+
 class BaseNode:
     """
     Base class for all nodes in the workflow system.
@@ -279,7 +298,7 @@ class BaseNode:
     # Format: [{'name': 'propName', 'label': 'Display Label', 'type': 'text|textarea|select|button', 'options': [...], 'action': 'methodName'}]
     properties = [
         {
-            'name': 'drop_messages',
+            'name': MessageKeys.DROP_MESSAGES,
             'label': 'Drop Messages When Busy',
             'type': 'checkbox',
             'default': True
@@ -379,19 +398,19 @@ class BaseNode:
             Message dictionary with _msgid, _timestamp, and optional payload/topic
         """
         msg = {
-            '_msgid': str(uuid.uuid4()),
-            '_timestamp_origin': time()
+            MessageKeys.MSG_ID: str(uuid.uuid4()),
+            MessageKeys.TIMESTAMP_ORIG: time()
         }
-        
+
         # Only include payload if explicitly provided (even if None was passed explicitly)
-        if 'payload' in kwargs:
-            msg['payload'] = kwargs.pop('payload')
+        if MessageKeys.PAYLOAD in kwargs:
+            msg[MessageKeys.PAYLOAD] = kwargs.pop(MessageKeys.PAYLOAD)
         elif payload is not None:
-            msg['payload'] = payload
-        
+            msg[MessageKeys.PAYLOAD] = payload
+
         if topic:
-            msg['topic'] = topic
-        
+            msg[MessageKeys.TOPIC] = topic
+
         msg.update(kwargs)
         return msg
     
@@ -408,18 +427,21 @@ class BaseNode:
         """
         if not self.enabled:
             return
-            
+
         if output_index in self.outputs:
             connections = self.outputs[output_index]
-            
+
             for target_node, target_input in connections:
                 if target_node.enabled:
                     # Check if target node prefers direct processing (no outputs = sink node)
                     if target_node.output_count == 0 and hasattr(target_node, 'on_input_direct'):
                         # Deep copy for direct processing to prevent cross-talk
                         msg_to_send = copy.deepcopy(msg)
-                        msg_to_send['_timestamp_emit'] = time()
-                        msg_to_send['_age'] = msg_to_send['_timestamp_emit'] - msg_to_send.get('_timestamp_origin', msg_to_send['_timestamp_emit'])
+                        msg_to_send[MessageKeys.TIMESTAMP_EMIT] = time()
+                        msg_to_send[MessageKeys.AGE] = (
+                            msg_to_send[MessageKeys.TIMESTAMP_EMIT]
+                            - msg_to_send.get(MessageKeys.TIMESTAMP_ORIG, msg_to_send[MessageKeys.TIMESTAMP_EMIT])
+                        )
                         msg_to_send = sort_msg_keys(msg_to_send)
 
                         try:
@@ -433,17 +455,20 @@ class BaseNode:
                             # Drop message instead of queuing
                             target_node.drop_count += 1
                             continue
-                        
+
                         # Deep copy message for each recipient to prevent cross-talk
                         msg_to_send = copy.deepcopy(msg)
-                        msg_to_send['_timestamp_emit'] = time()
-                        msg_to_send['_age'] = msg_to_send['_timestamp_emit'] - msg_to_send.get('_timestamp_origin', msg_to_send['_timestamp_emit'])
+                        msg_to_send[MessageKeys.TIMESTAMP_EMIT] = time()
+                        msg_to_send[MessageKeys.AGE] = (
+                            msg_to_send[MessageKeys.TIMESTAMP_EMIT]
+                            - msg_to_send.get(MessageKeys.TIMESTAMP_ORIG, msg_to_send[MessageKeys.TIMESTAMP_EMIT])
+                        )
                         msg_to_send = sort_msg_keys(msg_to_send)
 
                         # Add this node's drop count to message for monitoring
                         # (how many messages THIS node dropped before sending this one)
-                        msg_to_send['drop_count'] = self.drop_count
-                        
+                        msg_to_send[MessageKeys.DROP_COUNT] = self.drop_count
+
                         # Queue message for target node (non-blocking)
                         try:
                             target_node._message_queue.put_nowait((msg_to_send, target_input))
@@ -530,7 +555,7 @@ class BaseNode:
         self.config.update(config)
         # Update drop_while_busy flag from config
         # Handle both boolean and string values for compatibility
-        self.drop_while_busy = self.get_config_bool('drop_messages', True)
+        self.drop_while_busy = self.get_config_bool(MessageKeys.DROP_MESSAGES, True)
     
     def get_config_bool(self, key: str, default: bool = False) -> bool:
         """
@@ -647,8 +672,8 @@ class BaseNode:
         
         try:
             # Handle nested payload.image structure
-            if isinstance(payload, dict) and 'image' in payload:
-                payload = payload['image']
+            if isinstance(payload, dict) and MessageKeys.IMAGE in payload:
+                payload = payload[MessageKeys.IMAGE]
             
             # Direct numpy array
             if isinstance(payload, np.ndarray):
