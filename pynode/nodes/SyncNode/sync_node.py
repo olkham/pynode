@@ -4,7 +4,7 @@ Useful for synchronizing multiple message streams or batch processing.
 """
 
 from typing import Any, Dict, List
-from pynode.nodes.base_node import BaseNode, Info
+from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
 _info.add_text("Buffers messages by index and releases them on command. Useful for collecting messages out of order and releasing them in sequence, or for batch processing.")

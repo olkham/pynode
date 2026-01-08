@@ -4,7 +4,7 @@ Passes through messages that contain detections meeting the confidence threshold
 """
 
 from typing import Any, Dict, List
-from pynode.nodes.base_node import BaseNode, Info
+from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
 _info.add_text("Filters messages based on detection confidence scores, routing to different outputs based on threshold.")

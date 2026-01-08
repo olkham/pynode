@@ -5,7 +5,7 @@ OpenCV Template Matching Node - finds template in image.
 import cv2
 import numpy as np
 from typing import Any, Dict
-from pynode.nodes.base_node import BaseNode, Info
+from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
 _info.add_text("Finds occurrences of a template image within a larger image. Useful for object detection, pattern recognition, and image search.")

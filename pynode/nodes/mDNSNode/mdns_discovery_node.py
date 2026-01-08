@@ -6,7 +6,7 @@ import json
 import socket
 import threading
 import time
-from pynode.nodes.base_node import BaseNode, Info
+from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 from .mdns_manager import MDNSServiceListener, MDNS_AVAILABLE
 
 _info = Info()

@@ -5,7 +5,7 @@ Designed to work with SliceImageNode in a slice-detect-merge workflow.
 
 import time
 from typing import Any, Dict, List, Optional
-from pynode.nodes.base_node import BaseNode, Info
+from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
 _info.add_text("Collects detection predictions from multiple image slices sent as separate messages, then merges them into a unified result.")

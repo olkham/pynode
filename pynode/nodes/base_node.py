@@ -144,13 +144,14 @@ class MessageKeys:
         DATA: str = 'data'
         WIDTH: str = 'width'
         HEIGHT: str = 'height'
+        JPEG_QUALITY: str = 'jpeg_quality'
 
     class CAMERA:
         DEVICE_INDEX: str = 'device_index'
         FPS: str = 'fps'
         WIDTH: str = 'width'
         HEIGHT: str = 'height'
-        JPG_QUALITY: str = 'jpeg_quality'
+        JPEG_QUALITY: str = 'jpeg_quality'
         ENCODE_JPEG: str = 'encode_jpeg'
 
     MSG_ID: str = '_msgid'

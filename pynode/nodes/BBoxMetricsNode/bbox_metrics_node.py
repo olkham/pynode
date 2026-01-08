@@ -25,7 +25,7 @@ import os
 from typing import Any, Dict
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-from pynode.nodes.base_node import BaseNode, Info
+from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 import numpy as np
 
 _info = Info()
@@ -193,19 +193,19 @@ class BBoxMetricsNode(BaseNode):
             img_h = self.get_config_int('image_height', 1080)
             
             # Check both top level and payload for data
-            data_source = msg.get('payload', msg)
+            data_source = msg.get(MessageKeys.PAYLOAD, msg)
             
             # Get bbox format from message (default to xyxy)
             bbox_format = data_source.get('bbox_format', 'xyxy')
             
             # Try to get image dimensions from message if enabled
             if use_image_dimensions:
-                if 'image' in data_source and hasattr(data_source['image'], 'shape'):
-                    img_h, img_w = data_source['image'].shape[:2]
-                elif 'image' in data_source and isinstance(data_source['image'], dict):
+                if MessageKeys.IMAGE.PATH in data_source and hasattr(data_source[MessageKeys.IMAGE.PATH], 'shape'):
+                    img_h, img_w = data_source[MessageKeys.IMAGE.PATH].shape[:2]
+                elif MessageKeys.IMAGE.PATH in data_source and isinstance(data_source[MessageKeys.IMAGE.PATH], dict):
                     # Handle nested image structure
-                    img_w = data_source['image'].get('width', img_w)
-                    img_h = data_source['image'].get('height', img_h)
+                    img_w = data_source[MessageKeys.IMAGE.PATH].get(MessageKeys.IMAGE.WIDTH, img_w)
+                    img_h = data_source[MessageKeys.IMAGE.PATH].get(MessageKeys.IMAGE.HEIGHT, img_h)
                 elif 'image_width' in data_source:
                     img_w = data_source['image_width']
                     img_h = data_source.get('image_height', img_h)

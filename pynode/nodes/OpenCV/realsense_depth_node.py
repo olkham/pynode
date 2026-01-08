@@ -6,7 +6,7 @@ Handles aligned RGB and depth data with various output formats.
 import cv2
 import numpy as np
 from typing import Any, Dict
-from pynode.nodes.base_node import BaseNode, Info
+from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
 _info.add_text("Processes Intel RealSense depth camera frames. Handles aligned RGB and depth data with various output format options.")

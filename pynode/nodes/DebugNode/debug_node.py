@@ -6,7 +6,7 @@ Similar to Node-RED's debug node.
 import time
 import numpy as np
 from typing import Any, Dict
-from pynode.nodes.base_node import BaseNode, Info
+from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
 _info.add_text("Displays message content for debugging purposes. Similar to Node-RED's debug node.")

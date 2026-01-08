@@ -7,7 +7,7 @@ import math
 import cv2
 import numpy as np
 from typing import Any, Dict, Tuple
-from pynode.nodes.base_node import BaseNode, Info
+from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
 _info.add_text("Converts 360° equirectangular images to standard pinhole camera perspective views. Uses optimized Numba JIT compilation for high-performance coordinate mapping when available.")

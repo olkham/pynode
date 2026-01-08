@@ -6,7 +6,7 @@ Uses SimpleBlobDetector to find circular/blob-like features.
 import cv2
 import numpy as np
 from typing import Any, Dict, List
-from pynode.nodes.base_node import BaseNode, Info
+from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
 _info.add_text("Detects blob-like features in images using OpenCV's SimpleBlobDetector.")

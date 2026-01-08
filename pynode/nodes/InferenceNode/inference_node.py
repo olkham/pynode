@@ -9,7 +9,7 @@ import logging
 import os
 import numpy as np
 from typing import Any, Dict, List, Optional
-from pynode.nodes.base_node import BaseNode, Info
+from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 logger = logging.getLogger(__name__)
 

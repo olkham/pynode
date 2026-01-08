@@ -3,7 +3,7 @@ Split Node - splits arrays or strings into separate messages.
 """
 
 from typing import Any, Dict
-from pynode.nodes.base_node import BaseNode, Info
+from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
 _info.add_text("Splits arrays, strings, or objects into separate messages. Each element becomes an individual message with parts metadata for reassembly.")

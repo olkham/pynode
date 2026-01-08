@@ -6,7 +6,7 @@ Similar to Node-RED's function node.
 import time
 import copy
 from typing import Any, Dict
-from pynode.nodes.base_node import BaseNode, Info
+from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
 _info.add_text("Executes custom Python code on incoming messages. Similar to Node-RED's function node.")

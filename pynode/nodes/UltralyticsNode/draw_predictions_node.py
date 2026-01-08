@@ -8,7 +8,7 @@ import cv2
 import logging
 import numpy as np
 from typing import Any, Dict
-from pynode.nodes.base_node import BaseNode, Info
+from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 logger = logging.getLogger(__name__)
 

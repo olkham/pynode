@@ -48,7 +48,7 @@ class CameraNode(BaseNode):
         MessageKeys.CAMERA.WIDTH: 640,
         MessageKeys.CAMERA.HEIGHT: 480,
         MessageKeys.CAMERA.ENCODE_JPEG: False,
-        MessageKeys.CAMERA.JPG_QUALITY: 75
+        MessageKeys.CAMERA.JPEG_QUALITY: 75
     }
     
     properties = [
@@ -83,10 +83,10 @@ class CameraNode(BaseNode):
             'default': DEFAULT_CONFIG[MessageKeys.CAMERA.ENCODE_JPEG]
         },
         {
-            'name': MessageKeys.CAMERA.JPG_QUALITY,
+            'name': MessageKeys.CAMERA.JPEG_QUALITY,
             'label': 'JPEG Quality (1-100)',
             'type': 'number',
-            'default': DEFAULT_CONFIG[MessageKeys.CAMERA.JPG_QUALITY]
+            'default': DEFAULT_CONFIG[MessageKeys.CAMERA.JPEG_QUALITY]
         }
     ]
     
@@ -162,7 +162,7 @@ class CameraNode(BaseNode):
                 # Prepare the payload
                 if encode_jpeg:
                     # Encode frame as JPEG with quality setting
-                    jpeg_quality = self.get_config_int(MessageKeys.CAMERA.JPG_QUALITY, 75)
+                    jpeg_quality = self.get_config_int(MessageKeys.CAMERA.JPEG_QUALITY, 75)
                     encode_params = [cv2.IMWRITE_JPEG_QUALITY, jpeg_quality]
                     ret, buffer = cv2.imencode('.jpg', frame, encode_params)
                     if ret:

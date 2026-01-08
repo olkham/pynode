@@ -7,7 +7,7 @@ import os
 import json
 import time
 import threading
-from pynode.nodes.base_node import BaseNode, Info
+from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
 _info.add_text("Generates messages with configurable properties. Can inject manually, once after a delay, or repeatedly at an interval. Similar to Node-RED's inject node.")

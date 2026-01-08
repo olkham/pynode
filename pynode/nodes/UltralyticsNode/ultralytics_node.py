@@ -8,7 +8,7 @@ import cv2
 import logging
 import numpy as np
 from typing import Any, Dict, List
-from pynode.nodes.base_node import BaseNode, Info
+from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 import torch
 
 logger = logging.getLogger(__name__)

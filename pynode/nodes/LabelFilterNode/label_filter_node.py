@@ -4,7 +4,7 @@ Passes through messages that contain detections matching allowed labels.
 """
 
 from typing import Any, Dict, List
-from pynode.nodes.base_node import BaseNode, Info
+from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
 _info.add_text("Filters messages based on object detection class labels. Routes messages to different outputs based on whether they contain matching detections.")

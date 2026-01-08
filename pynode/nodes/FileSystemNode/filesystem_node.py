@@ -8,7 +8,7 @@ import base64
 import time
 from datetime import datetime
 from typing import Any, Dict
-from pynode.nodes.base_node import BaseNode, Info
+from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
 _info.add_text("Writes image frames or data to disk. Supports dynamic filenames with counter, timestamp, or datetime patterns.")

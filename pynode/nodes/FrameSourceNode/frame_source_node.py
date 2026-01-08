@@ -9,7 +9,7 @@ import time
 import sys
 from pathlib import Path
 from typing import Any, Dict
-from pynode.nodes.base_node import BaseNode, Info
+from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
 _info.add_text("Captures frames from various video sources and outputs them as messages. Supports webcams, video files, RTSP streams, image folders, and specialized cameras.")

@@ -6,7 +6,7 @@ Similar to Node-RED's change node.
 import json
 import re
 from typing import Any, Dict
-from pynode.nodes.base_node import BaseNode, Info
+from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
 _info.add_text("Modifies message properties using configurable rules. Similar to Node-RED's change node.")

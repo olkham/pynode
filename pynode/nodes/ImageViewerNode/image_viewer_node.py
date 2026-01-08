@@ -6,7 +6,7 @@ Image Viewer node - displays images/frames in the web UI.
 # import cv2
 # import numpy as np
 from typing import Any, Dict
-from pynode.nodes.base_node import BaseNode, Info
+from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
 _info.add_text("Displays images and video frames directly in the web UI. Automatically converts incoming image data to a displayable format.")
@@ -23,7 +23,7 @@ _info.add_bullets(
 _info.add_header("Configuration")
 _info.add_bullets(
     ("Width/Height:", "Display size in pixels (image is scaled to fit)."),
-    ("Image Path:", "Dot-separated path to image data (e.g., payload.image).")
+    ("Image Path:", f"Dot-separated path to image data (e.g., {MessageKeys.PAYLOAD}.{MessageKeys.IMAGE.PATH}).")
 )
 
 
@@ -42,30 +42,30 @@ class ImageViewerNode(BaseNode):
     info = str(_info)
     
     DEFAULT_CONFIG = {
-        'width': 320,
-        'height': 240,
-        'image_path': 'payload.image'
+        MessageKeys.IMAGE.WIDTH: 320,
+        MessageKeys.IMAGE.HEIGHT: 240,
+        'image_path': f'{MessageKeys.PAYLOAD}.{MessageKeys.IMAGE.PATH}'
     }
     
     properties = [
         {
-            'name': 'width',
+            'name': MessageKeys.IMAGE.WIDTH,
             'label': 'Display Width (px)',
             'type': 'number',
-            'default': DEFAULT_CONFIG['width']
+            'default': DEFAULT_CONFIG[MessageKeys.IMAGE.WIDTH]
         },
         {
-            'name': 'height',
+            'name': MessageKeys.IMAGE.HEIGHT,
             'label': 'Display Height (px)',
             'type': 'number',
-            'default': DEFAULT_CONFIG['height']
+            'default': DEFAULT_CONFIG[MessageKeys.IMAGE.HEIGHT]
         },
         {
             'name': 'image_path',
             'label': 'Image Data Path',
             'type': 'text',
             'default': DEFAULT_CONFIG['image_path'],
-            'description': 'Dot-separated path to image data (e.g. payload.image)'
+            'description': f'Dot-separated path to image data (e.g. {MessageKeys.PAYLOAD}.{MessageKeys.IMAGE.PATH})'
         },
         {
             'name': 'stream_url',
@@ -86,22 +86,12 @@ class ImageViewerNode(BaseNode):
         Receive image data and store it for display.
         """
         import time
-        image_path = self.config.get('image_path', 'payload')
-
-        def get_by_path(obj, path):
-            parts = path.split('.')
-            for part in parts:
-                if isinstance(obj, dict) and part in obj:
-                    obj = obj[part]
-                else:
-                    return None
-            return obj
-
-        image_data = get_by_path(msg, image_path)
+        image_path = self.config.get('image_path', MessageKeys.PAYLOAD)
+        image_data = self._get_nested_value(msg, image_path)
 
         if image_data is not None:
             # Decode image using base node helper
-            img, format_type = self.decode_image({'image': image_data})
+            img, format_type = self.decode_image({MessageKeys.IMAGE.PATH: image_data})
             
             if img is None:
                 self.report_error(f"ImageViewerNode: Failed to decode image")

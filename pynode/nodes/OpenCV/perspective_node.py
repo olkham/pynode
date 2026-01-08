@@ -5,7 +5,7 @@ OpenCV Perspective Transform Node - applies perspective transformations.
 import cv2
 import numpy as np
 from typing import Any, Dict
-from pynode.nodes.base_node import BaseNode, Info
+from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
 _info.add_text("Applies perspective transformation to correct distortion or create custom warps. Transforms a quadrilateral region to a rectangular output.")

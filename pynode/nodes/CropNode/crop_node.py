@@ -6,7 +6,7 @@ import base64
 import cv2
 import numpy as np
 from typing import Any, Dict
-from pynode.nodes.base_node import BaseNode, Info
+from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
 _info.add_text("Extracts cropped regions from images based on bounding box coordinates from detections or manual input.")

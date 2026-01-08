@@ -4,7 +4,7 @@ Join Node - combines multiple messages into one.
 
 import time
 from typing import Any, Dict, List
-from pynode.nodes.base_node import BaseNode, Info
+from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
 _info.add_text("Combines multiple messages into a single output message. Similar to Node-RED's join node.")

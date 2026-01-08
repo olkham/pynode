@@ -3,7 +3,7 @@ Denormalize Coordinates Node - converts normalized coordinates (0.0-1.0) to pixe
 """
 
 from typing import Any, Dict, List
-from pynode.nodes.base_node import BaseNode, Info
+from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
 _info.add_text("Converts normalized coordinates (0.0-1.0) to pixel coordinates. Useful for applying normalized detections to images of different sizes.")

@@ -7,7 +7,7 @@ import time
 import cv2
 import numpy as np
 from datetime import datetime
-from pynode.nodes.base_node import BaseNode, Info
+from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
 _info.add_text("Records video files from incoming image frames. Automatically starts recording when frames arrive and supports automatic file rollover based on clip length.")

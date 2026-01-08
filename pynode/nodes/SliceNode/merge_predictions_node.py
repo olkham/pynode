@@ -5,7 +5,7 @@ Based on SAHI (Slicing Aided Hyper Inference) methodology for prediction merging
 
 import numpy as np
 from typing import Any, Dict, List, Tuple, Optional
-from pynode.nodes.base_node import BaseNode, Info
+from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
 _info.add_text("Combines detection predictions from multiple image slices back into a unified result. Based on SAHI methodology for prediction merging.")

@@ -1,5 +1,5 @@
 import numpy as np
-from pynode.nodes.base_node import BaseNode, Info
+from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 import time
 import logging
 from typing import List, Dict, Any, Tuple

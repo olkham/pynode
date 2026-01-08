@@ -4,7 +4,7 @@ Simply buffers the latest message from each input and outputs all when a new mes
 """
 
 from typing import Any, Dict, Optional
-from pynode.nodes.base_node import BaseNode, Info
+from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
 _info.add_text("Joins messages from multiple inputs by buffering the latest message from each input and outputting them together when any new message arrives.")
@@ -95,8 +95,8 @@ class AutoSyncNode(BaseNode):
             value = self._get_nested_value(msg, sync_property)
         
         # If still not found, try in payload
-        if value is None and 'payload' in msg:
-            value = self._get_nested_value(msg['payload'], sync_property)
+        if value is None and MessageKeys.PAYLOAD in msg:
+            value = self._get_nested_value(msg[MessageKeys.PAYLOAD], sync_property)
         
         # Convert to float if possible
         if value is not None:
@@ -136,8 +136,8 @@ class AutoSyncNode(BaseNode):
         
         # Build output
         out_msg = {
-            'payload': {
-                'messages': [m.get('payload') for m in messages],
+            MessageKeys.PAYLOAD: {
+                'messages': [m.get(MessageKeys.PAYLOAD) for m in messages],
                 'sync_values': sync_values,
                 'delta': delta
             }
@@ -145,7 +145,7 @@ class AutoSyncNode(BaseNode):
         
         # Copy other properties from first message
         for key in messages[0]:
-            if key not in ('payload', '_msgid'):
+            if key not in (MessageKeys.PAYLOAD, MessageKeys.MSG_ID):
                 out_msg[key] = messages[0][key]
         
         self.send(out_msg)

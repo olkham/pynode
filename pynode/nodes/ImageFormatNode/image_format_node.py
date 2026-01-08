@@ -8,7 +8,7 @@ import copy
 import cv2
 import numpy as np
 from typing import Any, Dict
-from pynode.nodes.base_node import BaseNode, Info
+from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
 _info.add_text("Converts image data between numpy arrays and base64 encoded images. Supports automatic format detection.")
@@ -49,9 +49,9 @@ class ImageFormatNode(BaseNode):
     
     DEFAULT_CONFIG = {
         'mode': 'auto',
-        'image_format': 'jpeg',
-        'jpeg_quality': 85,
-        'data_path': 'payload.image'
+        MessageKeys.IMAGE.FORMAT: 'jpeg',
+        MessageKeys.IMAGE.JPEG_QUALITY: 85,
+        'data_path': f'{MessageKeys.PAYLOAD}.{MessageKeys.IMAGE.PATH}'
     }
     
     properties = [
@@ -67,27 +67,27 @@ class ImageFormatNode(BaseNode):
             'default': DEFAULT_CONFIG['mode']
         },
         {
-            'name': 'image_format',
+            'name': MessageKeys.IMAGE.FORMAT,
             'label': 'Image Format',
             'type': 'select',
             'options': [
                 {'value': 'jpeg', 'label': 'JPEG'},
                 {'value': 'png', 'label': 'PNG'}
             ],
-            'default': DEFAULT_CONFIG['image_format']
+            'default': DEFAULT_CONFIG[MessageKeys.IMAGE.FORMAT]
         },
         {
-            'name': 'jpeg_quality',
+            'name': MessageKeys.IMAGE.JPEG_QUALITY,
             'label': 'JPEG Quality (1-100)',
             'type': 'number',
-            'default': DEFAULT_CONFIG['jpeg_quality']
+            'default': DEFAULT_CONFIG[MessageKeys.IMAGE.JPEG_QUALITY]
         },
         {
             'name': 'data_path',
             'label': 'Data Path',
             'type': 'text',
             'default': DEFAULT_CONFIG['data_path'],
-            'description': 'Dot-separated path to image data (e.g. payload.image)'
+            'description': f'Dot-separated path to image data (e.g. {MessageKeys.PAYLOAD}.{MessageKeys.IMAGE.PATH})'
         }
     ]
     
@@ -99,19 +99,9 @@ class ImageFormatNode(BaseNode):
         Convert image data between numpy array and base64.
         """
         mode = self.config.get('mode', 'auto')
-        data_path = self.config.get('data_path', 'payload')
+        data_path = self.config.get('data_path', MessageKeys.PAYLOAD)
         
-        # Get data from message
-        def get_by_path(obj, path):
-            parts = path.split('.')
-            for part in parts:
-                if isinstance(obj, dict) and part in obj:
-                    obj = obj[part]
-                else:
-                    return None
-            return obj
-        
-        data = get_by_path(msg, data_path)
+        data = self._get_nested_value(msg, data_path)
         
         if data is None:
             self.report_error(f"No data found at path '{data_path}'")
@@ -121,7 +111,7 @@ class ImageFormatNode(BaseNode):
         if mode == 'auto':
             if isinstance(data, np.ndarray):
                 mode = 'to_base64'
-            elif isinstance(data, dict) and data.get('encoding') == 'base64':
+            elif isinstance(data, dict) and data.get(MessageKeys.IMAGE.ENCODING) == 'base64':
                 mode = 'to_numpy'
             elif isinstance(data, str):
                 mode = 'to_numpy'
@@ -148,8 +138,8 @@ class ImageFormatNode(BaseNode):
             
             if mode == 'to_base64':
                 # Get the numpy array from the data
-                if isinstance(data, dict) and 'data' in data:
-                    numpy_data = data['data']
+                if isinstance(data, dict) and MessageKeys.IMAGE.DATA in data:
+                    numpy_data = data[MessageKeys.IMAGE.DATA]
                 else:
                     numpy_data = data
                 
@@ -158,11 +148,11 @@ class ImageFormatNode(BaseNode):
                 
                 # Update the target dict in place if it exists and has the right structure
                 if key in parent and isinstance(parent[key], dict):
-                    parent[key]['format'] = converted['format']
-                    parent[key]['encoding'] = converted['encoding']
-                    parent[key]['data'] = converted['data']
-                    parent[key]['width'] = converted['width']
-                    parent[key]['height'] = converted['height']
+                    parent[key][MessageKeys.IMAGE.FORMAT] = converted[MessageKeys.IMAGE.FORMAT]
+                    parent[key][MessageKeys.IMAGE.ENCODING] = converted[MessageKeys.IMAGE.ENCODING]
+                    parent[key][MessageKeys.IMAGE.DATA] = converted[MessageKeys.IMAGE.DATA]
+                    parent[key][MessageKeys.IMAGE.WIDTH] = converted[MessageKeys.IMAGE.WIDTH]
+                    parent[key][MessageKeys.IMAGE.HEIGHT] = converted[MessageKeys.IMAGE.HEIGHT]
                 else:
                     parent[key] = converted
                     
@@ -172,18 +162,18 @@ class ImageFormatNode(BaseNode):
                 
                 # Update the target dict in place if it exists
                 if key in parent and isinstance(parent[key], dict):
-                    parent[key]['format'] = 'bgr'
-                    parent[key]['encoding'] = 'numpy'
-                    parent[key]['data'] = numpy_array
-                    parent[key]['width'] = numpy_array.shape[1]
-                    parent[key]['height'] = numpy_array.shape[0]
+                    parent[key][MessageKeys.IMAGE.FORMAT] = 'bgr'
+                    parent[key][MessageKeys.IMAGE.ENCODING] = 'numpy'
+                    parent[key][MessageKeys.IMAGE.DATA] = numpy_array
+                    parent[key][MessageKeys.IMAGE.WIDTH] = numpy_array.shape[1]
+                    parent[key][MessageKeys.IMAGE.HEIGHT] = numpy_array.shape[0]
                 else:
                     parent[key] = {
-                        'format': 'bgr',
-                        'encoding': 'numpy',
-                        'data': numpy_array,
-                        'width': numpy_array.shape[1],
-                        'height': numpy_array.shape[0]
+                        MessageKeys.IMAGE.FORMAT: 'bgr',
+                        MessageKeys.IMAGE.ENCODING: 'numpy',
+                        MessageKeys.IMAGE.DATA: numpy_array,
+                        MessageKeys.IMAGE.WIDTH: numpy_array.shape[1],
+                        MessageKeys.IMAGE.HEIGHT: numpy_array.shape[0]
                     }
             else:
                 self.report_error(f"Unknown mode: {mode}")
@@ -199,10 +189,10 @@ class ImageFormatNode(BaseNode):
         if not isinstance(image, np.ndarray):
             raise ValueError(f"Expected numpy array, got {type(image)}")
         
-        img_format = self.config.get('image_format', 'jpeg')
+        img_format = self.config.get(MessageKeys.IMAGE.FORMAT, 'jpeg')
         
         if img_format == 'jpeg':
-            quality = self.get_config_int('jpeg_quality', 85)
+            quality = self.get_config_int(MessageKeys.IMAGE.JPEG_QUALITY, 85)
             encode_params = [cv2.IMWRITE_JPEG_QUALITY, quality]
             ret, buffer = cv2.imencode('.jpg', image, encode_params)
             ext = 'jpeg'
@@ -219,25 +209,25 @@ class ImageFormatNode(BaseNode):
         img_base64 = base64.b64encode(buffer.tobytes()).decode('utf-8')
         
         return {
-            'format': ext,
-            'encoding': 'base64',
-            'data': img_base64,
-            'width': image.shape[1],
-            'height': image.shape[0]
+            MessageKeys.IMAGE.FORMAT: ext,
+            MessageKeys.IMAGE.ENCODING: 'base64',
+            MessageKeys.IMAGE.DATA: img_base64,
+            MessageKeys.IMAGE.WIDTH: image.shape[1],
+            MessageKeys.IMAGE.HEIGHT: image.shape[0]
         }
     
     def _base64_to_numpy(self, data: Any) -> np.ndarray:
         """Convert base64 encoded image to numpy array."""
         # Handle dict format
         if isinstance(data, dict):
-            img_data = data.get('data')
+            img_data = data.get(MessageKeys.IMAGE.DATA)
             if img_data is None:
-                raise ValueError("No 'data' field in image dict")
+                raise ValueError(f"No '{MessageKeys.IMAGE.DATA}' field in image dict")
         # Handle raw base64 string
         elif isinstance(data, str):
             img_data = data
             # Remove data URL prefix if present
-            if img_data.startswith('data:image'):
+            if img_data.startswith(f'{MessageKeys.IMAGE.DATA}:{MessageKeys.IMAGE.PATH}'):
                 img_data = img_data.split(',')[1]
         else:
             raise ValueError(f"Cannot convert {type(data)} to numpy array")

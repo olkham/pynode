@@ -3,7 +3,7 @@ Normalize Coordinates Node - converts pixel coordinates to normalized (0.0-1.0).
 """
 
 from typing import Any, Dict, List
-from pynode.nodes.base_node import BaseNode, Info
+from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
 _info.add_text("Converts pixel coordinates to normalized coordinates (0.0-1.0). Useful for making detection outputs resolution-independent.")

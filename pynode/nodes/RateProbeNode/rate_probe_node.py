@@ -6,7 +6,7 @@ Passes messages through while tracking and displaying the rate.
 import time
 from typing import Any, Dict
 from collections import deque
-from pynode.nodes.base_node import BaseNode, Info
+from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
 _info.add_text("Monitors message throughput rate by counting messages within a time window. Displays the rate on the node and outputs rate information.")

@@ -5,7 +5,7 @@ Colormap Node - applies colormaps to depth/grayscale images for visualization.
 import cv2
 import numpy as np
 from typing import Any, Dict
-from pynode.nodes.base_node import BaseNode, Info
+from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
 _info.add_text("Applies colormaps to depth maps or grayscale images for visualization.")

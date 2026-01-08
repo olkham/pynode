@@ -3,7 +3,7 @@ Range Node - scales/maps values from one range to another.
 """
 
 from typing import Any, Dict
-from pynode.nodes.base_node import BaseNode, Info
+from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
 _info.add_text("Maps numeric values from one range to another using linear interpolation. Useful for scaling sensor data, normalizing values, or converting between units.")

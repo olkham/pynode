@@ -3,7 +3,7 @@ Batch Node - groups messages into batches.
 """
 
 from typing import Any, Dict, List
-from pynode.nodes.base_node import BaseNode, Info
+from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
 _info.add_text("Collects incoming messages into batches and sends them together as an array.")

@@ -4,7 +4,7 @@ This demonstrates how third-party developers can create their own nodes.
 """
 
 from typing import Any, Dict
-from pynode.nodes.base_node import BaseNode, Info
+from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 # Build info content
 _info = Info()

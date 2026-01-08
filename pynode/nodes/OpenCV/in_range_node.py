@@ -6,7 +6,7 @@ Useful for color-based object detection and masking.
 import cv2
 import numpy as np
 from typing import Any, Dict
-from pynode.nodes.base_node import BaseNode, Info
+from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
 _info.add_text("Creates a binary mask from pixels within a specified color/intensity range. Useful for color-based object detection and masking. Works best with HSV color space for color filtering.")

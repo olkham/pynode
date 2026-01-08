@@ -4,7 +4,7 @@ Uses shared MQTT service for connection management.
 """
 
 from typing import Any, Dict, Optional
-from pynode.nodes.base_node import BaseNode, Info
+from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 from pynode.nodes.MQTTNode.mqtt_service import mqtt_manager, MQTTService
 
 _info = Info()

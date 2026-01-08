@@ -3,7 +3,7 @@ Filter Node - filters messages based on conditions.
 """
 
 from typing import Any, Dict
-from pynode.nodes.base_node import BaseNode, Info
+from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
 _info.add_text("Filters messages based on various conditions. Only passes messages that meet the specified criteria.")

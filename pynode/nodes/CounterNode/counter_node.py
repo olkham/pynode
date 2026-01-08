@@ -4,7 +4,7 @@ Demonstrates the use of UI components (button + rate-display).
 """
 
 from typing import Any, Dict
-from pynode.nodes.base_node import BaseNode, Info
+from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
 _info.add_text("Counts incoming messages and outputs the running total. Includes a reset button to restart the count.")

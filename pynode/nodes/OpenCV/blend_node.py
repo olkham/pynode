@@ -5,7 +5,7 @@ OpenCV Blend Node - blends two images together.
 import cv2
 import numpy as np
 from typing import Any, Dict
-from pynode.nodes.base_node import BaseNode, Info
+from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
 _info.add_text("Blends two images together using weighted addition: result = alpha×image1 + beta×image2 + gamma.")
