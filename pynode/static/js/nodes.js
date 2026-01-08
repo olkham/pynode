@@ -447,14 +447,17 @@ function attachNodeEventHandlers(nodeEl, nodeData) {
                 selectedNodeData.y = next.y;
                 selectedNodeEl.style.left = `${selectedNodeData.x}px`;
                 selectedNodeEl.style.top = `${selectedNodeData.y}px`;
+                // Mark as modified when moved
+                markNodeModified(selectedId);
+                setModified(true);
             }
         });
 
         nodeData.x = nextAnchorX;
         nodeData.y = nextAnchorY;
-        
+
         updateConnections();
-        
+
         // Check for connection hover if this is an unconnected node
         // Must happen after updateConnections() to ensure highlight persists
         if (isUnconnectedNode && state.selectedNodes.size === 1) {
@@ -463,7 +466,7 @@ function attachNodeEventHandlers(nodeEl, nodeData) {
             const canvasRect = document.getElementById('canvas').getBoundingClientRect();
             const nodeCenterX = nodeRect.left + nodeRect.width / 2 - canvasRect.left;
             const nodeCenterY = nodeRect.top + nodeRect.height / 2 - canvasRect.top;
-            
+
             const hoveredConnection = getConnectionAtPoint(nodeCenterX, nodeCenterY);
             if (hoveredConnection) {
                 highlightConnectionForInsert(hoveredConnection);
