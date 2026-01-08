@@ -7,7 +7,7 @@ import base64
 import threading
 import time
 from typing import Any, Dict
-from pynode.nodes.base_node import BaseNode, Info
+from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
 _info.add_text("Captures video frames from a webcam or video device using OpenCV and outputs them as messages.")
@@ -171,11 +171,11 @@ class CameraNode(BaseNode):
                         # Convert to base64 for JSON transmission
                         jpeg_base64 = base64.b64encode(jpeg_bytes).decode('utf-8')
                         payload = {
-                            'format': 'jpeg',
-                            'encoding': 'base64',
-                            'data': jpeg_base64,
-                            'width': frame.shape[1],
-                            'height': frame.shape[0]
+                            MessageKeys.IMAGE.FORMAT: 'jpeg',
+                            MessageKeys.IMAGE.ENCODING: 'base64',
+                            MessageKeys.IMAGE.DATA: jpeg_base64,
+                            MessageKeys.IMAGE.WIDTH: frame.shape[1],
+                            MessageKeys.IMAGE.HEIGHT: frame.shape[0]
                         }
                     else:
                         self.report_error("Failed to encode JPEG")
@@ -183,15 +183,15 @@ class CameraNode(BaseNode):
                 else:
                     # Send raw frame as numpy array
                     payload = {
-                        'format': 'bgr',
-                        'encoding': 'numpy',
-                        'data': frame,
-                        'width': frame.shape[1],
-                        'height': frame.shape[0]
+                        MessageKeys.IMAGE.FORMAT: 'bgr',
+                        MessageKeys.IMAGE.ENCODING: 'numpy',
+                        MessageKeys.IMAGE.DATA: frame,
+                        MessageKeys.IMAGE.WIDTH: frame.shape[1],
+                        MessageKeys.IMAGE.HEIGHT: frame.shape[0]
                     }
                 
                 # Create and send message with image wrapped in payload.image
-                msg = self.create_message(payload={'image': payload}, topic='camera/frame')
+                msg = self.create_message(payload={MessageKeys.IMAGE.PATH: payload}, topic='camera/frame')
                 self.send(msg)
                 
             except Exception as e:

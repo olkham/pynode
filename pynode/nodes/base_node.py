@@ -3,6 +3,7 @@ Base Node class for the Python Node-RED-like system.
 All custom nodes should inherit from this class.
 """
 
+from dataclasses import dataclass
 from time import time
 import uuid
 import queue
@@ -13,8 +14,6 @@ import html
 from functools import wraps
 from typing import Dict, List, Any, Optional, Tuple, Callable
 import numpy as np
-
-# Optional image processing dependencies
 import cv2
 
 
@@ -134,7 +133,29 @@ class Info:
         return f'Info({len(self._content)} elements)'
 
 
-def process_image(payload_path: str = 'payload', output_path: Optional[str] = None):
+@dataclass(frozen=True)
+class MessageKeys:
+
+    @dataclass(frozen=True)
+    class IMAGE:
+        PATH = 'image'
+        FORMAT: str = 'format'
+        ENCODING: str = 'encoding'
+        DATA: str = 'data'
+        WIDTH: str = 'width'
+        HEIGHT: str = 'height'
+
+    MSG_ID: str = '_msgid'
+    TIMESTAMP_ORIG: str = '_timestamp_orig'
+    TIMESTAMP_EMIT: str = '_timestamp_emit'
+    AGE: str = '_age'
+    DROP_COUNT: str = 'drop_count'
+    DROP_MESSAGES: str = 'drop_messages'
+    PAYLOAD: str = 'payload'
+    TOPIC: str = 'topic'
+
+
+def process_image(payload_path: str = MessageKeys.PAYLOAD, output_path: Optional[str] = None):
     """
     Decorator for image processing node methods.
     Automatically handles image decoding/encoding and error handling.
@@ -172,7 +193,7 @@ def process_image(payload_path: str = 'payload', output_path: Optional[str] = No
         @wraps(func)
         def wrapper(self, msg: Dict[str, Any], input_index: int = 0):
             # Check for payload
-            if 'payload' not in msg:
+            if MessageKeys.PAYLOAD not in msg:
                 self.send(msg)
                 return
             
@@ -222,8 +243,8 @@ def process_image(payload_path: str = 'payload', output_path: Optional[str] = No
                 if out_path is None:
                     # Default: if payload_path is 'payload', use 'payload.image'
                     # Otherwise use payload_path + '.image'
-                    if payload_path == 'payload':
-                        out_path = 'payload.image'
+                    if payload_path == MessageKeys.PAYLOAD:
+                        out_path = f"{MessageKeys.PAYLOAD}.{MessageKeys.IMAGE.PATH}"
                     else:
                         out_path = payload_path
                 
@@ -249,20 +270,7 @@ def process_image(payload_path: str = 'payload', output_path: Optional[str] = No
 
 
 
-from dataclasses import dataclass
 
-# Centralized class for all message dict keys ("magic strings")
-@dataclass(frozen=True)
-class MessageKeys:
-    MSG_ID: str = '_msgid'
-    TIMESTAMP_ORIG: str = '_timestamp_orig'
-    TIMESTAMP_EMIT: str = '_timestamp_emit'
-    AGE: str = '_age'
-    DROP_COUNT: str = 'drop_count'
-    DROP_MESSAGES: str = 'drop_messages'
-    PAYLOAD: str = 'payload'
-    IMAGE: str = 'image'
-    TOPIC: str = 'topic'
 
 
 class BaseNode:
@@ -672,8 +680,8 @@ class BaseNode:
         
         try:
             # Handle nested payload.image structure
-            if isinstance(payload, dict) and MessageKeys.IMAGE in payload:
-                payload = payload[MessageKeys.IMAGE]
+            if isinstance(payload, dict) and MessageKeys.IMAGE.PATH in payload:
+                payload = payload[MessageKeys.IMAGE.PATH]
             
             # Direct numpy array
             if isinstance(payload, np.ndarray):
