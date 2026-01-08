@@ -284,11 +284,6 @@ def process_image(payload_path: str = MessageKeys.PAYLOAD, output_path: Optional
 
 
 
-
-
-
-
-
 class BaseNode:
     """
     Base class for all nodes in the workflow system.
