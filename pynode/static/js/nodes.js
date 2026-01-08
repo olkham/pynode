@@ -2,7 +2,7 @@
 import { API_BASE } from './config.js';
 import { state, generateNodeId, markNodeModified, markNodeAdded, markNodeDeleted, setModified, getNodeType } from './state.js';
 import { updateConnections, nodeHasConnections, getConnectionAtPoint, highlightConnectionForInsert, clearConnectionHighlight, getHoveredConnection, insertNodeIntoConnection } from './connections.js';
-import { selectNode } from './selection.js';
+import { selectNode, selectPathBetweenNodes } from './selection.js';
 
 const GRID_SIZE = 20;
 
@@ -375,7 +375,13 @@ function attachNodeEventHandlers(nodeEl, nodeData) {
         // Check if this node has no connections (for hover-insert highlighting)
         isUnconnectedNode = !nodeHasConnections(nodeData.id);
         
-        if (e.ctrlKey || e.metaKey) {
+        if (e.shiftKey && state.selectedNodes.size === 1) {
+            // Shift+click with one node selected: select the path between them
+            const firstSelectedId = state.selectedNodes.values().next().value;
+            if (firstSelectedId !== nodeData.id) {
+                selectPathBetweenNodes(firstSelectedId, nodeData.id);
+            }
+        } else if (e.ctrlKey || e.metaKey) {
             selectNode(nodeData.id, true);
         } else if (!state.selectedNodes.has(nodeData.id)) {
             selectNode(nodeData.id, false);

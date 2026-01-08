@@ -5,6 +5,7 @@ export const state = {
     selectedNode: null,
     selectedNodes: new Set(),
     selectedConnection: null,
+    selectedConnections: new Set(),  // For multi-connection selection (path selection)
     draggingNode: null,
     drawingConnection: null,
     nodeTypes: [],
@@ -119,4 +120,26 @@ export function clearAllNodeModifiedIndicators() {
     document.querySelectorAll('.node.modified').forEach(nodeEl => {
         nodeEl.classList.remove('modified');
     });
+}
+
+/**
+ * Check if a connection is selected (either single or as part of path)
+ */
+export function isConnectionSelected(connection) {
+    const connKey = `${connection.source}->${connection.target}:${connection.sourceOutput || 0}`;
+    
+    // Check multi-selection first
+    if (state.selectedConnections.has(connKey)) {
+        return true;
+    }
+    
+    // Check single selection
+    if (state.selectedConnection && 
+        state.selectedConnection.source === connection.source &&
+        state.selectedConnection.target === connection.target &&
+        state.selectedConnection.sourceOutput === (connection.sourceOutput || 0)) {
+        return true;
+    }
+    
+    return false;
 }

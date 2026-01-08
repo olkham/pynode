@@ -1,5 +1,5 @@
 // Connection management
-import { state, markNodeModified, markConnectionAdded, markConnectionDeleted, setModified } from './state.js';
+import { state, markNodeModified, markConnectionAdded, markConnectionDeleted, setModified, isConnectionSelected } from './state.js';
 
 // Track the currently hovered connection for insertion
 let hoveredConnectionForInsert = null;
@@ -211,20 +211,8 @@ export function renderConnection(connection) {
         path.classList.add('disabled');
     }
     
-    // Check if this connection is selected
-    if (state.selectedConnection && 
-        state.selectedConnection.source === connection.source &&
-        state.selectedConnection.target === connection.target &&
-        state.selectedConnection.sourceOutput === (connection.sourceOutput || 0)) {
-        path.classList.add('selected');
-        console.log('Added selected class to connection:', connection.source, '->', connection.target);
-    }
-    
-    // Check if this connection is selected
-    if (state.selectedConnection && 
-        state.selectedConnection.source === connection.source &&
-        state.selectedConnection.target === connection.target &&
-        state.selectedConnection.sourceOutput === (connection.sourceOutput || 0)) {
+    // Check if this connection is selected (single or multi-selection)
+    if (isConnectionSelected(connection)) {
         path.classList.add('selected');
     }
     
