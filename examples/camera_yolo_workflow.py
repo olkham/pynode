@@ -13,7 +13,7 @@ import base64
 from typing import Dict, Any
 
 from pynode.workflow_engine import WorkflowEngine
-from pynode.nodes.base_node import BaseNode
+from pynode.nodes.base_node import BaseNode, MessageKeys
 from pynode import nodes
 
 
@@ -52,7 +52,7 @@ class DisplayNode(BaseNode):
         """
         Process incoming image messages and display them.
         """
-        payload = msg.get('payload')
+        payload = msg.get(MessageKeys.PAYLOAD)
         if payload is None:
             return
         

@@ -46,7 +46,7 @@ class DebugNode(BaseNode):
     
     DEFAULT_CONFIG = {
         'console': True,
-        'complete': 'payload',
+        'complete': MessageKeys.PAYLOAD,
         'drop_messages': False
     }
     
@@ -62,7 +62,7 @@ class DebugNode(BaseNode):
             'label': 'Output',
             'type': 'select',
             'options': [
-                {'value': 'payload', 'label': 'msg.payload'},
+                {'value': MessageKeys.PAYLOAD, 'label': f'msg.{MessageKeys.PAYLOAD}'},
                 {'value': 'msg', 'label': 'Complete msg'}
             ],
             'default': DEFAULT_CONFIG['complete']

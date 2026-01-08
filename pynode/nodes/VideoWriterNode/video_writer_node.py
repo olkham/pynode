@@ -437,5 +437,5 @@ class VideoWriterNode(BaseNode):
         event = self._stop_recording()
         if event:
             # Try to send final event
-            self.send({'payload': event})
+            self.send({MessageKeys.PAYLOAD: event})
         # super().close()

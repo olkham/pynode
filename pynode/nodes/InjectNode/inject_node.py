@@ -119,8 +119,8 @@ class InjectNode(BaseNode):
     def _set_nested_property(self, obj, path, value):
         """Set a nested property in an object using dot notation.
         
-        e.g., _set_nested_property(msg, 'payload.data.value', 123)
-        sets msg['payload']['data']['value'] = 123
+        e.g., _set_nested_property(msg, f'{MessageKeys.PAYLOAD}.data.value', 123)
+        sets msg[f'{MessageKeys.PAYLOAD}']['data']['value'] = 123
         
         If a path segment already exists but is not a dict, it will be
         replaced with a dict to allow nested properties.

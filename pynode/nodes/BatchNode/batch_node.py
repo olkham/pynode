@@ -40,7 +40,7 @@ class BatchNode(BaseNode):
     DEFAULT_CONFIG = {
         'batch_size': 10,
         'overlap': 0,
-        'drop_messages': False
+        MessageKeys.DROP_MESSAGES: False
     }
     
     properties = [
@@ -72,8 +72,8 @@ class BatchNode(BaseNode):
             # Send batch
             batch = self.buffer[:batch_size]
             out_msg = self.create_message(
-                payload=[m.get('payload') for m in batch],
-                topic=batch[0].get('topic', '') if batch else '',
+                payload=[m.get(MessageKeys.PAYLOAD) for m in batch],
+                topic=batch[0].get(MessageKeys.TOPIC, '') if batch else '',
                 batch_size=len(batch)
             )
             self.send(out_msg)

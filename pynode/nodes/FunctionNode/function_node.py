@@ -25,9 +25,9 @@ _info.add_bullets(
     ("time:", "Python time module.")
 )
 _info.add_header("Example")
-_info.add_code("msg['payload'] = msg['payload'] * 2\nreturn msg").text("Doubles the payload value and returns the modified message.").end()
+_info.add_code(f"msg['{MessageKeys.PAYLOAD}'] = msg['{MessageKeys.PAYLOAD}'] * 2\nreturn msg").text("Doubles the payload value and returns the modified message.").end()
 _info.add_header("Multiple Outputs")
-_info.add_code("return [msg, None, {'payload': 'alt'}]").text("Returns array to send to different outputs. None skips that output.").end()
+_info.add_code(f"return [msg, None, {{'{MessageKeys.PAYLOAD}': 'alt'}}]").text("Returns array to send to different outputs. None skips that output.").end()
 
 
 class FunctionNode(BaseNode):

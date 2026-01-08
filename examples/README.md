@@ -68,7 +68,7 @@ class MyCustomNode(BaseNode):
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         # Process incoming message
-        payload = msg.get('payload')
+        payload = msg.get(MessageKeys.PAYLOAD)
         
         # Do your processing
         result = self.process(payload)

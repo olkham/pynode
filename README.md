@@ -112,7 +112,7 @@ class MyCustomNode(BaseNode):
     
     def on_input(self, msg, input_index=0):
         # Process the incoming message
-        payload = msg['payload']
+        payload = msg[MessageKeys.PAYLOAD]
         multiplier = float(self.config.get('multiplier', 2))
         
         # Modify the payload
