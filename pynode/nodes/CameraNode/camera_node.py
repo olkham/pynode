@@ -43,50 +43,50 @@ class CameraNode(BaseNode):
     output_count = 1
     
     DEFAULT_CONFIG = {
-        'camera_index': 0,
-        'fps': 30,
-        'width': 640,
-        'height': 480,
-        'encode_jpeg': False,
-        'jpeg_quality': 75
+        MessageKeys.CAMERA.DEVICE_INDEX: 0,
+        MessageKeys.CAMERA.FPS: 30,
+        MessageKeys.CAMERA.WIDTH: 640,
+        MessageKeys.CAMERA.HEIGHT: 480,
+        MessageKeys.CAMERA.ENCODE_JPEG: False,
+        MessageKeys.CAMERA.JPG_QUALITY: 75
     }
     
     properties = [
         {
-            'name': 'camera_index',
+            'name': MessageKeys.CAMERA.DEVICE_INDEX,
             'label': 'Camera Index',
             'type': 'number',
-            'default': DEFAULT_CONFIG['camera_index']
+            'default': DEFAULT_CONFIG[MessageKeys.CAMERA.DEVICE_INDEX]
         },
         {
-            'name': 'fps',
+            'name': MessageKeys.CAMERA.FPS,
             'label': 'Frame Rate (FPS)',
             'type': 'number',
-            'default': DEFAULT_CONFIG['fps']
+            'default': DEFAULT_CONFIG[MessageKeys.CAMERA.FPS]
         },
         {
-            'name': 'width',
+            'name': MessageKeys.CAMERA.WIDTH,
             'label': 'Width',
             'type': 'number',
-            'default': DEFAULT_CONFIG['width']
+            'default': DEFAULT_CONFIG[MessageKeys.CAMERA.WIDTH]
         },
         {
-            'name': 'height',
+            'name': MessageKeys.CAMERA.HEIGHT,
             'label': 'Height',
             'type': 'number',
-            'default': DEFAULT_CONFIG['height']
+            'default': DEFAULT_CONFIG[MessageKeys.CAMERA.HEIGHT]
         },
         {
-            'name': 'encode_jpeg',
+            'name': MessageKeys.CAMERA.ENCODE_JPEG,
             'label': 'Encode as JPEG',
             'type': 'checkbox',
-            'default': DEFAULT_CONFIG['encode_jpeg']
+            'default': DEFAULT_CONFIG[MessageKeys.CAMERA.ENCODE_JPEG]
         },
         {
-            'name': 'jpeg_quality',
+            'name': MessageKeys.CAMERA.JPG_QUALITY,
             'label': 'JPEG Quality (1-100)',
             'type': 'number',
-            'default': DEFAULT_CONFIG['jpeg_quality']
+            'default': DEFAULT_CONFIG[MessageKeys.CAMERA.JPG_QUALITY]
         }
     ]
     
@@ -100,10 +100,10 @@ class CameraNode(BaseNode):
         """Start the camera capture when workflow starts."""
         super().on_start()  # Start base node worker thread
         
-        camera_index = self.get_config_int('camera_index', 0)
-        fps = self.get_config_int('fps', 10)
-        width = self.get_config_int('width', 640)
-        height = self.get_config_int('height', 480)
+        camera_index = self.get_config_int(MessageKeys.CAMERA.DEVICE_INDEX, 0)
+        fps = self.get_config_int(MessageKeys.CAMERA.FPS, 10)
+        width = self.get_config_int(MessageKeys.CAMERA.WIDTH, 640)
+        height = self.get_config_int(MessageKeys.CAMERA.HEIGHT, 480)
         
         try:
             # Open the camera
@@ -146,7 +146,7 @@ class CameraNode(BaseNode):
     def _capture_loop(self, fps):
         """Capture frames in a loop and send them as messages."""
         frame_interval = 1.0 / fps
-        encode_jpeg = self.config.get('encode_jpeg', True)
+        encode_jpeg = self.config.get(MessageKeys.CAMERA.ENCODE_JPEG, True)
         
         while self.running and self.camera and self.camera.isOpened():
             start_time = time.time()
@@ -162,7 +162,7 @@ class CameraNode(BaseNode):
                 # Prepare the payload
                 if encode_jpeg:
                     # Encode frame as JPEG with quality setting
-                    jpeg_quality = self.get_config_int('jpeg_quality', 75)
+                    jpeg_quality = self.get_config_int(MessageKeys.CAMERA.JPG_QUALITY, 75)
                     encode_params = [cv2.IMWRITE_JPEG_QUALITY, jpeg_quality]
                     ret, buffer = cv2.imencode('.jpg', frame, encode_params)
                     if ret:
