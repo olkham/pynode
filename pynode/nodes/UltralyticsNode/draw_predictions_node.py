@@ -53,6 +53,7 @@ class DrawPredictionsNode(BaseNode):
     }
     
     DEFAULT_CONFIG = {
+        'detections_path': 'payload.detections',
         'line_width': '2',
         'font_scale': '1',
         'text_thickness': '2',
@@ -60,8 +61,15 @@ class DrawPredictionsNode(BaseNode):
         'show_confidence': 'true',
         'show_class': 'true'
     }
-    
+
     properties = [
+        {
+            'name': 'detections_path',
+            'label': 'Detections/Tracks Path',
+            'type': 'text',
+            'default': DEFAULT_CONFIG['detections_path'],
+            'description': 'Dot-separated path to detections/tracks list (e.g. payload.detections or payload.tracks)'
+        },
         {
             'name': 'enabled',
             'label': 'Drawing Enabled',
@@ -209,43 +217,40 @@ class DrawPredictionsNode(BaseNode):
         return data
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
-        """Draw predictions on image."""
-        payload = msg.get('payload', {})
-        
+        """Draw predictions/tracks on image, with configurable path and track_id support."""
         # If drawing is disabled, pass through the message unchanged
         if not self.drawing_enabled:
             self.send(msg)
             return
-        
-        # Get detections and image from message
-        detections = payload.get('detections', [])
+
+        # Get detections/tracks path from config
+        detections_path = self.config.get('detections_path', self.DEFAULT_CONFIG['detections_path'])
+
+        detections = self._get_nested_value(msg, detections_path)
+        payload = msg.get('payload', {})
         image_data = payload.get('image')
-        
+
         if image_data is None:
             self.report_error("No image data in message. Expected msg.payload.image")
             return
-        
+
         # Decode image using base node helper and make a copy to avoid modifying upstream data
         img, input_format = self.decode_image({'image': image_data})
-        
         if img is None or input_format is None:
             self.report_error("Failed to decode image from payload")
             return
-        
-        # Make a copy to avoid modifying upstream data
         img = img.copy()
-        
-        # Check if there are any detections (handle both list and numpy array)
+
+        # Check if there are any detections/tracks
         if isinstance(detections, np.ndarray):
             has_detections = len(detections) > 0
         else:
             has_detections = bool(detections)
-        
+
         if not has_detections:
-            # No detections, just pass through the original message
             self.send(msg)
             return
-        
+
         # Get configuration
         line_width = self.get_config_int('line_width', 2)
         font_scale = self.get_config_float('font_scale', 0.5)
@@ -254,60 +259,71 @@ class DrawPredictionsNode(BaseNode):
         text_color = self.text_colors.get(text_color_name, (255, 255, 255))
         show_confidence = self.get_config_bool('show_confidence', True)
         show_class = self.get_config_bool('show_class', True)
-        
-        # Draw each detection
+
+        # Draw each detection/track
         for i, det in enumerate(detections):
             try:
-                # Get detection data (YOLO node uses 'bbox' not 'box')
                 bbox = det.get('bbox', [0, 0, 0, 0])
-                
-                # Convert bbox to list if it's a numpy array
                 if isinstance(bbox, np.ndarray):
                     bbox = bbox.tolist()
-                
                 x1, y1, x2, y2 = bbox
                 class_id = det.get('class_id', 0)
                 class_name = det.get('class_name', 'unknown')
                 confidence = det.get('confidence', 0.0)
-                
-                # Convert coordinates to integers
+                track_id = det.get('track_id', None)
+
                 x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
-                
-                # Get color for this class
                 color = self._get_color(class_id)
-                
-                # Draw bounding box
                 cv2.rectangle(img, (x1, y1), (x2, y2), color, line_width)
-                
+
                 # Build label text
                 label_parts = []
+                if track_id is not None:
+                    label_parts.append(f"TrackID: {track_id}")
                 if show_class:
                     label_parts.append(class_name)
                 if show_confidence:
-                    label_parts.append(f"{confidence:.2f}")
-                
+                    label_parts.append(f"({confidence:.2f})")
+
+
                 if label_parts:
-                    label = ' '.join(label_parts)
-                    
-                    # Calculate label size
+                    label = '  '.join(label_parts)
                     (text_width, text_height), baseline = cv2.getTextSize(
                         label, cv2.FONT_HERSHEY_SIMPLEX, font_scale, 1
                     )
-                    
+                    # Clamp label position to image bounds
+                    img_h, img_w = img.shape[:2]
+                    # Default: draw above the box
+                    label_top = y1 - text_height - baseline - 8
+                    label_bottom = y1
+                    text_org_y = y1 - baseline - 2
+                    # Gradually clamp label so it stays within image bounds
+                    if label_top < 0:
+                        shift = -label_top
+                        label_top += shift
+                        label_bottom += shift
+                        text_org_y += shift
+                    if label_bottom > img_h:
+                        shift = label_bottom - img_h
+                        label_top -= shift
+                        label_bottom -= shift
+                        text_org_y -= shift
+                    # Clamp horizontally
+                    label_left = max(x1, 0)
+                    label_right = min(x1 + text_width, img_w)
                     # Draw label background
                     cv2.rectangle(
                         img,
-                        (x1, y1 - text_height - baseline - 4),
-                        (x1 + text_width, y1),
+                        (label_left, label_top),
+                        (label_right, label_bottom),
                         color,
                         -1  # Filled
                     )
-                    
                     # Draw label text
                     cv2.putText(
                         img,
                         label,
-                        (x1, y1 - baseline - 2),
+                        (label_left, text_org_y),
                         cv2.FONT_HERSHEY_SIMPLEX,
                         font_scale,
                         text_color,
@@ -318,11 +334,7 @@ class DrawPredictionsNode(BaseNode):
                 import traceback
                 self.report_error(f"Failed to draw detection {i}: {str(e)}\n{traceback.format_exc()}")
                 continue
-        
-        # Update message with annotated image (keep same format as input)
-        # Preserve all original message properties (like frame_count)
-        # Note: send() handles deep copying, so we modify msg directly
-        
+
         # Encode image back to same format as input using base node helper
         encoded_image = self.encode_image(img, input_format)
         if encoded_image is not None:
@@ -332,5 +344,5 @@ class DrawPredictionsNode(BaseNode):
         else:
             self.report_error("Failed to encode output image")
             return
-        
+
         self.send(msg)
