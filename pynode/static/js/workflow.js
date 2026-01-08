@@ -282,6 +282,47 @@ export function exportWorkflow() {
     }
 }
 
+export function exportSelected() {
+    try {
+        const nodes = [];
+        // If nothing selected, fallback to exporting full workflow
+        if (!state.selectedNodes || state.selectedNodes.size === 0) {
+            return exportWorkflow();
+        }
+
+        const selectedSet = new Set(Array.from(state.selectedNodes));
+
+        state.nodes.forEach((nodeData) => {
+            if (selectedSet.has(nodeData.id)) {
+                nodes.push({
+                    id: nodeData.id,
+                    type: nodeData.type,
+                    name: nodeData.name,
+                    config: nodeData.config,
+                    x: nodeData.x,
+                    y: nodeData.y
+                });
+            }
+        });
+
+        // Include only connections where both ends are selected
+        const connections = state.connections.filter(conn => selectedSet.has(conn.source) && selectedSet.has(conn.target));
+
+        const workflow = { nodes, connections };
+
+        const dataStr = JSON.stringify(workflow, null, 2);
+        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(dataBlob);
+
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'workflow-selected.json';
+        link.click();
+    } catch (error) {
+        console.error('Failed to export selected nodes:', error);
+    }
+}
+
 export function importWorkflow() {
     const input = document.createElement('input');
     input.type = 'file';

@@ -30,7 +30,33 @@ export function setupEventListeners() {
         }
     });
     document.getElementById('clear-btn').addEventListener('click', clearWorkflow);
-    document.getElementById('export-btn').addEventListener('click', exportWorkflow);
+    // Export submenu: default is Export Flow, also support Export Selected
+    const exportBtn = document.getElementById('export-btn');
+    const exportSubmenu = document.getElementById('export-submenu');
+    const exportFlowBtn = document.getElementById('export-flow-btn');
+    const exportSelectedBtn = document.getElementById('export-selected-btn');
+
+    // Submenu display handled via CSS hover/focus; no click toggle here.
+
+    if (exportFlowBtn) {
+        exportFlowBtn.addEventListener('click', () => {
+            exportWorkflow();
+            menuDropdown.classList.add('hidden');
+            exportSubmenu.classList.add('hidden');
+        });
+    }
+
+    if (exportSelectedBtn) {
+        exportSelectedBtn.addEventListener('click', () => {
+            // Lazy-import to avoid circular deps
+            import('./workflow.js').then(({ exportSelected }) => {
+                exportSelected();
+            });
+            menuDropdown.classList.add('hidden');
+            exportSubmenu.classList.add('hidden');
+        });
+    }
+
     document.getElementById('import-btn').addEventListener('click', importWorkflow);
     document.getElementById('clear-debug-btn').addEventListener('click', clearDebug);
     
@@ -100,13 +126,12 @@ export function setupEventListeners() {
     document.getElementById('clear-btn').addEventListener('click', () => {
         menuDropdown.classList.add('hidden');
     });
-    
-    document.getElementById('export-btn').addEventListener('click', () => {
-        menuDropdown.classList.add('hidden');
-    });
-    
+
+    // Submenu visibility is managed by CSS (:hover / :focus-within).
+
     document.getElementById('import-btn').addEventListener('click', () => {
         menuDropdown.classList.add('hidden');
+        if (exportSubmenu) exportSubmenu.classList.add('hidden');
     });
     
     // Close properties button

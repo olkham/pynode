@@ -114,6 +114,41 @@ body {
     border-radius: 0 0 4px 4px;
 }
 
+/* Submenu popout for Export */
+.menu-submenu {
+    position: relative;
+}
+
+.submenu-dropdown {
+    position: absolute;
+    top: 0;
+    /* Pop out to the left by default to avoid going off-screen on the right */
+    right: 100%;
+    left: auto;
+    margin-right: 6px;
+    background: #252526;
+    border: 1px solid #3e3e42;
+    border-radius: 4px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+    min-width: 200px;
+    z-index: 1100;
+}
+
+.submenu-dropdown.hidden {
+    display: none;
+}
+
+/* Show submenu on hover or when focused for accessibility */
+.menu-submenu:hover > .submenu-dropdown,
+.menu-submenu:focus-within > .submenu-dropdown {
+    display: block;
+}
+
+/* Allow main menu dropdown to show overflow so submenu is visible */
+.menu-dropdown {
+    overflow: visible;
+}
+
 /* Buttons */
 .btn {
     padding: 8px 16px;

@@ -51,7 +51,15 @@
                     <button id="menu-btn" class="btn btn-secondary" title="Menu">☰</button>
                     <div id="menu-dropdown" class="menu-dropdown hidden">
                         <button id="clear-btn" class="menu-item">Clear Workflow</button>
-                        <button id="export-btn" class="menu-item">Export</button>
+
+                        <div class="menu-submenu">
+                            <button id="export-btn" class="menu-item submenu-toggle">◁ Export</button>
+                            <div id="export-submenu" class="submenu-dropdown hidden">
+                                <button id="export-flow-btn" class="menu-item">Flow</button>
+                                <button id="export-selected-btn" class="menu-item">Selected Nodes</button>
+                            </div>
+                        </div>
+
                         <button id="import-btn" class="menu-item">Import</button>
                     </div>
                 </div>
