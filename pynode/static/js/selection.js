@@ -8,68 +8,65 @@ import { updateConnections } from './connections.js';
  * Returns an object with arrays of node IDs and connections on the path,
  * or null if no path exists.
  */
-export function findPathBetweenNodes(nodeId1, nodeId2) {
+/**
+ * Find all simple paths between two nodes using DFS (with limits).
+ * Returns an array of path objects: { nodes: [...], connections: [...] }
+ * Limits: `maxPaths` and `maxDepth` to avoid combinatorial explosion.
+ */
+export function findAllPathsBetweenNodes(nodeId1, nodeId2, { maxPaths = 200, maxDepth = 100 } = {}) {
     if (nodeId1 === nodeId2) {
-        return { nodes: [nodeId1], connections: [] };
+        return [{ nodes: [nodeId1], connections: [] }];
     }
-    
+
     // Build adjacency list for bidirectional graph traversal
-    // We need to find path regardless of connection direction
     const adjacency = new Map();
-    
     state.nodes.forEach((_, nodeId) => {
         adjacency.set(nodeId, []);
     });
-    
+
     state.connections.forEach(conn => {
-        // Add both directions for path finding
         if (adjacency.has(conn.source)) {
-            adjacency.get(conn.source).push({ 
-                node: conn.target, 
-                connection: conn,
-                direction: 'forward'
-            });
+            adjacency.get(conn.source).push({ node: conn.target, connection: conn });
         }
         if (adjacency.has(conn.target)) {
-            adjacency.get(conn.target).push({ 
-                node: conn.source, 
-                connection: conn,
-                direction: 'backward'
-            });
+            adjacency.get(conn.target).push({ node: conn.source, connection: conn });
         }
     });
-    
-    // BFS to find shortest path
-    const visited = new Set();
-    const queue = [{ nodeId: nodeId1, path: [nodeId1], connections: [] }];
-    visited.add(nodeId1);
-    
-    while (queue.length > 0) {
-        const { nodeId, path, connections } = queue.shift();
-        
-        const neighbors = adjacency.get(nodeId) || [];
+
+    const results = [];
+
+    // DFS stack: node, path nodes array, connections array
+    const stack = [{ node: nodeId1, path: [nodeId1], connections: [] }];
+
+    while (stack.length > 0 && results.length < maxPaths) {
+        const { node, path, connections } = stack.pop();
+
+        if (path.length > maxDepth) continue;
+
+        const neighbors = adjacency.get(node) || [];
         for (const { node: neighborId, connection } of neighbors) {
+            // avoid cycles in current path
+            if (path.includes(neighborId)) continue;
+
+            const newPath = [...path, neighborId];
+            const newConns = [...connections, connection];
+
             if (neighborId === nodeId2) {
-                // Found the target
-                return {
-                    nodes: [...path, neighborId],
-                    connections: [...connections, connection]
-                };
-            }
-            
-            if (!visited.has(neighborId)) {
-                visited.add(neighborId);
-                queue.push({
-                    nodeId: neighborId,
-                    path: [...path, neighborId],
-                    connections: [...connections, connection]
-                });
+                results.push({ nodes: newPath, connections: newConns });
+                if (results.length >= maxPaths) break;
+            } else {
+                stack.push({ node: neighborId, path: newPath, connections: newConns });
             }
         }
     }
-    
-    // No path found
-    return null;
+
+    return results;
+}
+
+// Backwards-compatible single-path finder: returns first found path or null
+export function findPathBetweenNodes(nodeId1, nodeId2) {
+    const all = findAllPathsBetweenNodes(nodeId1, nodeId2, { maxPaths: 1 });
+    return all.length > 0 ? all[0] : null;
 }
 
 /**
@@ -77,48 +74,57 @@ export function findPathBetweenNodes(nodeId1, nodeId2) {
  * Returns true if a path was found and selected, false otherwise.
  */
 export function selectPathBetweenNodes(nodeId1, nodeId2) {
-    const path = findPathBetweenNodes(nodeId1, nodeId2);
-    
-    if (!path) {
+    const paths = findAllPathsBetweenNodes(nodeId1, nodeId2);
+
+    if (!paths || paths.length === 0) {
         console.log('No path found between nodes:', nodeId1, nodeId2);
         return false;
     }
-    
+
     // Clear current selection
     deselectAllNodes(true);
     clearSelectedConnections();
-    
-    // Select all nodes on the path
-    path.nodes.forEach(nodeId => {
+
+    // Aggregate nodes and connections across all found paths
+    const nodesSet = new Set();
+    const connSet = new Set();
+
+    paths.forEach(path => {
+        path.nodes.forEach(n => nodesSet.add(n));
+        path.connections.forEach(conn => {
+            const key = `${conn.source}->${conn.target}:${conn.sourceOutput || 0}`;
+            connSet.add(key);
+        });
+    });
+
+    // Select aggregated nodes
+    nodesSet.forEach(nodeId => {
         state.selectedNodes.add(nodeId);
         const nodeEl = document.getElementById(`node-${nodeId}`);
         if (nodeEl) nodeEl.classList.add('selected');
     });
-    
+
     // Set the last clicked node as the primary selected node
     state.selectedNode = nodeId2;
-    
-    // Select all connections on the path
-    path.connections.forEach(conn => {
-        const connKey = `${conn.source}->${conn.target}:${conn.sourceOutput || 0}`;
-        state.selectedConnections.add(connKey);
-    });
-    
-    // Update connection visuals
+
+    // Select aggregated connections
+    connSet.forEach(k => state.selectedConnections.add(k));
+
+    // Update visuals
     updateConnections();
-    
+
     // Update info panel for the clicked node
     updateInfoPanel(nodeId2);
-    
+
     // Update properties panel
     const propertiesPanel = document.getElementById('properties-panel-container');
     const wasPanelOpen = propertiesPanel && !propertiesPanel.classList.contains('hidden');
     if (wasPanelOpen) {
         document.getElementById('properties-panel').innerHTML = 
-            `<p class="placeholder">${path.nodes.length} nodes selected (path)</p>`;
+            `<p class="placeholder">${nodesSet.size} nodes selected (${paths.length} path(s))</p>`;
     }
-    
-    console.log('Selected path:', path.nodes.length, 'nodes,', path.connections.length, 'connections');
+
+    console.log('Selected paths:', paths.length, 'paths,', nodesSet.size, 'unique nodes,', connSet.size, 'connections');
     return true;
 }
 
