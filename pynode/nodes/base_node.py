@@ -171,8 +171,10 @@ class MessageKeys:
         TRACK_ID: str = 'track_id'
         MASK: str = 'mask'
         SEGMENTATION: str = 'segmentation'
+        THRESHOLD: str = 'threshold'
 
     # Message-level keys
+    MSG = 'msg'
     MSG_ID: str = '_msgid'
     ORIGINAL_MSG: str = '_original_msg'
     TIMESTAMP_ORIG: str = '_timestamp_orig'
@@ -681,6 +683,61 @@ class BaseNode:
                 return None
         
         return current
+    
+    def _set_nested_value(self, obj: Dict, path: str, value: Any) -> bool:
+        """
+        Set a value at a nested path like 'payload.image.width'
+        Supports array indexing and msg. prefix handling.
+        
+        Args:
+            obj: The object to set the value in
+            path: Dot-separated path string
+            value: The value to set
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        import re
+        
+        # Handle msg. prefix
+        if path.startswith('msg.'):
+            path = path[4:]
+        
+        parts = path.split('.')
+        current = obj
+        
+        # Navigate to parent of target
+        for part in parts[:-1]:
+            # Handle array indexing
+            match = re.match(r'(\w+)\[(\d+)\]', part)
+            if match:
+                key, index = match.groups()
+                if key not in current:
+                    current[key] = []
+                current = current[key]
+                index = int(index)
+                while len(current) <= index:
+                    current.append({})
+                current = current[index]
+            else:
+                if part not in current:
+                    current[part] = {}
+                current = current[part]
+        
+        # Set the final value
+        final_key = parts[-1]
+        match = re.match(r'(\w+)\[(\d+)\]', final_key)
+        if match:
+            key, index = match.groups()
+            if key not in current:
+                current[key] = []
+            while len(current[key]) <= int(index):
+                current[key].append(None)
+            current[key][int(index)] = value
+        else:
+            current[final_key] = value
+        
+        return True
     
     # Image processing helper methods
     def decode_image(self, payload: Any) -> Tuple[Any, Optional[str]]:

@@ -97,16 +97,6 @@ class LabelFilterNode(BaseNode):
     def __init__(self, node_id=None, name="label filter"):
         super().__init__(node_id, name)
 
-    def _set_nested_value(self, obj: Dict, path: str, value: Any):
-        """Set a nested value in a dictionary using dot notation."""
-        parts = path.split('.')
-        current = obj
-        for part in parts[:-1]:
-            if part not in current:
-                current[part] = {}
-            current = current[part]
-        current[parts[-1]] = value
-    
     def _parse_labels(self) -> List[str]:
         """Parse the comma-separated labels config into a list."""
         labels_str = self.config.get('labels', '')

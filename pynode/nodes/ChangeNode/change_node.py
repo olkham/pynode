@@ -80,58 +80,6 @@ class ChangeNode(BaseNode):
     def __init__(self, node_id=None, name="change"):
         super().__init__(node_id, name)
     
-    def _set_nested_value(self, obj: Dict, path: str, value: Any) -> bool:
-        """
-        Set a value at a nested path like 'payload.image.width'
-        
-        Args:
-            obj: The object to set the value in
-            path: Dot-separated path string
-            value: The value to set
-            
-        Returns:
-            True if successful, False otherwise
-        """
-        # Handle msg. prefix
-        if path.startswith('msg.'):
-            path = path[4:]
-        
-        parts = path.split('.')
-        current = obj
-        
-        # Navigate to parent of target
-        for part in parts[:-1]:
-            # Handle array indexing
-            match = re.match(r'(\w+)\[(\d+)\]', part)
-            if match:
-                key, index = match.groups()
-                if key not in current:
-                    current[key] = []
-                current = current[key]
-                index = int(index)
-                while len(current) <= index:
-                    current.append({})
-                current = current[index]
-            else:
-                if part not in current:
-                    current[part] = {}
-                current = current[part]
-        
-        # Set the final value
-        final_key = parts[-1]
-        match = re.match(r'(\w+)\[(\d+)\]', final_key)
-        if match:
-            key, index = match.groups()
-            if key not in current:
-                current[key] = []
-            while len(current[key]) <= int(index):
-                current[key].append(None)
-            current[key][int(index)] = value
-        else:
-            current[final_key] = value
-        
-        return True
-    
     def _delete_nested_value(self, obj: Dict, path: str) -> bool:
         """
         Delete a value at a nested path

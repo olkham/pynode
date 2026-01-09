@@ -3,7 +3,6 @@ Confidence Filter Node - filters messages based on detection confidence.
 Passes through messages that contain detections meeting the confidence threshold.
 """
 
-import copy
 from typing import Any, Dict, List
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
@@ -93,16 +92,6 @@ class ConfidenceFilterNode(BaseNode):
     def __init__(self, node_id=None, name="confidence filter"):
         super().__init__(node_id, name)
     
-    def _set_nested_value(self, obj: Dict, path: str, value: Any):
-        """Set a nested value in a dictionary using dot notation."""
-        parts = path.split('.')
-        current = obj
-        for part in parts[:-1]:
-            if part not in current:
-                current[part] = {}
-            current = current[part]
-        current[parts[-1]] = value
-    
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """
         Split detections based on confidence threshold.
@@ -111,14 +100,14 @@ class ConfidenceFilterNode(BaseNode):
         Output 1: Detections with confidence < threshold
         """
         # Get threshold from msg or config based on setting
-        threshold_source = self.config.get('threshold_source', 'config')
-        if threshold_source == 'msg' and 'threshold' in msg:
+        threshold_source = self.config.get('threshold_source', 'manual')
+        if threshold_source == MessageKeys.MSG and MessageKeys.CV.THRESHOLD in msg:
             try:
-                threshold = float(msg['threshold'])
+                threshold = float(msg[MessageKeys.CV.THRESHOLD])
             except (TypeError, ValueError):
-                threshold = self.get_config_float('threshold', 0.5)
+                threshold = self.get_config_float(MessageKeys.CV.THRESHOLD, 0.5)
         else:
-            threshold = self.get_config_float('threshold', 0.5)
+            threshold = self.get_config_float(MessageKeys.CV.THRESHOLD, 0.5)
         
         detections_path = self.config.get('detections_path', f'{MessageKeys.PAYLOAD}.{MessageKeys.CV.DETECTIONS}')
         confidence_field = self.config.get('confidence_field', MessageKeys.CV.CONFIDENCE)
@@ -128,15 +117,20 @@ class ConfidenceFilterNode(BaseNode):
         
         if not isinstance(detections, list):
             # No detections array found, send empty arrays to both outputs
-            high_msg = copy.deepcopy(msg)
-            low_msg = copy.deepcopy(msg)
+            # Use shallow copies - send() will deep copy for downstream isolation
+            msg[MessageKeys.CV.THRESHOLD] = threshold
+            high_msg = msg.copy()
+            low_msg = msg.copy()
+            
+            # Copy payload dict since shallow copy shares nested objects
+            payload = msg.get(MessageKeys.PAYLOAD, {})
+            if isinstance(payload, dict):
+                high_msg[MessageKeys.PAYLOAD] = payload.copy()
+                low_msg[MessageKeys.PAYLOAD] = payload.copy()
             
             # Set empty detection arrays
-            self._set_nested_value(high_msg, detections_path, [])
-            self._set_nested_value(low_msg, detections_path, [])
-            
-            high_msg['threshold'] = threshold
-            low_msg['threshold'] = threshold
+            high_msg[MessageKeys.PAYLOAD][MessageKeys.CV.DETECTIONS] = []
+            low_msg[MessageKeys.PAYLOAD][MessageKeys.CV.DETECTIONS] = []
             
             self.send(high_msg, 0)
             self.send(low_msg, 1)
@@ -168,17 +162,20 @@ class ConfidenceFilterNode(BaseNode):
                 # Invalid confidence value, add to low confidence
                 low_confidence_detections.append(detection)
         
-        # Create output messages
-        high_msg = copy.deepcopy(msg)
-        low_msg = copy.deepcopy(msg)
+        # Create output messages - use shallow copies since send() deep copies
+        msg[MessageKeys.CV.THRESHOLD] = threshold
+        high_msg = msg.copy()
+        low_msg = msg.copy()
         
-        # Set filtered detection arrays
-        self._set_nested_value(high_msg, detections_path, high_confidence_detections)
-        self._set_nested_value(low_msg, detections_path, low_confidence_detections)
+        # Copy payload dict since shallow copy shares nested objects
+        payload = msg.get(MessageKeys.PAYLOAD, {})
+        if isinstance(payload, dict):
+            high_msg[MessageKeys.PAYLOAD] = payload.copy()
+            low_msg[MessageKeys.PAYLOAD] = payload.copy()
         
-        # Add threshold and detection counts to messages
-        high_msg['threshold'] = threshold
-        low_msg['threshold'] = threshold
+        # Set filtered detection arrays directly on payload
+        high_msg[MessageKeys.PAYLOAD][MessageKeys.CV.DETECTIONS] = high_confidence_detections
+        low_msg[MessageKeys.PAYLOAD][MessageKeys.CV.DETECTIONS] = low_confidence_detections
         
         # Update detection counts if they exist
         if MessageKeys.CV.DETECTION_COUNT in msg:
