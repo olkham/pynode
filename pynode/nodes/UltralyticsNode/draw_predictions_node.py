@@ -287,16 +287,19 @@ class DrawPredictionsNode(BaseNode):
 
 
                 if label_parts:
-                    label = '  '.join(label_parts)
+                    label = ' '.join(label_parts)
                     (text_width, text_height), baseline = cv2.getTextSize(
                         label, cv2.FONT_HERSHEY_SIMPLEX, font_scale, 1
                     )
                     # Clamp label position to image bounds
                     img_h, img_w = img.shape[:2]
-                    # Default: draw above the box
-                    label_top = y1 - text_height - baseline - 8
-                    label_bottom = y1
-                    text_org_y = y1 - baseline - 2
+                    # Default: draw above the box with proper padding for tall characters
+                    padding = int(4 * font_scale)  # Scale padding with font size
+                    # Add extra height for tall characters like parentheses
+                    extra_height = int(text_height * 0.3)  # 30% extra for ascenders
+                    label_top = y1 - text_height - baseline - padding - extra_height
+                    label_bottom = y1  # Touch the bounding box directly
+                    text_org_y = y1 - baseline - padding
                     # Gradually clamp label so it stays within image bounds
                     if label_top < 0:
                         shift = -label_top
@@ -309,8 +312,18 @@ class DrawPredictionsNode(BaseNode):
                         label_bottom -= shift
                         text_org_y -= shift
                     # Clamp horizontally
-                    label_left = max(x1, 0)
-                    label_right = min(x1 + text_width, img_w)
+                    label_left = x1
+                    label_right = x1 + text_width
+                    
+                    # If text overflows right edge, shift it left
+                    if label_right > img_w:
+                        shift = label_right - img_w
+                        label_left -= shift
+                        label_right -= shift
+                    
+                    # Ensure left edge doesn't go below 0
+                    label_left = max(label_left, 0)
+                    label_right = min(label_left + text_width, img_w)
                     # Draw label background
                     cv2.rectangle(
                         img,
