@@ -190,6 +190,22 @@ class InferenceNode(BaseNode):
             return 'cuda:0'
         return 'cpu'
     
+    def _standardize_task_string(self, task: str) -> str:
+        # Check for task indicators in filename
+        if 'detect' in task or 'det' in task:
+            return 'detection'
+        elif 'seg' in task or 'segment' in task:
+            return 'segmentation'
+        elif 'cls' in task or 'classify' in task:
+            return 'classification'
+        elif 'pose' in task:
+            return 'pose'
+        elif 'obb' in task:
+            return 'obb'
+        else:
+            # Default to detection
+            return 'detection'
+    
     def __init__(self, node_id=None, name="Inference"):
         super().__init__(node_id, name)
         # Configure with defaults, then set device dynamically
@@ -391,7 +407,7 @@ class InferenceNode(BaseNode):
                 if isinstance(json_results, dict):
                     payload_out['detections'] = json_results.get('predictions', [])
                     payload_out['detection_count'] = json_results.get('num_detections', 0)
-                    payload_out['task_type'] = json_results.get('task_type', 'detect')
+                    payload_out['task_type'] = self._standardize_task_string(json_results.get('task_type', 'detections'))
                     payload_out['bbox_format'] = 'xyxy'
                 else:
                     payload_out['detections'] = []

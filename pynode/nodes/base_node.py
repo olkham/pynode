@@ -159,9 +159,22 @@ class MessageKeys:
         HEIGHT: str = 'height'
         JPEG_QUALITY: str = 'jpeg_quality'
         ENCODE_JPEG: str = 'encode_jpeg'
+        
+    class CV:
+        BBOX: str = 'bbox'
+        BBOX_FORMAT: str = 'bbox_format'
+        CONFIDENCE: str = 'confidence'
+        CLASS_ID: str = 'class_id'
+        CLASS_NAME: str = 'class_name'
+        DETECTIONS: str = 'detections'
+        DETECTION_COUNT: str = 'detection_count'
+        TRACK_ID: str = 'track_id'
+        MASK: str = 'mask'
+        SEGMENTATION: str = 'segmentation'
 
     # Message-level keys
     MSG_ID: str = '_msgid'
+    ORIGINAL_MSG: str = '_original_msg'
     TIMESTAMP_ORIG: str = '_timestamp_orig'
     TIMESTAMP_EMIT: str = '_timestamp_emit'
     AGE: str = '_age'

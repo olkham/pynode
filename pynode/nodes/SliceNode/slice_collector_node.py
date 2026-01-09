@@ -3,6 +3,7 @@ Slice Collector Node - collects predictions from multiple image slices and merge
 Designed to work with SliceImageNode in a slice-detect-merge workflow.
 """
 
+from dataclasses import dataclass
 import time
 from typing import Any, Dict, List, Optional
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
@@ -24,6 +25,26 @@ _info.add_bullets(
 )
 _info.add_header("Usage")
 _info.add_text("Designed for workflows: SliceImageNode (split mode) → Inference → SliceCollectorNode")
+
+@dataclass(frozen=True)
+class NodeKeys:
+    BBOX = 'bbox'
+    SLICE_INDEX = 'slice_index'
+    SLICE_OFFSET = 'slice_offset'
+    SLICE_BBOX = 'slice_bbox'
+    SLICES = 'slices'
+    SLICE_COUNT = 'slice_count'
+    COUNT = 'count'
+    EXPECTED_COUNT = 'expected_count'
+    OFFSET = 'offset'
+    IS_FULL_IMAGE = 'is_full_image'
+    ORIGINAL_WIDTH = 'original_width'
+    ORIGINAL_HEIGHT = 'original_height'
+    
+    NMS_THRESHOLD = 'nms_threshold'
+    MATCH_METRIC = 'match_metric'
+    CLASS_AGNOSTIC = 'class_agnostic'
+    TIMEOUT = 'timeout'
 
 
 class SliceCollectorNode(BaseNode):
@@ -49,41 +70,41 @@ class SliceCollectorNode(BaseNode):
     output_count = 1
     
     DEFAULT_CONFIG = {
-        'timeout': 5.0,
-        'nms_threshold': 0.5,
-        'match_metric': 'iou',
-        'class_agnostic': False,
-        'drop_messages': False
+        NodeKeys.TIMEOUT: 5.0,
+        NodeKeys.NMS_THRESHOLD: 0.5,
+        NodeKeys.MATCH_METRIC: 'iou',
+        NodeKeys.CLASS_AGNOSTIC: False,
+        MessageKeys.DROP_MESSAGES: False
     }
     
     properties = [
         {
-            'name': 'timeout',
+            'name': NodeKeys.TIMEOUT,
             'label': 'Collection Timeout (seconds)',
             'type': 'number',
-            'default': 5.0
+            'default': DEFAULT_CONFIG[NodeKeys.TIMEOUT]
         },
         {
-            'name': 'nms_threshold',
+            'name': NodeKeys.NMS_THRESHOLD,
             'label': 'NMS IoU Threshold',
             'type': 'number',
-            'default': 0.5
+            'default': DEFAULT_CONFIG[NodeKeys.NMS_THRESHOLD]
         },
         {
-            'name': 'match_metric',
+            'name': NodeKeys.MATCH_METRIC,
             'label': 'Match Metric',
             'type': 'select',
             'options': [
                 {'value': 'iou', 'label': 'IoU (Intersection over Union)'},
                 {'value': 'ios', 'label': 'IoS (Intersection over Smaller)'}
             ],
-            'default': 'iou'
+            'default': DEFAULT_CONFIG[NodeKeys.MATCH_METRIC]
         },
         {
-            'name': 'class_agnostic',
+            'name': NodeKeys.CLASS_AGNOSTIC,
             'label': 'Class Agnostic NMS',
             'type': 'checkbox',
-            'default': False
+            'default': DEFAULT_CONFIG[NodeKeys.CLASS_AGNOSTIC]
         }
     ]
     
@@ -139,19 +160,19 @@ class SliceCollectorNode(BaseNode):
         
         for det in detections:
             new_det = det.copy()
-            bbox = det.get('bbox', [])
+            bbox = det.get(NodeKeys.BBOX, [])
             
             if len(bbox) >= 4:
                 x1, y1, x2, y2 = bbox[:4]
-                new_det['bbox'] = [x1 + offset_x, y1 + offset_y, x2 + offset_x, y2 + offset_y]
-                new_det['slice_offset'] = offset
+                new_det[NodeKeys.BBOX] = [x1 + offset_x, y1 + offset_y, x2 + offset_x, y2 + offset_y]
+                new_det[NodeKeys.SLICE_OFFSET] = offset
             
             transformed.append(new_det)
         
         return transformed
     
     def _nms(self, detections: List[Dict], nms_threshold: float, 
-             match_metric: str = 'iou', class_agnostic: bool = False) -> List[Dict]:
+             match_metric: str = NodeKeys.MATCH_METRIC, class_agnostic: bool = False) -> List[Dict]:
         """Apply Non-Maximum Suppression to remove duplicate detections."""
         if not detections:
             return []
@@ -175,13 +196,13 @@ class SliceCollectorNode(BaseNode):
             
             for i, det in enumerate(group):
                 should_keep = True
-                bbox_i = det.get('bbox', [])
+                bbox_i = det.get(NodeKeys.BBOX, [])
                 
                 if len(bbox_i) < 4:
                     continue
                 
                 for j in keep_indices:
-                    bbox_j = group[j].get('bbox', [])
+                    bbox_j = group[j].get(NodeKeys.BBOX, [])
                     if len(bbox_j) < 4:
                         continue
                     
@@ -198,7 +219,7 @@ class SliceCollectorNode(BaseNode):
     
     def _cleanup_expired(self):
         """Remove expired collections."""
-        timeout = self.get_config_float('timeout', 5.0)
+        timeout = self.get_config_float(NodeKeys.TIMEOUT, self.DEFAULT_CONFIG[NodeKeys.TIMEOUT])
         current_time = time.time()
         expired = [k for k, v in self._collections.items() 
                    if current_time - v['start_time'] > timeout]
@@ -211,17 +232,17 @@ class SliceCollectorNode(BaseNode):
         if not collection:
             return None
         
-        nms_threshold = self.get_config_float('nms_threshold', 0.5)
-        match_metric = self.config.get('match_metric', 'iou')
-        class_agnostic = self.get_config_bool('class_agnostic', False)
+        nms_threshold = self.get_config_float(NodeKeys.NMS_THRESHOLD, self.DEFAULT_CONFIG[NodeKeys.NMS_THRESHOLD])
+        match_metric = self.config.get(NodeKeys.MATCH_METRIC, self.DEFAULT_CONFIG[NodeKeys.MATCH_METRIC])
+        class_agnostic = self.get_config_bool(NodeKeys.CLASS_AGNOSTIC, self.DEFAULT_CONFIG[NodeKeys.CLASS_AGNOSTIC])
         
         all_detections = []
         full_image_detections = []
         
-        for slice_data in collection['slices'].values():
-            offset = slice_data.get('offset', [0, 0])
-            detections = slice_data.get('detections', [])
-            is_full_image = slice_data.get('is_full_image', False)
+        for slice_data in collection[NodeKeys.SLICES].values():
+            offset = slice_data.get(NodeKeys.OFFSET, [0, 0])
+            detections = slice_data.get(MessageKeys.CV.DETECTIONS, [])
+            is_full_image = slice_data.get(NodeKeys.IS_FULL_IMAGE, False)
             
             if is_full_image:
                 full_image_detections.extend(detections)
@@ -240,16 +261,16 @@ class SliceCollectorNode(BaseNode):
             final_detections = merged
         
         # Sort by confidence
-        final_detections = sorted(final_detections, key=lambda x: x.get('confidence', 0), reverse=True)
+        final_detections = sorted(final_detections, key=lambda x: x.get(MessageKeys.CV.CONFIDENCE, 0), reverse=True)
         
         return {
-            'detections': final_detections,
-            'detection_count': len(final_detections),
-            'original_width': collection.get('original_width', 0),
-            'original_height': collection.get('original_height', 0),
-            'slice_count': len(collection['slices']),
-            'bbox_format': 'xyxy',
-            'image': collection.get('image')
+            MessageKeys.CV.DETECTIONS: final_detections,
+            MessageKeys.CV.DETECTION_COUNT: len(final_detections),
+            NodeKeys.ORIGINAL_WIDTH: collection.get(NodeKeys.ORIGINAL_WIDTH, 0),
+            NodeKeys.ORIGINAL_HEIGHT: collection.get(NodeKeys.ORIGINAL_HEIGHT, 0),
+            NodeKeys.SLICE_COUNT: len(collection[NodeKeys.SLICES]),
+            MessageKeys.CV.BBOX_FORMAT: 'xyxy',
+            MessageKeys.IMAGE.PATH: collection.get(MessageKeys.IMAGE.PATH)
         }
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
@@ -283,18 +304,18 @@ class SliceCollectorNode(BaseNode):
         # Get collection ID (from parts or generate one)
         collection_id = parts.get('id', msg.get(MessageKeys.MSG_ID, 'default'))
         expected_count = parts.get('count', 1)
-        slice_index = parts.get('index', msg.get('slice_index', 0))
+        slice_index = parts.get('index', msg.get(NodeKeys.SLICE_INDEX, 0))
         
         # Get slice metadata (check message level first, then payload)
-        offset = msg.get('slice_offset', payload.get('offset', [0, 0]) if isinstance(payload, dict) else [0, 0])
-        slice_bbox = msg.get('slice_bbox', payload.get('bbox', None) if isinstance(payload, dict) else None)
-        is_full_image = msg.get('is_full_image', payload.get('is_full_image', False) if isinstance(payload, dict) else False)
-        original_width = msg.get('original_width', payload.get('original_width', 0) if isinstance(payload, dict) else 0)
-        original_height = msg.get('original_height', payload.get('original_height', 0) if isinstance(payload, dict) else 0)
+        offset = msg.get( NodeKeys.OFFSET, payload.get(NodeKeys.OFFSET, [0, 0]) if isinstance(payload, dict) else [0, 0])
+        slice_bbox = msg.get(NodeKeys.BBOX, payload.get(NodeKeys.BBOX, None) if isinstance(payload, dict) else None)
+        is_full_image = msg.get(NodeKeys.IS_FULL_IMAGE, payload.get(NodeKeys.IS_FULL_IMAGE, False) if isinstance(payload, dict) else False)
+        original_width = msg.get(NodeKeys.ORIGINAL_WIDTH, payload.get(NodeKeys.ORIGINAL_WIDTH, 0) if isinstance(payload, dict) else 0)
+        original_height = msg.get(NodeKeys.ORIGINAL_HEIGHT, payload.get(NodeKeys.ORIGINAL_HEIGHT, 0) if isinstance(payload, dict) else 0)
         
         # Get detections
         if isinstance(payload, dict):
-            detections = payload.get('detections', [])
+            detections = payload.get(MessageKeys.CV.DETECTIONS, [])
             image = payload.get(MessageKeys.IMAGE.PATH)
         else:
             detections = []
@@ -304,39 +325,39 @@ class SliceCollectorNode(BaseNode):
         if collection_id not in self._collections:
             self._collections[collection_id] = {
                 'start_time': time.time(),
-                'expected_count': expected_count,
-                'slices': {},
-                'original_width': original_width,
-                'original_height': original_height,
-                'original_msg': msg.copy(),
-                'image': None
+                NodeKeys.EXPECTED_COUNT: expected_count,
+                NodeKeys.SLICES: {},
+                NodeKeys.ORIGINAL_WIDTH: original_width,
+                NodeKeys.ORIGINAL_HEIGHT: original_height,
+                MessageKeys.ORIGINAL_MSG: msg.copy(),
+                MessageKeys.IMAGE.PATH: None
             }
         
         collection = self._collections[collection_id]
         
         # Store slice data
-        collection['slices'][slice_index] = {
-            'detections': detections,
-            'offset': offset,
-            'is_full_image': is_full_image
+        collection[NodeKeys.SLICES][slice_index] = {
+            MessageKeys.CV.DETECTIONS: detections,
+            NodeKeys.OFFSET: offset,
+            NodeKeys.IS_FULL_IMAGE: is_full_image
         }
         
         # Store full image if this is the full image slice
         if is_full_image and image is not None:
-            collection['image'] = image
+            collection[MessageKeys.IMAGE.PATH] = image
         
         # Update dimensions if available
         if original_width > 0:
-            collection['original_width'] = original_width
+            collection[NodeKeys.ORIGINAL_WIDTH] = original_width
         if original_height > 0:
-            collection['original_height'] = original_height
+            collection[NodeKeys.ORIGINAL_HEIGHT] = original_height
         
         # Check if complete
-        if len(collection['slices']) >= collection['expected_count']:
+        if len(collection[NodeKeys.SLICES]) >= collection[NodeKeys.EXPECTED_COUNT]:
             result = self._process_collection(collection_id)
             
             if result:
-                out_msg = collection['original_msg'].copy()
+                out_msg = collection[MessageKeys.ORIGINAL_MSG].copy()
                 out_msg[MessageKeys.PAYLOAD] = result
                 out_msg[MessageKeys.TOPIC] = out_msg.get(MessageKeys.TOPIC, 'merged_predictions')
                 
