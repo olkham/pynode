@@ -592,6 +592,26 @@ body {
     opacity: 0.5;
 }
 
+.node.unknown-node {
+    border-style: dashed;
+    border-width: 2px;
+    background: repeating-linear-gradient(
+        45deg,
+        #3d3d3d,
+        #3d3d3d 10px,
+        #353535 10px,
+        #353535 20px
+    );
+}
+
+.node.unknown-node:hover {
+    border-color: #ff6b6b;
+}
+
+.node.unknown-node .node-title {
+    font-style: italic;
+}
+
 .node-modified-indicator {
     position: absolute;
     top: -7px;

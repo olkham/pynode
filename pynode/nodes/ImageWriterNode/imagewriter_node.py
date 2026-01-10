@@ -1,5 +1,5 @@
 """
-File System Node - writes image frames or data to disk.
+Image Writer Node - writes image frames or data to disk.
 Supports dynamic filenames from messages or static configuration.
 """
 
@@ -34,12 +34,12 @@ _info.add_bullets(
 )
 
 
-class FileSystemNode(BaseNode):
+class ImageWriterNode(BaseNode):
     """
-    File System node - writes image frames or data to disk.
+    Image Writer node - writes image frames or data to disk.
     Supports dynamic filenames and extensions from messages or properties.
     """
-    display_name = 'File System'
+    display_name = 'Image Writer'
     icon = '💾'
     category = 'output'
     color = '#87A980'
@@ -133,7 +133,7 @@ class FileSystemNode(BaseNode):
         }
     ]
     
-    def __init__(self, node_id=None, name="file system"):
+    def __init__(self, node_id=None, name="image writer"):
         super().__init__(node_id, name)
         self._counter = 0
         self._last_written = None
@@ -183,7 +183,7 @@ class FileSystemNode(BaseNode):
                         'reason': 'file_exists',
                         'path': full_path
                     },
-                    topic=msg.get(MessageKeys.TOPIC, 'filesystem')
+                    topic=msg.get(MessageKeys.TOPIC, 'ImageWriter')
                 )
                 self.send(output_msg)
                 return
@@ -209,7 +209,7 @@ class FileSystemNode(BaseNode):
                     'bytes': bytes_written,
                     'counter': self._counter
                 },
-                topic=msg.get(MessageKeys.TOPIC, 'filesystem')
+                topic=msg.get(MessageKeys.TOPIC, 'ImageWriter')
             )
             self.send(output_msg)
             
@@ -220,7 +220,7 @@ class FileSystemNode(BaseNode):
                     'status': 'error',
                     'error': str(e)
                 },
-                topic=msg.get(MessageKeys.TOPIC, 'filesystem/error')
+                topic=msg.get(MessageKeys.TOPIC, 'ImageWriter/error')
             )
             self.send(output_msg)
     

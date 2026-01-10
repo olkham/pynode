@@ -311,16 +311,37 @@ class WorkflowEngine:
             # Skip system nodes
             if node.id == '__system_error__' or getattr(node, 'is_system_node', False):
                 continue
+            
+            # Handle unknown/placeholder nodes - export with original type
+            if getattr(node, '_is_unknown_node', False):
+                original_type = node.config.get('original_type', node.type)
+                original_config = node.config.get('original_config', {})
+                # Get the original name without the "(missing)" suffix
+                original_name = node.name
+                if original_name.endswith(' (missing)'):
+                    original_name = original_name[:-10]  # Remove ' (missing)'
                 
-            nodes_data.append({
-                'id': node.id,
-                'type': node.type,
-                'name': node.name,
-                'config': node.config,
-                'enabled': node.enabled,
-                'x': getattr(node, 'x', 0),
-                'y': getattr(node, 'y', 0)
-            })
+                nodes_data.append({
+                    'id': node.id,
+                    'type': original_type,
+                    'name': original_name,
+                    'config': original_config,
+                    'enabled': False,  # Unknown nodes are always disabled
+                    'x': getattr(node, 'x', 0),
+                    'y': getattr(node, 'y', 0),
+                    'inputCount': node.input_count,
+                    'outputCount': node.output_count
+                })
+            else:
+                nodes_data.append({
+                    'id': node.id,
+                    'type': node.type,
+                    'name': node.name,
+                    'config': node.config,
+                    'enabled': node.enabled,
+                    'x': getattr(node, 'x', 0),
+                    'y': getattr(node, 'y', 0)
+                })
             
             for output_idx, targets in node.outputs.items():
                 for target_node, input_idx in targets:
@@ -354,29 +375,80 @@ class WorkflowEngine:
             
             # Create nodes
             for node_data in workflow_data.get('nodes', []):
-                node = self.create_node(
-                    node_type=node_data['type'],
-                    node_id=node_data['id'],
-                    name=node_data.get('name', ''),
-                    config=node_data.get('config', {})
-                )
-                node.enabled = node_data.get('enabled', True)
+                node_type = node_data['type']
+                
+                if node_type in self.node_types:
+                    # Known node type - create normally
+                    node = self.create_node(
+                        node_type=node_type,
+                        node_id=node_data['id'],
+                        name=node_data.get('name', ''),
+                        config=node_data.get('config', {})
+                    )
+                    node.enabled = node_data.get('enabled', True)
+                else:
+                    # Unknown node type - create placeholder
+                    node = self._create_unknown_node(node_data)
+                    print(f"Warning: Unknown node type '{node_type}' - created placeholder for node '{node_data['id']}'")
+                
                 # Store position if provided
                 node.x = node_data.get('x', 0)
                 node.y = node_data.get('y', 0)
             
             # Create connections
             for conn_data in workflow_data.get('connections', []):
-                self.connect_nodes(
-                    source_id=conn_data['source'],
-                    target_id=conn_data['target'],
-                    output_index=conn_data.get('sourceOutput', 0),
-                    input_index=conn_data.get('targetInput', 0)
-                )
+                try:
+                    self.connect_nodes(
+                        source_id=conn_data['source'],
+                        target_id=conn_data['target'],
+                        output_index=conn_data.get('sourceOutput', 0),
+                        input_index=conn_data.get('targetInput', 0)
+                    )
+                except ValueError as e:
+                    # Skip connections if source or target doesn't exist
+                    print(f"Warning: Could not create connection: {e}")
             
             # Recreate system error node if the workflow is running
             if self.running:
                 self._ensure_system_error_node()
+    
+    def _create_unknown_node(self, node_data: Dict[str, Any]) -> BaseNode:
+        """
+        Create a placeholder node for an unknown node type.
+        
+        Args:
+            node_data: The original node data from the workflow
+            
+        Returns:
+            An UnknownNode instance that preserves the original data
+        """
+        from pynode.nodes.UnknownNode import UnknownNode
+        
+        original_type = node_data['type']
+        original_config = node_data.get('config', {})
+        
+        # Try to preserve input/output counts from connections in the workflow
+        # Default to 1 each if we can't determine
+        input_count = node_data.get('inputCount', 1)
+        output_count = node_data.get('outputCount', 1)
+        
+        # Create the unknown node with original type info
+        node = UnknownNode(
+            node_id=node_data['id'],
+            name=f"{original_type} (missing)",
+            original_type=original_type,
+            original_config=original_config,
+            input_count=input_count,
+            output_count=output_count
+        )
+        
+        # Set workflow engine reference
+        node.set_workflow_engine(self)
+        
+        # Store in nodes dict
+        self.nodes[node.id] = node
+        
+        return node
     
     def get_workflow_stats(self) -> Dict[str, Any]:
         """

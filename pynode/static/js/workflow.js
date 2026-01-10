@@ -16,11 +16,25 @@ function enrichNodeWithTypeInfo(nodeData) {
         nodeData.icon = nodeType.icon;
         nodeData.inputCount = nodeType.inputCount;
         nodeData.outputCount = nodeType.outputCount;
+        nodeData.isUnknownNode = false;
         
         // Handle dynamic output counts (e.g., SwitchNode)
         if (nodeData.type === 'SwitchNode' && nodeData.config && nodeData.config.rules) {
             nodeData.outputCount = Math.max(1, nodeData.config.rules.length);
         }
+    } else {
+        // Unknown node type - mark as placeholder
+        nodeData.isUnknownNode = true;
+        nodeData.color = '#3d3d3d';
+        nodeData.borderColor = '#ff6b6b';
+        nodeData.textColor = '#999';
+        nodeData.icon = '❓';
+        // Preserve input/output counts if provided in the workflow data
+        nodeData.inputCount = nodeData.inputCount || 1;
+        nodeData.outputCount = nodeData.outputCount || 1;
+        // Force disabled state
+        nodeData.enabled = false;
+        console.warn(`Unknown node type: ${nodeData.type} - rendering as placeholder`);
     }
     return nodeData;
 }
@@ -177,7 +191,7 @@ export async function deployWorkflowFull() {
     try {
         const nodes = [];
         state.nodes.forEach((nodeData) => {
-            nodes.push({
+            const nodeExport = {
                 id: nodeData.id,
                 type: nodeData.type,
                 name: nodeData.name,
@@ -185,7 +199,13 @@ export async function deployWorkflowFull() {
                 enabled: nodeData.enabled !== undefined ? nodeData.enabled : true,
                 x: nodeData.x,
                 y: nodeData.y
-            });
+            };
+            // Include input/output counts for unknown nodes to preserve them
+            if (nodeData.isUnknownNode) {
+                nodeExport.inputCount = nodeData.inputCount;
+                nodeExport.outputCount = nodeData.outputCount;
+            }
+            nodes.push(nodeExport);
         });
         
         const workflow = {
@@ -254,14 +274,20 @@ export function exportWorkflow() {
     try {
         const nodes = [];
         state.nodes.forEach((nodeData) => {
-            nodes.push({
+            const nodeExport = {
                 id: nodeData.id,
                 type: nodeData.type,
                 name: nodeData.name,
                 config: nodeData.config,
                 x: nodeData.x,
                 y: nodeData.y
-            });
+            };
+            // Include input/output counts for unknown nodes to preserve them
+            if (nodeData.isUnknownNode) {
+                nodeExport.inputCount = nodeData.inputCount;
+                nodeExport.outputCount = nodeData.outputCount;
+            }
+            nodes.push(nodeExport);
         });
         
         const workflow = {
@@ -294,14 +320,20 @@ export function exportSelected() {
 
         state.nodes.forEach((nodeData) => {
             if (selectedSet.has(nodeData.id)) {
-                nodes.push({
+                const nodeExport = {
                     id: nodeData.id,
                     type: nodeData.type,
                     name: nodeData.name,
                     config: nodeData.config,
                     x: nodeData.x,
                     y: nodeData.y
-                });
+                };
+                // Include input/output counts for unknown nodes to preserve them
+                if (nodeData.isUnknownNode) {
+                    nodeExport.inputCount = nodeData.inputCount;
+                    nodeExport.outputCount = nodeData.outputCount;
+                }
+                nodes.push(nodeExport);
             }
         });
 

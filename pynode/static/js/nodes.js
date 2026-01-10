@@ -196,6 +196,11 @@ export function renderNode(nodeData) {
         nodeEl.classList.add('image-viewer-node');
     }
     
+    // Add special class for unknown/placeholder nodes
+    if (nodeData.isUnknownNode) {
+        nodeEl.classList.add('unknown-node');
+    }
+    
     // Add disabled class if node is disabled
     if (nodeData.enabled === false) {
         nodeEl.classList.add('disabled');
@@ -349,6 +354,9 @@ function attachNodeEventHandlers(nodeEl, nodeData) {
     
     nodeEl.addEventListener('mousedown', (e) => {
         if (e.target.classList.contains('port')) return;
+        
+        // Only handle left mouse button (button === 0) for node selection and dragging
+        if (e.button !== 0) return;
         
         // Bring node to front
         nodeEl.style.zIndex = nodeZIndex++;
