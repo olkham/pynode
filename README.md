@@ -253,6 +253,7 @@ Nodes can:
 - [ ] Check the inputs / outputs / arrays etc. are a standard form so nodes can be easily connected with little to no config
 - [ ] Remove some nodes from standard set
 - [ ] Create a new repo for extra nodes
+- [ ] Queue length, like the node rate probe
 
 ### Ongoing TODOs
 - [ ] Centralize more strings / constants

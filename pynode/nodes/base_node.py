@@ -184,6 +184,7 @@ class MessageKeys:
     DROP_MESSAGES: str = 'drop_messages'
     PAYLOAD: str = 'payload'
     TOPIC: str = 'topic'
+    QUEUE_LENGTH: str = '_queue_length'
 
 
 def process_image(payload_path: str = MessageKeys.PAYLOAD, output_path: Optional[str] = None):
@@ -476,6 +477,7 @@ class BaseNode:
                             msg_to_send[MessageKeys.TIMESTAMP_EMIT]
                             - msg_to_send.get(MessageKeys.TIMESTAMP_ORIG, msg_to_send[MessageKeys.TIMESTAMP_EMIT])
                         )
+                        msg_to_send[MessageKeys.QUEUE_LENGTH] = self._message_queue.qsize()
                         msg_to_send = sort_msg_keys(msg_to_send)
 
                         try:
@@ -497,11 +499,13 @@ class BaseNode:
                             msg_to_send[MessageKeys.TIMESTAMP_EMIT]
                             - msg_to_send.get(MessageKeys.TIMESTAMP_ORIG, msg_to_send[MessageKeys.TIMESTAMP_EMIT])
                         )
-                        msg_to_send = sort_msg_keys(msg_to_send)
-
+                        
                         # Add this node's drop count to message for monitoring
                         # (how many messages THIS node dropped before sending this one)
                         msg_to_send[MessageKeys.DROP_COUNT] = self.drop_count
+                        msg_to_send[MessageKeys.QUEUE_LENGTH] = self._message_queue.qsize()
+                        
+                        msg_to_send = sort_msg_keys(msg_to_send)
 
                         # Queue message for target node (non-blocking)
                         try:
