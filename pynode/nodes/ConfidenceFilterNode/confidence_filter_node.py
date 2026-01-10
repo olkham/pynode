@@ -132,6 +132,19 @@ class ConfidenceFilterNode(BaseNode):
             high_msg[MessageKeys.PAYLOAD][MessageKeys.CV.DETECTIONS] = []
             low_msg[MessageKeys.PAYLOAD][MessageKeys.CV.DETECTIONS] = []
             
+            # Update detection counts if they exist
+            if MessageKeys.CV.DETECTION_COUNT in msg:
+                high_msg[MessageKeys.CV.DETECTION_COUNT] = 0
+                low_msg[MessageKeys.CV.DETECTION_COUNT] = 0
+                
+            elif MessageKeys.PAYLOAD in msg and isinstance(msg[MessageKeys.PAYLOAD], dict) and MessageKeys.CV.DETECTION_COUNT in msg[MessageKeys.PAYLOAD]:
+                high_msg[MessageKeys.PAYLOAD][MessageKeys.CV.DETECTION_COUNT] = 0
+                low_msg[MessageKeys.PAYLOAD][MessageKeys.CV.DETECTION_COUNT] = 0
+                
+            else:
+                high_msg[MessageKeys.CV.DETECTION_COUNT] = 0
+                low_msg[MessageKeys.CV.DETECTION_COUNT] = 0
+            
             self.send(high_msg, 0)
             self.send(low_msg, 1)
             return
@@ -179,6 +192,14 @@ class ConfidenceFilterNode(BaseNode):
         
         # Update detection counts if they exist
         if MessageKeys.CV.DETECTION_COUNT in msg:
+            high_msg[MessageKeys.CV.DETECTION_COUNT] = len(high_confidence_detections)
+            low_msg[MessageKeys.CV.DETECTION_COUNT] = len(low_confidence_detections)
+            
+        elif MessageKeys.PAYLOAD in msg and isinstance(msg[MessageKeys.PAYLOAD], dict) and MessageKeys.CV.DETECTION_COUNT in msg[MessageKeys.PAYLOAD]:
+            high_msg[MessageKeys.PAYLOAD][MessageKeys.CV.DETECTION_COUNT] = len(high_confidence_detections)
+            low_msg[MessageKeys.PAYLOAD][MessageKeys.CV.DETECTION_COUNT] = len(low_confidence_detections)
+            
+        else:
             high_msg[MessageKeys.CV.DETECTION_COUNT] = len(high_confidence_detections)
             low_msg[MessageKeys.CV.DETECTION_COUNT] = len(low_confidence_detections)
         
