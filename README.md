@@ -240,6 +240,50 @@ Nodes can:
 - **File I/O**: Read/write files in custom nodes
 - **Scheduling**: Implement timed node execution
 
+## Development TODOs
+
+### Completed
+- ✅ Resolve SAHI splitting / joining
+- ✅ Fix confidence filter node
+- ✅ Draw detections clamp to the right also
+
+### TODOs for Launch
+- [ ] Update readme guides
+- [ ] Update Linux setup to match Windows
+- [ ] Check the inputs / outputs / arrays etc. are a standard form so nodes can be easily connected with little to no config
+- [ ] Remove some nodes from standard set
+- [ ] Create a new repo for extra nodes
+
+### Ongoing TODOs
+- [ ] Centralize more strings / constants
+
+### Testing
+- [ ] Test on Linux
+- [ ] Test all nodes
+
+### General TODOs
+- [ ] Add multiple workspaces / canvases
+
+### New Node Ideas
+- [ ] OCR (PaddlePaddle)
+- [ ] Qwen VLM
+- [ ] REST Endpoint
+
+### Example Flow Documentation Needed
+- [ ] Bird Seed level monitor
+- [ ] Capture data send to Roboflow / Geti
+- [ ] Track objects time in zone
+- [ ] Live VLMs
+- [ ] ANPR (Detect, Crop, OCR, MQTT)
+
+### Node-Specific TODOs
+- [ ] YOLO: Add custom model support
+- [ ] YOLO: Add custom target HW string
+- [ ] Remove Geti node (use Roboflow instead)
+- [ ] Roboflow: rfdetr
+- [ ] Roboflow: upload images
+- [ ] DeepSort: Add option to use different feature extractor model
+
 ## License
 
 MIT License - Feel free to use and modify!
