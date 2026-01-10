@@ -44,42 +44,84 @@ Navigate to `http://localhost:5000`
 
 PyNode is designed to be easily extended with custom nodes:
 
-- **[Creating Custom Nodes](CUSTOM_NODES.md)** - Complete guide to creating your own nodes
-- **[UI Components Guide](UI_COMPONENTS.md)** - Add interactive controls to your nodes
-- **[Extensibility Overview](EXTENSIBILITY.md)** - Architecture and design principles
+- **[Creating Custom Nodes](docs/CUSTOM_NODES.md)** - Complete guide to creating your own nodes
+- **[UI Components Guide](docs/UI_COMPONENTS.md)** - Add interactive controls to your nodes
+- **[Extensibility Overview](docs/EXTENSIBILITY.md)** - Architecture and design principles
 
 ## Project Structure
 
 ```
-pynode/                  # Project root
-├── pynode/              # Main package
+pynode/                     # Project root
+├── pynode/                 # Main package
 │   ├── __init__.py
-│   ├── __main__.py      # Entry point for 'python -m pynode'
-│   ├── main.py          # CLI application
-│   ├── server.py        # Flask REST API
+│   ├── __main__.py         # Entry point for 'python -m pynode'
+│   ├── _version.py         # Version information
+│   ├── main.py             # CLI application
+│   ├── server.py           # Flask REST API with SSE support
 │   ├── workflow_engine.py  # Workflow management
-│   ├── nodes/           # Node implementations (plugins)
+│   ├── models/             # ML model storage
+│   ├── nodes/              # Node implementations (each in its own folder)
 │   │   ├── __init__.py
-│   │   ├── base_node.py # BaseNode class
-│   │   ├── inject_node.py
-│   │   ├── function_node.py
-│   │   └── ...          # Other node types
-│   └── static/          # Web UI
+│   │   ├── base_node.py    # BaseNode class
+│   │   ├── InjectNode/     # Generate messages
+│   │   ├── FunctionNode/   # Custom Python code
+│   │   ├── DebugNode/      # Debug output
+│   │   ├── ChangeNode/     # Modify messages
+│   │   ├── SwitchNode/     # Route based on conditions
+│   │   ├── DelayNode/      # Delay messages
+│   │   ├── GateNode/       # Control message flow
+│   │   ├── RateProbeNode/  # Monitor throughput
+│   │   ├── QueueLengthProbeNode/  # Monitor queue lengths
+│   │   ├── CounterNode/    # Count messages
+│   │   ├── CameraNode/     # Camera input
+│   │   ├── UltralyticsNode/ # YOLO detection
+│   │   ├── ImageViewerNode/ # Display images
+│   │   ├── ImageWriterNode/ # Save images
+│   │   ├── TrackerNode/    # Object tracking
+│   │   ├── MQTTNode/       # MQTT communication
+│   │   ├── MessageWriterNode/ # Save message data
+│   │   ├── VideoWriterNode/   # Save video
+│   │   ├── OpenCV/         # OpenCV operations
+│   │   └── ...             # 30+ other node types
+│   └── static/             # Web UI
 │       ├── index.html
 │       ├── style.css
-│       └── app.js
-├── examples/            # Example workflows
-├── setup.py             # Package installation
-├── requirements.txt     # Dependencies
+│       ├── js/             # JavaScript modules
+│       │   ├── nodes.js
+│       │   ├── events.js
+│       │   ├── connections.js
+│       │   ├── debug.js
+│       │   └── ...
+│       └── images/         # UI assets
+├── examples/               # Example workflows and tutorials
+│   ├── camera_workflow.py
+│   ├── camera_yolo_workflow.py
+│   └── README.md
+├── readmes/                # Extended documentation
+├── models/                 # ML models (YOLO, etc.)
+├── docs/                   # Documentation files
+│   ├── CUSTOM_NODES.md     # Guide to creating custom nodes
+│   ├── UI_COMPONENTS.md    # Guide to node UI components
+│   └── EXTENSIBILITY.md    # Extensibility overview
+├── _backup/                # Workflow backups
+├── setup.py                # Package installation
+├── setup.bat / setup.sh    # Setup scripts
+├── requirements.txt        # Core dependencies
+├── pyproject.toml          # Build configuration
+├── INSTALL.md              # Installation guide
+├── DOCKER.md               # Docker setup
+├── docker-compose.yml      # Docker compose config
+├── Dockerfile              # Docker build (CUDA)
+├── Dockerfile.cpu          # Docker build (CPU only)
 ├── README.md
-└── workflow.json        # Saved workflow
+└── workflow.json           # Current workflow
 ```
 
 ## Creating Custom Nodes
 
 PyNode is fully extensible! All node information (visual properties, property schemas, behavior) is contained within the node class itself. The main application has no hardcoded knowledge of specific node types.
 
-For a complete guide, see [CUSTOM_NODES.md](CUSTOM_NODES.md)
+For a complete guide, see [docs/CUSTOM_NODES.md](docs/CUSTOM_NODES.md)
 
 Here's a simple example:
 
@@ -217,10 +259,12 @@ print(messages)  # Should show payload=20
 
 ### Adding New Node Types
 
-1. Create a new class in `nodes.py` or a new file
+1. Create a new Python class in `pynode/nodes/`
 2. Inherit from `BaseNode`
 3. Override `on_input()` for message processing
-4. Register the node type in `app.py`
+4. Define `properties` for UI configuration
+5. Create `requirements.txt` in the node's directory if needed
+6. Reload the server to automatically detect new nodes
 
 ### Custom Message Processing
 
@@ -242,18 +286,12 @@ Nodes can:
 
 ## Development TODOs
 
-### Completed
-- ✅ Resolve SAHI splitting / joining
-- ✅ Fix confidence filter node
-- ✅ Draw detections clamp to the right also
-
 ### TODOs for Launch
 - [ ] Update readme guides
 - [ ] Update Linux setup to match Windows
 - [ ] Check the inputs / outputs / arrays etc. are a standard form so nodes can be easily connected with little to no config
 - [ ] Remove some nodes from standard set
 - [ ] Create a new repo for extra nodes
-- [ ] Queue length, like the node rate probe
 
 ### Ongoing TODOs
 - [ ] Centralize more strings / constants
@@ -265,9 +303,10 @@ Nodes can:
 ### General TODOs
 - [ ] Add multiple workspaces / canvases
 
-### New Node Ideas
+### New Nodes
 - [ ] OCR (PaddlePaddle)
 - [ ] Qwen VLM
+- [ ] SAM3
 - [ ] REST Endpoint
 
 ### Example Flow Documentation Needed
@@ -280,7 +319,6 @@ Nodes can:
 ### Node-Specific TODOs
 - [ ] YOLO: Add custom model support
 - [ ] YOLO: Add custom target HW string
-- [ ] Remove Geti node (use Roboflow instead)
 - [ ] Roboflow: rfdetr
 - [ ] Roboflow: upload images
 - [ ] DeepSort: Add option to use different feature extractor model
