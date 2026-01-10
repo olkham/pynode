@@ -26,6 +26,10 @@ export function startDebugPolling() {
                 updateImageViewer(data.nodeId, data.data);
             } else if (data.type === 'rate') {
                 updateRateDisplay(data.nodeId, data.display);
+            } else if (data.type === 'queue_length') {
+                updateQueueLengthDisplay(data.nodeId, data.display);
+            } else if (data.type === 'counter') {
+                updateCounterDisplay(data.nodeId, data.display);
             }
         } catch (error) {
             console.error('Error processing SSE message:', error);
@@ -43,6 +47,20 @@ export function updateRateDisplay(nodeId, displayText) {
     const rateEl = document.getElementById(`rate-${nodeId}`);
     if (rateEl) {
         rateEl.textContent = displayText;
+    }
+}
+
+export function updateQueueLengthDisplay(nodeId, displayText) {
+    const queueEl = document.getElementById(`queue-${nodeId}`);
+    if (queueEl) {
+        queueEl.textContent = displayText;
+    }
+}
+
+export function updateCounterDisplay(nodeId, displayText) {
+    const counterEl = document.getElementById(`counter-${nodeId}`);
+    if (counterEl) {
+        counterEl.textContent = displayText;
     }
 }
 

@@ -35,27 +35,35 @@ class CounterNode(BaseNode):
     info = str(_info)
     display_name = 'Counter'
     icon = '🔢'
-    category = 'analysis'
-    color = '#B4D7FF'
-    border_color = '#7BA7D7'
+    category = 'node probes'
+    color = '#E2D96E'
+    border_color = '#B8AF4A'
     text_color = '#000000'
     input_count = 1
     output_count = 1
     
-    # Button UI component for resetting
-    ui_component = 'button'
+    # Counter display UI component with reset button
+    ui_component = 'counter-display'
     ui_component_config = {
-        'icon': '↻',
+        'format': '{value}',
         'action': 'reset_counter',
         'tooltip': 'Reset Count'
     }
     
     DEFAULT_CONFIG = {
         'initial_value': '0',
-        'increment': '1'
+        'increment': '1',
+        'retain_payload': 'false',
+        MessageKeys.DROP_MESSAGES: 'false'
     }
     
     properties = [
+        {
+            'name': MessageKeys.DROP_MESSAGES,
+            'label': 'Drop Messages When Busy',
+            'type': 'checkbox',
+            'default': False
+        },
         {
             'name': 'initial_value',
             'label': 'Initial Value',
@@ -69,6 +77,17 @@ class CounterNode(BaseNode):
             'type': 'text',
             'default': DEFAULT_CONFIG['increment'],
             'help': 'Amount to increment per message'
+        },
+        {
+            'name': 'retain_payload',
+            'label': 'Retain Original Payload',
+            'type': 'select',
+            'options': [
+                {'value': 'false', 'label': 'No - Replace payload with count info'},
+                {'value': 'true', 'label': 'Yes - Merge count info into payload'}
+            ],
+            'default': DEFAULT_CONFIG['retain_payload'],
+            'help': 'Whether to keep original payload data or replace it'
         }
     ]
     
@@ -91,16 +110,38 @@ class CounterNode(BaseNode):
         # Increment counter
         self.count += increment
         
-        # Preserve original message properties (like frame_count) and update payload
-        # Note: send() handles deep copying, so we modify msg directly
-        msg[MessageKeys.PAYLOAD] = {
+        # Build count info
+        count_info = {
             'count': self.count,
-            'original_payload': msg.get(MessageKeys.PAYLOAD),
-            'display': f'{self.count}'
+            'display': self.get_count_display()
         }
+        
+        # Check if we should retain original payload
+        if self.get_config_bool('retain_payload', False):
+            original_payload = msg.get(MessageKeys.PAYLOAD, {})
+            if isinstance(original_payload, dict):
+                new_payload = original_payload.copy()
+                new_payload.update(count_info)
+            else:
+                new_payload = {
+                    'original_data': original_payload,
+                    **count_info
+                }
+        else:
+            new_payload = count_info
+        
+        msg[MessageKeys.PAYLOAD] = new_payload
         msg[MessageKeys.TOPIC] = msg.get(MessageKeys.TOPIC, 'counter')
         
         self.send(msg)
+    
+    def get_count(self) -> int:
+        """Get the current count value."""
+        return self.count
+    
+    def get_count_display(self) -> str:
+        """Get formatted count string for display."""
+        return str(self.count)
     
     def reset_counter(self):
         """
@@ -114,7 +155,7 @@ class CounterNode(BaseNode):
             payload={
                 'count': self.count,
                 'action': 'reset',
-                'display': f'{self.count}'
+                'display': self.get_count_display()
             },
             topic='counter/reset'
         )

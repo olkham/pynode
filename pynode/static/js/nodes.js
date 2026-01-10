@@ -330,6 +330,15 @@ function buildNodeContent(nodeData, icon, inputCount, outputCount) {
         // Rate display on the right (like RateProbeNode)
         const format = uiConfig.format || '{value}';
         contentParts.right = `<div class="rate-display" id="rate-${nodeData.id}">0/s</div>`;
+    } else if (uiComponent === 'queue-length-display') {
+        // Queue length display on the right (like QueueLengthProbeNode)
+        const format = uiConfig.format || '{value} queued';
+        contentParts.right = `<div class="queue-length-display" id="queue-${nodeData.id}">0 queued</div>`;
+    } else if (uiComponent === 'counter-display') {
+        // Counter display with reset button (like CounterNode)
+        const action = uiConfig.action || 'reset_counter';
+        contentParts.left = `<button class="inject-btn" onclick="window.nodeAction('${nodeData.id}', '${action}')" title="${uiConfig.tooltip || 'Reset'}">↻</button>`;
+        contentParts.right = `<div class="counter-display" id="counter-${nodeData.id}">0</div>`;
     }
     
     // Combine parts based on input/output configuration

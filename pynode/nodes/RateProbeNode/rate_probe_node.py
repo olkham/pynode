@@ -16,16 +16,16 @@ _info.add_bullets(
 )
 _info.add_header("Outputs")
 _info.add_bullets(
-    ("Output 0:", "Message with rate statistics in payload")
+    ("Output 0:", f"Message with rate statistics in {MessageKeys.PAYLOAD}")
 )
 _info.add_header("Configuration")
 _info.add_bullets(
     ("Window Size:", "Time window in seconds for calculating the rate (default: 1 second)")
 )
 _info.add_header("Output Message")
-_info.add_code('msg.payload.rate').text(" - Messages per second as a number").end()
-_info.add_code('msg.payload.display').text(" - Human-readable rate string (e.g., '30/s', '2.5k/s')").end()
-_info.add_code('msg.payload.message_count').text(" - Number of messages in the current window").end()
+_info.add_code(f'{MessageKeys.MSG}.{MessageKeys.PAYLOAD}.rate').text(" - Messages per second as a number").end()
+_info.add_code(f'{MessageKeys.MSG}.{MessageKeys.PAYLOAD}.display').text(" - Human-readable rate string (e.g., '30/s', '2.5k/s')").end()
+_info.add_code(f'{MessageKeys.MSG}.{MessageKeys.PAYLOAD}.message_count').text(" - Number of messages in the current window").end()
 
 
 class RateProbeNode(BaseNode):
@@ -36,7 +36,7 @@ class RateProbeNode(BaseNode):
     info = str(_info)
     display_name = 'Rate Probe'
     icon = '📊'
-    category = 'analysis'
+    category = 'node probes'
     color = '#E2D96E'
     border_color = '#B8AF4A'
     text_color = '#000000'
@@ -49,10 +49,17 @@ class RateProbeNode(BaseNode):
     }
 
     DEFAULT_CONFIG = {
-        'window_size': 1.0  # in seconds
+        'window_size': 1.0,  # in seconds
+        MessageKeys.DROP_MESSAGES: 'false'
     }
 
     properties = [
+        {
+            'name': MessageKeys.DROP_MESSAGES,
+            'label': 'Drop Messages When Busy',
+            'type': 'checkbox',
+            'default': False
+        },
         {
             'name': 'window_size',
             'label': 'Window Size (seconds)',

@@ -51,12 +51,13 @@ def _build_node_types_cache():
     # Define category ordering
     category_order = [
         'common',
+        'node probes',
         'logic',
         'function',
         'input',
         'output',
         'vision',
-        'analysis',
+        'analysis',        
         'network',
         'OpenCV'
     ]
@@ -213,6 +214,24 @@ def _debug_broadcast_worker():
                                 'nodeId': node_id,
                                 'display': node.get_rate_display(),
                                 'rate': node.get_rate()
+                            }
+                            _broadcast_to_all_clients(data)
+                    elif node.type == 'QueueLengthProbeNode':
+                        if hasattr(node, 'get_queue_length_display'):
+                            data = {
+                                'type': 'queue_length',
+                                'nodeId': node_id,
+                                'display': node.get_queue_length_display(),
+                                'queue_length': node.get_queue_length()
+                            }
+                            _broadcast_to_all_clients(data)
+                    elif node.type == 'CounterNode':
+                        if hasattr(node, 'get_count_display'):
+                            data = {
+                                'type': 'counter',
+                                'nodeId': node_id,
+                                'display': node.get_count_display(),
+                                'count': node.get_count()
                             }
                             _broadcast_to_all_clients(data)
             

@@ -725,6 +725,34 @@ body {
     text-align: center;
 }
 
+/* Queue length display for QueueLengthProbeNode */
+.queue-length-display {
+    font-size: 11px;
+    font-weight: 600;
+    color: #000;
+    background: rgba(255, 255, 255, 0.3);
+    padding: 2px 6px;
+    border-radius: 3px;
+    margin-left: 8px;
+    margin-right: 8px;
+    min-width: 40px;
+    text-align: center;
+}
+
+/* Counter display for CounterNode */
+.counter-display {
+    font-size: 11px;
+    font-weight: 600;
+    color: #000;
+    background: rgba(255, 255, 255, 0.3);
+    padding: 2px 6px;
+    border-radius: 3px;
+    margin-left: 8px;
+    margin-right: 8px;
+    min-width: 40px;
+    text-align: center;
+}
+
 /* Gate control toggle switch */
 .gate-switch {
     position: relative;
@@ -827,7 +855,9 @@ body {
 /* Keep controls vertically centered even though .node-content stretches */
 .node-content .inject-btn,
 .node-content .gate-switch,
-.node-content .rate-display {
+.node-content .rate-display,
+.node-content .queue-length-display,
+.node-content .counter-display {
     align-self: center;
 }
 
