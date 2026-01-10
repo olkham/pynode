@@ -48,7 +48,7 @@ class MyNode(BaseNode):
             'name': 'my_setting',
             'label': 'My Setting',
             'type': 'text',
-            'default': 'default_value',
+            'default': DEFAULT_CONFIG['my_setting'],
             'help': 'Description of this setting'
         }
     ]
@@ -66,7 +66,7 @@ class MyNode(BaseNode):
             input_index: Which input received the message (for multi-input nodes)
         """
         # Get configuration values
-        my_setting = self.config.get('my_setting', 'default_value')
+        my_setting = self.config.get('my_setting', self.DEFAULT_CONFIG['my_setting'])
         
         # Process the message
         payload = msg.get(MessageKeys.PAYLOAD)
