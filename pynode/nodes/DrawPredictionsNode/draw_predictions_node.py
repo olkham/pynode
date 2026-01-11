@@ -7,7 +7,7 @@ import base64
 import cv2
 import logging
 import numpy as np
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 logger = logging.getLogger(__name__)
@@ -174,7 +174,7 @@ class DrawPredictionsNode(BaseNode):
             'yellow': (0, 255, 255)
         }
     
-    def _decode_image(self, image_data: str) -> np.ndarray:
+    def _decode_image(self, image_data: str) -> Optional[np.ndarray]:
         """Decode base64 image to numpy array."""
         try:
             # Remove data URL prefix if present
@@ -190,11 +190,12 @@ class DrawPredictionsNode(BaseNode):
             self.report_error(f"Failed to decode image: {str(e)}")
             return None
     
-    def _encode_image(self, img: np.ndarray) -> str:
+    def _encode_image(self, img: np.ndarray) -> Optional[str]:
         """Encode numpy array to base64 JPEG."""
         try:
             _, buffer = cv2.imencode('.jpg', img)
-            img_base64 = base64.b64encode(buffer).decode('utf-8')
+            img_bytes = buffer.tobytes()
+            img_base64 = base64.b64encode(img_bytes).decode('utf-8')
             return img_base64
         except Exception as e:
             self.report_error(f"Failed to encode image: {str(e)}")
