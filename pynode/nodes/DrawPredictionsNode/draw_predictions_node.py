@@ -1,5 +1,5 @@
 """
-Draw Predictions Node - draws YOLO predictions (bounding boxes, labels) on images.
+Draw Predictions Node - draws detection predictions (bounding boxes, labels) on images.
 Takes predictions from UltralyticsNode and original image, outputs annotated image.
 """
 
@@ -13,10 +13,10 @@ from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 logger = logging.getLogger(__name__)
 
 _info = Info()
-_info.add_text("Draws YOLO detection results (bounding boxes and labels) on images.")
+_info.add_text("Draws detection results (bounding boxes and labels) on images.")
 _info.add_header("Inputs")
 _info.add_bullets(
-    ("Input 0:", "Message with payload.predictions (from YOLO) and payload.image (base64)"),
+    ("Input 0:", "Message with payload.predictions (from YOLO or Inference) and payload.image (base64)"),
 )
 _info.add_header("Outputs")
 _info.add_bullets(
@@ -34,8 +34,8 @@ _info.add_bullets(
 
 class DrawPredictionsNode(BaseNode):
     """
-    Draw Predictions Node - visualizes YOLO detection results on images.
-    Expects msg.payload.predictions (from YOLO) and msg.payload.image (base64).
+    Draw Predictions Node - visualizes YOLO or Inference detection results on images.
+    Expects msg.payload.predictions (from YOLO or Inference) and msg.payload.image (base64).
     """
     display_name = 'Draw Predictions'
     info = str(_info)

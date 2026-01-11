@@ -289,6 +289,7 @@ Nodes can:
 ### TODOs for Launch
 - [ ] Remove some nodes from standard set
 - [ ] Create a new repo for extra nodes
+- [ ] Model repository management
 
 ### Ongoing TODOs
 - [ ] Centralize more strings / constants

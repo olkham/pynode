@@ -3,10 +3,7 @@ Ultralytics YOLOv8 node - performs object detection on images.
 Receives image data from camera nodes and outputs inference results.
 """
 
-import base64
-import cv2
 import logging
-import numpy as np
 from typing import Any, Dict, List
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 import torch
