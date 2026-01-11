@@ -3,6 +3,7 @@ MQTT Service Manager - handles shared MQTT connections across nodes.
 Similar to Node-RED's configuration nodes concept.
 """
 
+import os
 import threading
 import json
 from typing import Any, Dict, Callable, Optional, Set
@@ -251,7 +252,9 @@ class MQTTServiceManager:
         self._services: Dict[str, MQTTService] = {}
         # Use absolute path relative to the workspace root (3 levels up from this module)
         module_dir = Path(__file__).parent.parent.parent.parent
-        self._config_file = module_dir / 'mqtt_services.json'
+        services_dir = Path(os.path.join(module_dir, 'workflows', 'services'))
+        services_dir.mkdir(parents=True, exist_ok=True)
+        self._config_file = Path(os.path.join(services_dir, 'mqtt_services.json'))
         self._initialized = True
         self._load_services()
     

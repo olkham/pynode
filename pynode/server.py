@@ -30,8 +30,12 @@ CORS(app)  # Enable CORS for frontend
 working_engine = WorkflowEngine()
 deployed_engine = WorkflowEngine()
 
-# Workflow persistence file
-WORKFLOW_FILE = os.path.join(BASE_DIR, 'workflow.json')
+# Workflow persistence directories and files
+WORKFLOWS_DIR = os.path.join(BASE_DIR, 'workflows')
+WORKFLOW_FILE = os.path.join(WORKFLOWS_DIR, 'workflow.json')
+
+# Ensure workflows directory exists
+os.makedirs(WORKFLOWS_DIR, exist_ok=True)
 
 # Register all available node types for both engines
 for engine in [working_engine, deployed_engine]:
@@ -270,8 +274,8 @@ def save_workflow_to_disk():
     try:
         # Backup existing workflow if it exists
         if os.path.exists(WORKFLOW_FILE):
-            # Create backup directory in project root
-            backup_dir = os.path.join(BASE_DIR, '_backup')
+            # Create backup directory inside workflows folder
+            backup_dir = os.path.join(WORKFLOWS_DIR, '_backups')
             os.makedirs(backup_dir, exist_ok=True)
             
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
