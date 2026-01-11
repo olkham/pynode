@@ -287,9 +287,6 @@ Nodes can:
 ## Development TODOs
 
 ### TODOs for Launch
-- [ ] Update readme guides
-- [ ] Update Linux setup to match Windows
-- [ ] Check the inputs / outputs / arrays etc. are a standard form so nodes can be easily connected with little to no config
 - [ ] Remove some nodes from standard set
 - [ ] Create a new repo for extra nodes
 
@@ -297,17 +294,18 @@ Nodes can:
 - [ ] Centralize more strings / constants
 
 ### Testing
-- [ ] Test on Linux
 - [ ] Test all nodes
 
 ### General TODOs
 - [ ] Add multiple workspaces / canvases
 
 ### New Nodes
-- [ ] OCR (PaddlePaddle)
-- [ ] Qwen VLM
-- [ ] SAM3
-- [ ] REST Endpoint
+- [ ] OCR (PaddlePaddle) Node
+- [ ] Qwen VLM Node
+- [ ] SAM3 Node
+- [ ] REST Endpoint Node
+- [ ] Webhook Node
+- [ ] UDP/TCP Node
 
 ### Example Flow Documentation Needed
 - [ ] Bird Seed level monitor
