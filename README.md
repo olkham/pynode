@@ -25,19 +25,54 @@ A Node-RED-like visual workflow editor with a Python backend. Create workflows b
 
 ## Quick Start
 
-1. **Install PyNode**:
+### Option 1: Automated Setup (Recommended)
+
+The setup scripts will create a virtual environment, detect CUDA if available, install PyTorch with appropriate GPU support, and install all dependencies.
+
+**Windows**:
+```bash
+# Use Python from PATH
+setup.bat
+
+# Or specify Python path
+setup.bat "C:\Python312\python.exe"
+```
+
+**Linux/Mac**:
+```bash
+chmod +x setup.sh
+./setup.sh
+```
+
+The scripts will:
+- Create a virtual environment in `appenv/`
+- Detect CUDA version and install matching PyTorch build
+- Install CPU-only PyTorch if CUDA is not detected
+- Install all required dependencies
+- Optionally install node-specific dependencies
+
+**Activate the environment**:
+- Windows: `appenv\Scripts\activate.bat`
+- Linux/Mac: `source appenv/bin/activate`
+
+### Option 2: Manual Installation
+
+If you prefer manual installation or have specific requirements:
+
 ```bash
 pip install -e .
 ```
 
-2. **Run the server**:
+### Run the Server
+
 ```bash
 pynode
 # or
 python -m pynode
 ```
 
-3. **Open your browser**:
+### Open Your Browser
+
 Navigate to `http://localhost:5000`
 
 ## Extending PyNode
