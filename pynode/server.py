@@ -726,7 +726,7 @@ def get_workflow_stats():
 def list_mqtt_services():
     """List all MQTT services."""
     try:
-        from nodes.MQTTNode.mqtt_service import mqtt_manager
+        from pynode.nodes.MQTTNode.mqtt_service import mqtt_manager
         services = mqtt_manager.list_services()
         return jsonify({'success': True, 'services': services})
     except Exception as e:
@@ -737,7 +737,7 @@ def list_mqtt_services():
 def create_mqtt_service():
     """Create a new MQTT service."""
     try:
-        from nodes.MQTTNode.mqtt_service import mqtt_manager
+        from pynode.nodes.MQTTNode.mqtt_service import mqtt_manager
         data = request.json
         
         # Validate required fields
@@ -764,7 +764,7 @@ def create_mqtt_service():
 def get_mqtt_service(service_id):
     """Get a specific MQTT service by ID."""
     try:
-        from nodes.MQTTNode.mqtt_service import mqtt_manager
+        from pynode.nodes.MQTTNode.mqtt_service import mqtt_manager
         service = mqtt_manager.get_service(service_id)
         if not service:
             return jsonify({'success': False, 'error': 'Service not found'}), 404
@@ -781,7 +781,7 @@ def get_mqtt_service(service_id):
 def update_mqtt_service(service_id):
     """Update an existing MQTT service."""
     try:
-        from nodes.MQTTNode.mqtt_service import mqtt_manager
+        from pynode.nodes.MQTTNode.mqtt_service import mqtt_manager
         data = request.json
         
         service = mqtt_manager.update_service(service_id, data)
@@ -800,7 +800,7 @@ def update_mqtt_service(service_id):
 def delete_mqtt_service(service_id):
     """Delete an MQTT service."""
     try:
-        from nodes.MQTTNode.mqtt_service import mqtt_manager
+        from pynode.nodes.MQTTNode.mqtt_service import mqtt_manager
         
         if not mqtt_manager.delete_service(service_id):
             return jsonify({
@@ -817,7 +817,7 @@ def delete_mqtt_service(service_id):
 def test_mqtt_service(service_id):
     """Test connection to an MQTT service."""
     try:
-        from nodes.MQTTNode.mqtt_service import mqtt_manager
+        from pynode.nodes.MQTTNode.mqtt_service import mqtt_manager
         
         service = mqtt_manager.get_service(service_id)
         if not service:
