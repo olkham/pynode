@@ -1,4 +1,4 @@
-FROM nvidia/cuda:12.6.0-runtime-ubuntu22.04
+FROM docker.io/nvidia/cuda:12.6.0-devel-ubuntu22.04
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive
@@ -9,11 +9,32 @@ RUN apt-get update && apt-get install -y \
     python3.10 \
     python3-pip \
     python3-venv \
+    git \
+    wget \
+    gfortran \
     libgl1-mesa-glx \
+    libgtk-3-0 \
     libglib2.0-0 \
     libsm6 \
     libxext6 \
     libxrender-dev \
+    libgomp1 \
+    libavcodec-dev \
+    libavformat-dev \
+    libswscale-dev \
+    libv4l-dev \
+    libxvidcore-dev \
+    libx264-dev \
+    libjpeg-dev \
+    libpng-dev \
+    libtiff-dev \
+    libopenblas-dev \
+    liblapack-dev \
+    portaudio19-dev \
+    libasound2-dev \
+    libusb-1.0-0 \
+    libusb-1.0-0-dev \
+    libudev-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
