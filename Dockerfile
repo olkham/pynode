@@ -3,6 +3,7 @@ FROM docker.io/nvidia/cuda:12.6.0-devel-ubuntu22.04
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
+ENV CUDA_VERSION=12.6
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
