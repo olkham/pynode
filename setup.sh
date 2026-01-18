@@ -56,6 +56,9 @@ fi
 echo "Installing remaining requirements..."
 pip install -r requirements.txt
 
+echo "Installing the application in editable mode..."
+pip install -e .
+
 echo ""
 echo "Setup complete! Virtual environment is activated."
 echo ""
