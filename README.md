@@ -2,6 +2,12 @@
 
 A Node-RED-like visual workflow editor with a Python backend. Create workflows by connecting Python nodes that process and route messages.
 
+
+
+https://github.com/user-attachments/assets/0b53085a-2cc6-4c26-bd43-e0de1e0716a2
+
+
+
 ## Features
 
 - **Visual Node Editor**: Drag-and-drop interface for creating workflows
