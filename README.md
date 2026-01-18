@@ -1,4 +1,4 @@
-# PyNode - Visual Workflow System
+# <img src="pynode/static/images/favicon4.png" alt="PyNode" width="48" height="48" style="vertical-align: middle;" /> PyNode - Visual Workflow System
 
 A Node-RED-like visual workflow editor with a Python backend. Create workflows by connecting Python nodes that process and route messages.
 
