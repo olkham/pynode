@@ -25,6 +25,13 @@ A Node-RED-like visual workflow editor with a Python backend. Create workflows b
 
 ## Quick Start
 
+### Clone the Repository
+
+```bash
+git clone https://github.com/olkham/pynode.git
+cd pynode
+```
+
 ### Option 1: Automated Setup (Recommended)
 
 The setup scripts will create a virtual environment, detect CUDA if available, install PyTorch with appropriate GPU support, and install all dependencies.
