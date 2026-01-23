@@ -14,9 +14,12 @@ pip install --upgrade pip
 
 # Detect CUDA version and install appropriate PyTorch
 echo "Detecting CUDA version..."
-if command -v nvidia-smi &> /dev/null; then
+# Check if CUDA_VERSION is set as environment variable (e.g., in Docker)
+if [ -n "$CUDA_VERSION" ]; then
+    echo "CUDA $CUDA_VERSION detected from environment"
+elif command -v nvidia-smi &> /dev/null; then
     CUDA_VERSION=$(nvidia-smi | grep "CUDA Version" | sed -n 's/.*CUDA Version: \([0-9]\+\.[0-9]\+\).*/\1/p')
-    echo "CUDA $CUDA_VERSION detected"
+    echo "CUDA $CUDA_VERSION detected from nvidia-smi"
     
     # Determine PyTorch installation command based on CUDA version
     CUDA_MAJOR=$(echo $CUDA_VERSION | cut -d. -f1)
@@ -41,6 +44,9 @@ if command -v nvidia-smi &> /dev/null; then
         echo "Installing PyTorch with CUDA 11.8 support (default)..."
         pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
     fi
+elif [ -d "/usr/local/cuda" ]; then
+    echo "CUDA toolkit found but version could not be determined. Installing PyTorch with CUDA 12.1 support..."
+    pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
 else
     echo "CUDA not detected. Installing CPU-only PyTorch..."
     pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
@@ -49,6 +55,9 @@ fi
 # Install remaining requirements (excluding torch/torchvision as they're already installed)
 echo "Installing remaining requirements..."
 pip install -r requirements.txt
+
+echo "Installing the application in editable mode..."
+pip install -e .
 
 echo ""
 echo "Setup complete! Virtual environment is activated."

@@ -1,6 +1,12 @@
-# PyNode - Visual Workflow System
+# <img src="pynode/static/images/favicon4.png" alt="PyNode" width="48" height="48" style="vertical-align: middle;" /> PyNode - Visual Workflow System
 
 A Node-RED-like visual workflow editor with a Python backend. Create workflows by connecting Python nodes that process and route messages.
+
+
+
+https://github.com/user-attachments/assets/0b53085a-2cc6-4c26-bd43-e0de1e0716a2
+
+
 
 ## Features
 
@@ -24,6 +30,13 @@ A Node-RED-like visual workflow editor with a Python backend. Create workflows b
 - **Dynamic Properties**: Node properties and UI components defined in node classes
 
 ## Quick Start
+
+### Clone the Repository
+
+```bash
+git clone https://github.com/olkham/pynode.git
+cd pynode
+```
 
 ### Option 1: Automated Setup (Recommended)
 
@@ -74,6 +87,41 @@ python -m pynode
 ### Open Your Browser
 
 Navigate to `http://localhost:5000`
+
+## Docker Setup
+
+PyNode can be run in a Docker container with GPU support (CUDA 12.6).
+
+### Running with Docker Compose
+
+For mDNS service discovery to work correctly inside Docker, you need to set the `HOST_IP` environment variable to your host machine's IP address:
+
+```bash
+# Set the host IP address
+export HOST_IP=$(hostname -I | awk '{print $1}')
+
+# Start the container
+docker compose up -d
+```
+
+The container will:
+- Use NVIDIA CUDA 12.6 runtime (requires nvidia-docker)
+- Install PyTorch with CUDA 12.6 support
+- Install all dependencies including node-specific packages
+- Expose port 5000 for web interface
+- Support mDNS broadcasting with the correct host IP
+
+**Why set HOST_IP?**
+When using the mDNS Broadcast Node inside Docker, it needs to advertise the host machine's IP address (not the container's internal IP like 172.x.x.x) so other devices on your network can discover and connect to the service.
+
+**Access the application:**
+- Web UI: `http://localhost:5000`
+- From other devices: `http://<your-host-ip>:5000`
+
+**GPU Access:**
+The Docker setup requires [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html) to be installed on the host system.
+
+For more details, see [DOCKER.md](DOCKER.md).
 
 ## Extending PyNode
 

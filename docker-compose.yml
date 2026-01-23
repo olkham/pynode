@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   pynode:
     build:
@@ -7,13 +5,14 @@ services:
       dockerfile: Dockerfile
     container_name: pynode
     ports:
-      - "5000:5000"
+      - "500:5000"
     volumes:
       # Mount persistent data
       - ./workflows:/app/workflows
       - ./logs:/app/logs
     environment:
       - PYTHONUNBUFFERED=1
+      - HOST_IP=${HOST_IP:-}
     restart: unless-stopped
     deploy:
       resources:

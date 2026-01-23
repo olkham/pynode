@@ -274,20 +274,29 @@ def save_workflow_to_disk():
     try:
         # Backup existing workflow if it exists
         if os.path.exists(WORKFLOW_FILE):
-            # Create backup directory inside workflows folder
-            backup_dir = os.path.join(WORKFLOWS_DIR, '_backups')
-            os.makedirs(backup_dir, exist_ok=True)
-            
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            backup_file = os.path.join(backup_dir, f'workflow_{timestamp}.json')
-            shutil.copy2(WORKFLOW_FILE, backup_file)
-            print(f"Backed up workflow to {backup_file}")
+            try:
+                # Create backup directory inside workflows folder
+                backup_dir = os.path.join(WORKFLOWS_DIR, '_backups')
+                os.makedirs(backup_dir, exist_ok=True)
+                
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                backup_file = os.path.join(backup_dir, f'workflow_{timestamp}.json')
+                shutil.copy2(WORKFLOW_FILE, backup_file)
+                print(f"Backed up workflow to {backup_file}")
+            except (PermissionError, OSError) as e:
+                print(f"Warning: Failed to create backup: {e}")
+                # Continue preventing backup failure from stopping save
         
         # Save new workflow
         workflow_data = working_engine.export_workflow()
         with open(WORKFLOW_FILE, 'w') as f:
             json.dump(workflow_data, f, indent=2)
         print(f"Workflow saved to {WORKFLOW_FILE}")
+        
+    except PermissionError:
+        print(f"ERROR: Permission denied when saving to {WORKFLOW_FILE}")
+        print("Please run the following command in terminal to fix ownership:")
+        print(f"  sudo chown -R $USER:$USER {WORKFLOWS_DIR}")
     except Exception as e:
         print(f"Failed to save workflow: {e}")
 
