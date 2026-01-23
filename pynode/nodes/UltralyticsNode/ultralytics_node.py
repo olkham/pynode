@@ -1,5 +1,6 @@
 """
-Ultralytics YOLOv8 node - performs object detection on images.
+Ultralytics YOLO node - performs object detection on images.
+Supports YOLO26, YOLO11, YOLOv8 and other YOLO models.
 Receives image data from camera nodes and outputs inference results.
 """
 
@@ -11,7 +12,7 @@ import torch
 logger = logging.getLogger(__name__)
 
 _info = Info()
-_info.add_text("Performs YOLOv8 object detection on input images using Ultralytics.")
+_info.add_text("Performs YOLO object detection on input images using Ultralytics (YOLO26, YOLO11, YOLOv8, etc.).")
 _info.add_header("Inputs")
 _info.add_bullets(("Input 0:", "Image (base64 encoded)"))
 _info.add_header("Outputs")
@@ -26,7 +27,7 @@ _info.add_bullets(
 )
 _info.add_header("Configuration")
 _info.add_bullets(
-    ("Model:", "YOLOv8 variant (nano to extra large)"),
+    ("Model:", "YOLO variant (YOLO26, YOLO11, YOLOv8 - nano to extra large)"),
     ("Device:", "CPU or CUDA GPU for inference"),
     ("Confidence:", "Detection confidence threshold"),
     ("IoU:", "Intersection over Union threshold for NMS"),
@@ -35,7 +36,8 @@ _info.add_bullets(
 
 class UltralyticsNode(BaseNode):
     """
-    Ultralytics YOLOv8 node - performs object detection inference.
+    Ultralytics YOLO node - performs object detection inference.
+    Supports YOLO26, YOLO11, YOLOv8 and other YOLO models.
     Receives images and outputs detection results with optional visualization.
     """
     # Visual properties
@@ -50,7 +52,7 @@ class UltralyticsNode(BaseNode):
     output_count = 1
     
     DEFAULT_CONFIG = {
-        'model': 'yolov8n.pt',
+        'model': 'yolo26n.pt',
         'confidence': '0.25',
         'iou': '0.45',
         'draw_results': 'true',
@@ -87,11 +89,21 @@ class UltralyticsNode(BaseNode):
                 'label': 'Model',
                 'type': 'select',
                 'options': [
-                    {'value': 'yolov8n.pt', 'label': 'YOLOv8 Nano (fastest)'},
-                    {'value': 'yolov8s.pt', 'label': 'YOLOv8 Small'},
-                    {'value': 'yolov8m.pt', 'label': 'YOLOv8 Medium'},
-                    {'value': 'yolov8l.pt', 'label': 'YOLOv8 Large'},
-                    {'value': 'yolov8x.pt', 'label': 'YOLOv8 Extra Large (most accurate)'}
+                    {'value': 'yolo26n.pt', 'label': 'YOLO26 Nano (fastest, recommended)'},
+                    {'value': 'yolo26s.pt', 'label': 'YOLO26 Small'},
+                    {'value': 'yolo26m.pt', 'label': 'YOLO26 Medium'},
+                    {'value': 'yolo26l.pt', 'label': 'YOLO26 Large'},
+                    {'value': 'yolo26x.pt', 'label': 'YOLO26 Extra Large (most accurate)'},
+                    {'value': 'yolo11n.pt', 'label': 'YOLO11 Nano'},
+                    {'value': 'yolo11s.pt', 'label': 'YOLO11 Small'},
+                    {'value': 'yolo11m.pt', 'label': 'YOLO11 Medium'},
+                    {'value': 'yolo11l.pt', 'label': 'YOLO11 Large'},
+                    {'value': 'yolo11x.pt', 'label': 'YOLO11 Extra Large'},
+                    {'value': 'yolov8n.pt', 'label': 'YOLOv8 Nano (legacy)'},
+                    {'value': 'yolov8s.pt', 'label': 'YOLOv8 Small (legacy)'},
+                    {'value': 'yolov8m.pt', 'label': 'YOLOv8 Medium (legacy)'},
+                    {'value': 'yolov8l.pt', 'label': 'YOLOv8 Large (legacy)'},
+                    {'value': 'yolov8x.pt', 'label': 'YOLOv8 Extra Large (legacy)'}
                 ]
             },
             {
