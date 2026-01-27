@@ -163,7 +163,7 @@ class CameraNode(BaseNode):
                 if encode_jpeg:
                     # Encode frame as JPEG with quality setting
                     jpeg_quality = self.get_config_int(MessageKeys.CAMERA.JPEG_QUALITY, 75)
-                    encode_params = [cv2.IMWRITE_JPEG_QUALITY, jpeg_quality]
+                    encode_params = (cv2.IMWRITE_JPEG_QUALITY, jpeg_quality)
                     ret, buffer = cv2.imencode('.jpg', frame, encode_params)
                     if ret:
                         # Convert to bytes (more efficient than base64)
