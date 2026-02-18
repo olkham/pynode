@@ -408,47 +408,100 @@ export function selectFile(nodeId, propName, accept) {
     if (accept) {
         input.accept = accept;
     }
-    
+
     input.onchange = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
-        
+
         try {
-            // Upload the file to the server
+            const uploadId = `upload_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            showUploadProgress(uploadId, file.name, 0);
+
             const formData = new FormData();
             formData.append('file', file);
             formData.append('nodeId', nodeId);
-            
-            const response = await fetch(`${API_BASE}/upload/model`, {
-                method: 'POST',
-                body: formData
+            formData.append('upload_id', uploadId);
+
+            const xhr = new XMLHttpRequest();
+
+            xhr.upload.addEventListener('progress', (e) => {
+                if (e.lengthComputable) {
+                    const percentComplete = (e.loaded / e.total) * 100;
+                    updateUploadProgress(uploadId, percentComplete);
+                }
             });
-            
-            if (!response.ok) {
-                throw new Error(`Upload failed: ${response.statusText}`);
-            }
-            
-            const result = await response.json();
-            
-            if (result.success) {
-                // Update the node config with the uploaded file path
-                updateNodeConfig(nodeId, propName, result.model_path);
-                
-                // Update the input field display
-                const nodeData = state.nodes.get(nodeId);
-                renderProperties(nodeData);
-                
-                showToast(`Model uploaded: ${file.name}`);
-            } else {
-                showToast(`Upload failed: ${result.error}`, 'error');
-            }
+
+            xhr.addEventListener('load', () => {
+                if (xhr.status === 200) {
+                    const result = JSON.parse(xhr.responseText);
+                    if (result.success) {
+                        updateNodeConfig(nodeId, propName, result.model_path);
+                        const nodeData = state.nodes.get(nodeId);
+                        renderProperties(nodeData);
+                        hideUploadProgress(uploadId);
+                        showToast(`Model uploaded: ${file.name}`);
+                    } else {
+                        hideUploadProgress(uploadId);
+                        showToast(`Upload failed: ${result.error}`, 'error');
+                    }
+                } else {
+                    hideUploadProgress(uploadId);
+                    showToast(`Upload failed: ${xhr.statusText}`, 'error');
+                }
+            });
+
+            xhr.addEventListener('error', () => {
+                hideUploadProgress(uploadId);
+                showToast(`Failed to upload file: Network error`, 'error');
+            });
+
+            xhr.open('POST', `${API_BASE}/upload/model`);
+            xhr.send(formData);
+
         } catch (error) {
             console.error('Failed to upload file:', error);
             showToast(`Failed to upload file: ${error.message}`, 'error');
         }
     };
-    
+
     input.click();
+}
+
+// Progress UI helpers
+function showUploadProgress(uploadId, filename, percent) {
+    const container = document.getElementById('properties-panel');
+    let progressEl = document.getElementById(`progress-${uploadId}`);
+
+    if (!progressEl) {
+        progressEl = document.createElement('div');
+        progressEl.id = `progress-${uploadId}`;
+        progressEl.className = 'upload-progress';
+        progressEl.innerHTML = `
+            <div class="upload-progress-label">${filename}</div>
+            <div class="upload-progress-bar">
+                <div class="upload-progress-fill" style="width: ${percent}%"></div>
+            </div>
+            <div class="upload-progress-percent">${Math.round(percent)}%</div>
+        `;
+        container.prepend(progressEl);
+    }
+}
+
+function updateUploadProgress(uploadId, percent) {
+    const progressEl = document.getElementById(`progress-${uploadId}`);
+    if (progressEl) {
+        const fill = progressEl.querySelector('.upload-progress-fill');
+        const label = progressEl.querySelector('.upload-progress-percent');
+        if (fill) fill.style.width = `${percent}%`;
+        if (label) label.textContent = `${Math.round(percent)}%`;
+    }
+}
+
+function hideUploadProgress(uploadId) {
+    const progressEl = document.getElementById(`progress-${uploadId}`);
+    if (progressEl) {
+        setTimeout(() => progressEl.remove(), 1000);
+    }
 }
 
 // Rules editor for switch node

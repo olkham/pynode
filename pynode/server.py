@@ -854,30 +854,67 @@ def test_mqtt_service(service_id):
 
 @app.route('/api/upload/model', methods=['POST'])
 def upload_model():
-    """Upload a model file for inference nodes."""
+    """Upload a model file with progress reporting."""
+    upload_id = 'unknown'
     try:
         if 'file' not in request.files:
             return jsonify({'success': False, 'error': 'No file provided'}), 400
-        
+
         file = request.files['file']
         if not file.filename or file.filename == '':
             return jsonify({'success': False, 'error': 'No file selected'}), 400
-        
-        # Create models directory if it doesn't exist
+
         models_dir = os.path.join(os.path.dirname(__file__), 'models')
         os.makedirs(models_dir, exist_ok=True)
-        
-        # Save the file
+
         filename = file.filename
         model_path = os.path.join(models_dir, filename)
-        file.save(model_path)
-        
+        upload_id = request.form.get('upload_id', 'unknown')
+
+        # Save file with progress reporting
+        total_size = request.content_length or 0
+        bytes_written = 0
+        chunk_size = 8192
+
+        with open(model_path, 'wb') as f:
+            while True:
+                chunk = file.stream.read(chunk_size)
+                if not chunk:
+                    break
+                f.write(chunk)
+                bytes_written += len(chunk)
+
+                # Broadcast progress every 100KB
+                if total_size > 0 and bytes_written % (100 * 1024) < chunk_size:
+                    progress_percent = int((bytes_written / total_size) * 100)
+                    _broadcast_to_all_clients({
+                        'type': 'upload_progress',
+                        'upload_id': upload_id,
+                        'filename': filename,
+                        'bytes_written': bytes_written,
+                        'total_size': total_size,
+                        'progress_percent': progress_percent
+                    })
+
+        # Broadcast completion
+        _broadcast_to_all_clients({
+            'type': 'upload_complete',
+            'upload_id': upload_id,
+            'filename': filename,
+            'model_path': model_path
+        })
+
         return jsonify({
             'success': True,
             'model_path': model_path,
             'filename': filename
         })
     except Exception as e:
+        _broadcast_to_all_clients({
+            'type': 'upload_error',
+            'upload_id': upload_id,
+            'error': str(e)
+        })
         return jsonify({'success': False, 'error': str(e)}), 500
 
 

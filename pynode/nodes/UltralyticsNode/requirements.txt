@@ -1,2 +1,16 @@
 torch>=1.10.0
 ultralytics>=8.4.0
+
+# Optional dependencies for hardware acceleration and model export:
+
+# Intel OpenVINO (for Intel CPU/GPU/NPU)
+openvino>=2024.0.0
+
+# NVIDIA TensorRT (for NVIDIA GPU optimization)
+# Install TensorRT from: https://developer.nvidia.com/tensorrt
+tensorrt>=8.0.0
+
+# ONNX export dependencies
+onnx>=1.12.0
+onnxslim>=0.1.71
+onnxruntime-gpu  # For GPU, or onnxruntime for CPU only

@@ -2328,3 +2328,37 @@ body {
     margin: 12px 0 6px 0;
 }
 
+
+/* Upload progress bars */
+.upload-progress {
+    padding: 10px;
+    margin-bottom: 10px;
+    background: #f5f5f5;
+    border-radius: 4px;
+}
+
+.upload-progress-label {
+    font-size: 12px;
+    margin-bottom: 5px;
+    color: #333;
+}
+
+.upload-progress-bar {
+    height: 8px;
+    background: #e0e0e0;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.upload-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4CAF50, #45a049);
+    transition: width 0.3s ease;
+}
+
+.upload-progress-percent {
+    font-size: 11px;
+    margin-top: 3px;
+    text-align: right;
+    color: #666;
+}

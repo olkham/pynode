@@ -30,6 +30,25 @@ export function startDebugPolling() {
                 updateQueueLengthDisplay(data.nodeId, data.display);
             } else if (data.type === 'counter') {
                 updateCounterDisplay(data.nodeId, data.display);
+            } else if (data.type === 'upload_progress') {
+                // Handle upload progress updates
+                const progressEl = document.getElementById(`progress-${data.upload_id}`);
+                if (progressEl) {
+                    const fill = progressEl.querySelector('.upload-progress-fill');
+                    const label = progressEl.querySelector('.upload-progress-percent');
+                    if (fill) fill.style.width = `${data.progress_percent}%`;
+                    if (label) label.textContent = `${Math.round(data.progress_percent)}%`;
+                }
+            } else if (data.type === 'upload_complete') {
+                const progressEl = document.getElementById(`progress-${data.upload_id}`);
+                if (progressEl) {
+                    setTimeout(() => progressEl.remove(), 1000);
+                }
+            } else if (data.type === 'upload_error') {
+                const progressEl = document.getElementById(`progress-${data.upload_id}`);
+                if (progressEl) {
+                    progressEl.remove();
+                }
             }
         } catch (error) {
             console.error('Error processing SSE message:', error);
