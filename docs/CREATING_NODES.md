@@ -4,12 +4,13 @@ This document provides complete instructions for AI agents (Claude, Copilot, etc
 
 ## Quick Reference
 
-To create a new node you need **exactly two files** in a new folder under `pynode/nodes/`:
+To create a new node, create a folder under `pynode/nodes/` with these files:
 
 ```
 pynode/nodes/YourNodeName/
 ├── __init__.py          # REQUIRED: exports node class
-└── your_node_name.py    # REQUIRED: node implementation
+├── your_node_name.py    # REQUIRED: node implementation
+└── requirements.txt     # RECOMMENDED: third-party dependencies (if any)
 ```
 
 No other files need to be modified. Nodes are auto-discovered at startup.
@@ -122,6 +123,22 @@ class MyNewNode(BaseNode):
         msg[MessageKeys.PAYLOAD] = result
         self.send(msg)
 ```
+
+### 4. Create `requirements.txt` (if the node uses third-party packages)
+
+If your node imports any packages that are **not** part of the Python standard library and are **not** already in the project's root `requirements.txt`, create a `requirements.txt` in your node folder. The install script will automatically `pip install` these when the node is installed.
+
+```
+# pynode/nodes/MyNewNode/requirements.txt
+requests>=2.28.0
+beautifulsoup4>=4.11.0
+```
+
+Rules:
+- **Always pin a minimum version** (e.g., `>=2.28.0`) to avoid compatibility surprises.
+- **Only list direct dependencies** your node imports. Don't list transitive dependencies.
+- **Don't duplicate** packages already in the project root `requirements.txt` (e.g., `numpy`, `opencv-python`, `torch`, `flask`, `paho-mqtt`, `ultralytics`, `supervision` are already project dependencies).
+- If your node uses **only standard library and existing project dependencies**, you can skip this file.
 
 ---
 
@@ -660,6 +677,7 @@ class InternalNode(BaseNode):
 - [ ] `DEFAULT_CONFIG` matches `properties` defaults
 - [ ] Threads are started in `on_start()` and stopped in `on_stop()` (if applicable)
 - [ ] Resources are cleaned up in `on_stop()`
+- [ ] `requirements.txt` created in the node folder if third-party packages are imported
 
 ---
 
