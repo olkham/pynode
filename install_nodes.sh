@@ -1,17 +1,22 @@
 #!/bin/bash
 
-# Check if virtual environment exists
-if [ ! -d "appenv" ]; then
-    echo "Error: Virtual environment not found. Please run setup.sh first."
-    exit 1
-fi
-
 # Activate virtual environment if not already activated
-if [[ "$VIRTUAL_ENV" == "" ]]; then
-    echo "Activating virtual environment..."
-    source appenv/bin/activate
-else
+if [[ -n "$VIRTUAL_ENV" ]]; then
     echo "Virtual environment already activated."
+elif [ -d "appenv" ]; then
+    echo "Activating virtual environment (appenv)..."
+    source appenv/bin/activate
+elif [ -d ".venv" ]; then
+    echo "Activating virtual environment (.venv)..."
+    source .venv/bin/activate
+else
+    echo "Warning: No virtual environment found (checked appenv and .venv)."
+    read -p "Would you like to install into the current environment? (y/n): " USE_CURRENT
+    if [[ "$USE_CURRENT" != "y" && "$USE_CURRENT" != "Y" ]]; then
+        echo "Aborted. Please run setup.sh first or create a virtual environment."
+        exit 1
+    fi
+    echo "Proceeding with the current environment..."
 fi
 
 # Iterate through node folders
