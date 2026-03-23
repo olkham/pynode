@@ -43,8 +43,7 @@ _info.add_bullets(
     ("payload.body:", "Response body (parsed JSON or text)"),
     ("payload.headers:", "Response headers"),
     ("payload.url:", "Final URL after redirects"),
-    ("payload.elapsed:", "Response time in seconds"),
-)
+    ("payload.elapsed:", "Response time in seconds"),        ('payload.buffer:', 'Raw bytes (when Response Type is binary)'),)
 _info.add_header("Configuration")
 _info.add_bullets(
     ("URL:", "Target endpoint URL"),
@@ -100,6 +99,7 @@ class WebhookNode(BaseNode):
         'retryDelay': 1000,
         'followRedirects': True,
         'validateSSL': False,
+        'responseType': 'auto',
         'async': True
     }
     
@@ -210,6 +210,18 @@ class WebhookNode(BaseNode):
             'type': 'text',
             'placeholder': '1000',
             'default': DEFAULT_CONFIG['retryDelay']
+        },
+        {
+            'name': 'responseType',
+            'label': 'Response Type',
+            'type': 'select',
+            'options': [
+                {'value': 'auto', 'label': 'Auto (JSON or text)'},
+                {'value': 'text', 'label': 'Text'},
+                {'value': 'json', 'label': 'JSON'},
+                {'value': 'binary', 'label': 'Binary Buffer'}
+            ],
+            'default': DEFAULT_CONFIG['responseType']
         },
         {
             'name': 'followRedirects',
@@ -425,13 +437,24 @@ class WebhookNode(BaseNode):
         
         response = requests.request(method, url, **kwargs)
         
-        return {
+        response_type = self.config.get('responseType', 'auto')
+        if response_type == 'binary':
+            body = response.content
+        else:
+            body = self._parse_response_body(
+                response.text, response.headers.get('Content-Type', ''), response_type
+            )
+        
+        result = {
             'status_code': response.status_code,
             'headers': dict(response.headers),
-            'body': self._parse_response_body(response.text, response.headers.get('Content-Type', '')),
+            'body': body,
             'url': response.url,
             'elapsed': response.elapsed.total_seconds()
         }
+        if response_type == 'binary':
+            result['buffer'] = body
+        return result
     
     def _request_with_urllib(
         self, url: str, method: str, headers: Dict[str, str],
@@ -460,28 +483,55 @@ class WebhookNode(BaseNode):
             context.check_hostname = False
             context.verify_mode = ssl.CERT_NONE
         
+        response_type = self.config.get('responseType', 'auto')
         try:
             with urllib.request.urlopen(req, timeout=timeout, context=context) as response:
-                body = response.read().decode('utf-8')
-                return {
+                raw = response.read()
+                if response_type == 'binary':
+                    body = raw
+                else:
+                    body = self._parse_response_body(
+                        raw.decode('utf-8'), response.headers.get('Content-Type', ''), response_type
+                    )
+                result = {
                     'status_code': response.status,
                     'headers': dict(response.headers),
-                    'body': self._parse_response_body(body, response.headers.get('Content-Type', '')),
+                    'body': body,
                     'url': response.url,
                     'elapsed': 0
                 }
+                if response_type == 'binary':
+                    result['buffer'] = body
+                return result
         except urllib.error.HTTPError as e:
-            body = e.read().decode('utf-8') if e.fp else ''
-            return {
+            raw = e.read() if e.fp else b''
+            if response_type == 'binary':
+                body = raw
+            else:
+                body = self._parse_response_body(
+                    raw.decode('utf-8'), e.headers.get('Content-Type', ''), response_type
+                )
+            result = {
                 'status_code': e.code,
                 'headers': dict(e.headers),
-                'body': self._parse_response_body(body, e.headers.get('Content-Type', '')),
+                'body': body,
                 'url': url,
                 'elapsed': 0
             }
+            if response_type == 'binary':
+                result['buffer'] = body
+            return result
     
-    def _parse_response_body(self, body: str, content_type: str) -> Any:
-        """Parse response body based on content type."""
+    def _parse_response_body(self, body: str, content_type: str, response_type: str = 'auto') -> Any:
+        """Parse response body based on content type or explicit response_type."""
+        if response_type == 'json':
+            try:
+                return json.loads(body)
+            except json.JSONDecodeError:
+                return body
+        if response_type == 'text':
+            return body
+        # auto: detect from content-type
         if 'application/json' in content_type:
             try:
                 return json.loads(body)
@@ -492,14 +542,17 @@ class WebhookNode(BaseNode):
     def _handle_success(self, original_msg: Dict[str, Any], response: Dict[str, Any]):
         """Handle successful response."""
         # Create message with response metadata in payload
+        payload = {
+            'statusCode': response['status_code'],
+            'body': response['body'],
+            'headers': response['headers'],
+            'url': response['url'],
+            'elapsed': response['elapsed']
+        }
+        if 'buffer' in response:
+            payload['buffer'] = response['buffer']
         msg = self.create_message(
-            payload={
-                'statusCode': response['status_code'],
-                'body': response['body'],
-                'headers': response['headers'],
-                'url': response['url'],
-                'elapsed': response['elapsed']
-            },
+            payload=payload,
             topic=original_msg.get(MessageKeys.TOPIC, '')
         )
         

@@ -24,7 +24,9 @@ _info.add_header("Conversion Modes")
 _info.add_bullets(
     ("Auto Detect:", "Automatically detect source format and convert."),
     ("Numpy to Base64:", "Convert numpy array to base64 JPEG/PNG string."),
-    ("Base64 to Numpy:", "Decode base64 string to numpy array (BGR format).")
+    ("Base64 to Numpy:", "Decode base64 string to numpy array (BGR format)."),
+    ("Binary to Numpy:", "Decode raw image bytes (e.g. from HTTP response) to numpy array."),
+    ("Binary to Base64:", "Re-encode raw image bytes as base64 string.")
 )
 _info.add_header("Image Formats")
 _info.add_bullets(
@@ -62,7 +64,9 @@ class ImageFormatNode(BaseNode):
             'options': [
                 {'value': 'auto', 'label': 'Auto Detect'},
                 {'value': 'to_base64', 'label': 'Numpy to Base64'},
-                {'value': 'to_numpy', 'label': 'Base64 to Numpy'}
+                {'value': 'to_numpy', 'label': 'Base64 to Numpy'},
+                {'value': 'bytes_to_numpy', 'label': 'Binary Buffer to Numpy'},
+                {'value': 'bytes_to_base64', 'label': 'Binary Buffer to Base64'}
             ],
             'default': DEFAULT_CONFIG['mode']
         },
@@ -111,6 +115,8 @@ class ImageFormatNode(BaseNode):
         if mode == 'auto':
             if isinstance(data, np.ndarray):
                 mode = 'to_base64'
+            elif isinstance(data, (bytes, bytearray)):
+                mode = 'bytes_to_numpy'
             elif isinstance(data, dict) and data.get(MessageKeys.IMAGE.ENCODING) == 'base64':
                 mode = 'to_numpy'
             elif isinstance(data, str):
@@ -175,6 +181,38 @@ class ImageFormatNode(BaseNode):
                         MessageKeys.IMAGE.WIDTH: numpy_array.shape[1],
                         MessageKeys.IMAGE.HEIGHT: numpy_array.shape[0]
                     }
+            elif mode == 'bytes_to_numpy':
+                raw = self._extract_bytes(data)
+                numpy_array = self._bytes_to_numpy(raw)
+
+                if key in parent and isinstance(parent[key], dict):
+                    parent[key][MessageKeys.IMAGE.FORMAT] = 'bgr'
+                    parent[key][MessageKeys.IMAGE.ENCODING] = 'numpy'
+                    parent[key][MessageKeys.IMAGE.DATA] = numpy_array
+                    parent[key][MessageKeys.IMAGE.WIDTH] = numpy_array.shape[1]
+                    parent[key][MessageKeys.IMAGE.HEIGHT] = numpy_array.shape[0]
+                else:
+                    parent[key] = {
+                        MessageKeys.IMAGE.FORMAT: 'bgr',
+                        MessageKeys.IMAGE.ENCODING: 'numpy',
+                        MessageKeys.IMAGE.DATA: numpy_array,
+                        MessageKeys.IMAGE.WIDTH: numpy_array.shape[1],
+                        MessageKeys.IMAGE.HEIGHT: numpy_array.shape[0]
+                    }
+
+            elif mode == 'bytes_to_base64':
+                raw = self._extract_bytes(data)
+                converted = self._bytes_to_base64(raw)
+
+                if key in parent and isinstance(parent[key], dict):
+                    parent[key][MessageKeys.IMAGE.FORMAT] = converted[MessageKeys.IMAGE.FORMAT]
+                    parent[key][MessageKeys.IMAGE.ENCODING] = converted[MessageKeys.IMAGE.ENCODING]
+                    parent[key][MessageKeys.IMAGE.DATA] = converted[MessageKeys.IMAGE.DATA]
+                    parent[key][MessageKeys.IMAGE.WIDTH] = converted[MessageKeys.IMAGE.WIDTH]
+                    parent[key][MessageKeys.IMAGE.HEIGHT] = converted[MessageKeys.IMAGE.HEIGHT]
+                else:
+                    parent[key] = converted
+
             else:
                 self.report_error(f"Unknown mode: {mode}")
                 return
@@ -216,6 +254,32 @@ class ImageFormatNode(BaseNode):
             MessageKeys.IMAGE.HEIGHT: image.shape[0]
         }
     
+    def _extract_bytes(self, data: Any) -> bytes:
+        """Extract raw bytes from various input shapes (bytes, dict with buffer/body)."""
+        if isinstance(data, (bytes, bytearray)):
+            return bytes(data)
+        if isinstance(data, dict):
+            # Support WebhookNode payload shape: {buffer: bytes, body: bytes}
+            for key in ('buffer', 'body', MessageKeys.IMAGE.DATA):
+                val = data.get(key)
+                if isinstance(val, (bytes, bytearray)):
+                    return bytes(val)
+        raise ValueError(f"Cannot extract binary data from {type(data)}")
+
+    def _bytes_to_numpy(self, raw: bytes) -> np.ndarray:
+        """Decode raw image bytes (JPEG/PNG/etc.) into a BGR numpy array."""
+        nparr = np.frombuffer(raw, np.uint8)
+        image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        if image is None:
+            raise RuntimeError("Failed to decode binary image buffer")
+        return image
+
+    def _bytes_to_base64(self, raw: bytes) -> Dict[str, Any]:
+        """Decode raw image bytes, re-encode to the configured format, and return base64."""
+        # Decode to numpy first so we can re-encode in the desired format/quality
+        image = self._bytes_to_numpy(raw)
+        return self._numpy_to_base64(image)
+
     def _base64_to_numpy(self, data: Any) -> np.ndarray:
         """Convert base64 encoded image to numpy array."""
         # Handle dict format
