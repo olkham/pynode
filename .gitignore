@@ -176,3 +176,12 @@ todo
 *.npy
 *.npz
 *.weights
+
+# folders
+data/
+models/
+logs/
+checkpoints/
+output/
+output_low/
+output_not/
