@@ -881,6 +881,43 @@ def upload_model():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+# ==============================================================================
+# Image Upload API (for ImageUploadNode drag-and-drop)
+# ==============================================================================
+
+ALLOWED_IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.webp'}
+
+@app.route('/api/nodes/<node_id>/upload_image', methods=['POST'])
+def upload_image_to_node(node_id):
+    """Upload an image file to an ImageUploadNode."""
+    try:
+        node = deployed_engine.get_node(node_id)
+        if not node:
+            return jsonify({'success': False, 'error': 'Node not found'}), 404
+
+        if not hasattr(node, 'receive_image'):
+            return jsonify({'success': False, 'error': 'Node does not support image upload'}), 400
+
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'error': 'No file provided'}), 400
+
+        file = request.files['file']
+        if not file.filename or file.filename == '':
+            return jsonify({'success': False, 'error': 'No file selected'}), 400
+
+        # Validate file extension
+        ext = os.path.splitext(file.filename)[1].lower()
+        if ext not in ALLOWED_IMAGE_EXTENSIONS:
+            return jsonify({'success': False, 'error': f'Unsupported file type: {ext}'}), 400
+
+        image_bytes = file.read()
+        node.receive_image(image_bytes, file.filename)
+
+        return jsonify({'success': True, 'filename': file.filename})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/api/nodes/<node_id>/<action>', methods=['POST'])
 def trigger_node_action(node_id, action):
     """Trigger a button action on a node in deployed workflow."""

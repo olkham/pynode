@@ -339,6 +339,10 @@ function buildNodeContent(nodeData, icon, inputCount, outputCount) {
         const action = uiConfig.action || 'reset_counter';
         contentParts.left = `<button class="inject-btn" onclick="window.nodeAction('${nodeData.id}', '${action}')" title="${uiConfig.tooltip || 'Reset'}">↻</button>`;
         contentParts.right = `<div class="counter-display" id="counter-${nodeData.id}">0</div>`;
+    } else if (uiComponent === 'image-drop') {
+        // Drop zone indicator on the left (like ImageUploadNode)
+        const tooltip = uiConfig.tooltip || 'Drop an image here';
+        contentParts.left = `<div class="image-drop-zone" id="drop-${nodeData.id}" title="${tooltip}">📂</div>`;
     }
     
     // Combine parts based on input/output configuration
@@ -589,6 +593,62 @@ function attachNodeEventHandlers(nodeEl, nodeData) {
         }
     });
     
+    // Image upload drag-and-drop handler
+    const nodeType = getNodeType(nodeData.type);
+    if (nodeType?.uiComponent === 'image-drop') {
+        const dropZone = nodeEl.querySelector('.image-drop-zone');
+
+        const preventAndHighlight = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            nodeEl.classList.add('image-drop-active');
+        };
+
+        nodeEl.addEventListener('dragover', preventAndHighlight);
+        nodeEl.addEventListener('dragenter', preventAndHighlight);
+
+        nodeEl.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            // Only remove highlight when actually leaving the node
+            if (!nodeEl.contains(e.relatedTarget)) {
+                nodeEl.classList.remove('image-drop-active');
+            }
+        });
+
+        nodeEl.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            nodeEl.classList.remove('image-drop-active');
+
+            const files = e.dataTransfer?.files;
+            if (!files || files.length === 0) return;
+
+            const file = files[0];
+            if (!file.type.startsWith('image/')) {
+                console.warn('Dropped file is not an image:', file.type);
+                return;
+            }
+
+            window.uploadImageToNode(nodeData.id, file);
+        });
+
+        // Also allow clicking the drop zone to open a file picker
+        if (dropZone) {
+            dropZone.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = 'image/*';
+                input.onchange = (ev) => {
+                    const file = ev.target.files[0];
+                    if (file) window.uploadImageToNode(nodeData.id, file);
+                };
+                input.click();
+            });
+        }
+    }
+
     // Image viewer resize handler
     if (nodeData.type === 'ImageViewerNode') {
         const resizeHandle = nodeEl.querySelector('.image-viewer-resize-handle');
@@ -818,5 +878,25 @@ window.triggerInject = async function(nodeId) {
         await fetch(`${API_BASE}/nodes/${nodeId}/inject`, { method: 'POST' });
     } catch (error) {
         console.error('Failed to trigger inject:', error);
+    }
+};
+
+// Upload an image file to an ImageUploadNode
+window.uploadImageToNode = async function(nodeId, file) {
+    try {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await fetch(`${API_BASE}/nodes/${nodeId}/upload_image`, {
+            method: 'POST',
+            body: formData
+        });
+
+        const result = await response.json();
+        if (!result.success) {
+            console.error('Image upload failed:', result.error);
+        }
+    } catch (error) {
+        console.error('Failed to upload image to node:', error);
     }
 };
