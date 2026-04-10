@@ -144,11 +144,12 @@ export function createNode(type, x, y) {
     });
     
     // Initialize config with default values from properties
+    // Use structuredClone to avoid sharing array/object references between node instances
     const config = {};
     if (nodeType && nodeType.properties) {
         for (const prop of nodeType.properties) {
             if (prop.default !== undefined) {
-                config[prop.name] = prop.default;
+                config[prop.name] = structuredClone(prop.default);
             }
         }
     }
