@@ -1,5 +1,6 @@
 // Debug panel and SSE handling
 import { API_BASE } from './config.js';
+import { state } from './state.js';
 
 const MAX_DEBUG_MESSAGES = 100; // Maximum number of messages to keep in UI
 let messageIdCounter = 0; // Unique ID counter for message elements
@@ -17,6 +18,11 @@ export function startDebugPolling() {
     eventSource.onmessage = (event) => {
         try {
             const data = JSON.parse(event.data);
+            
+            // Filter by active workflow (skip messages from other workflows)
+            if (data.workflowId && state.activeWorkflowId && data.workflowId !== state.activeWorkflowId) {
+                return;
+            }
             
             if (data.type === 'messages' && data.data.length > 0) {
                 displayDebugMessages(data.data);

@@ -7,7 +7,7 @@ import { showToast } from './ui-utils.js';
 import { deselectAllNodes } from './selection.js';
 
 // Helper function to enrich node data with type information
-function enrichNodeWithTypeInfo(nodeData) {
+export function enrichNodeWithTypeInfo(nodeData) {
     const nodeType = getNodeType(nodeData.type);
     if (nodeType) {
         nodeData.color = nodeType.color;
@@ -41,7 +41,25 @@ function enrichNodeWithTypeInfo(nodeData) {
 
 export async function loadWorkflow() {
     try {
-        const response = await fetch(`${API_BASE}/workflow`);
+        // First load the workflow list to set up tabs
+        const { initWorkflowTabs } = await import('./workflows.js');
+        await initWorkflowTabs();
+        
+        // Then load the active workflow data
+        if (state.activeWorkflowId) {
+            await loadWorkflowData(state.activeWorkflowId);
+        }
+    } catch (error) {
+        console.error('Failed to load workflow:', error);
+    }
+}
+
+/**
+ * Load workflow data for a specific workflow from the server and render it.
+ */
+export async function loadWorkflowData(workflowId) {
+    try {
+        const response = await fetch(`${API_BASE}/workflow?workflow=${workflowId}`);
         const workflow = await response.json();
         
         state.nodes.clear();
@@ -149,6 +167,7 @@ export async function deployWorkflow() {
         });
         
         const changes = {
+            workflowId: state.activeWorkflowId,
             modifiedNodes: modifiedNodesList,
             addedNodes: addedNodesList,
             deletedNodes: deletedNodeIds,
@@ -213,7 +232,7 @@ export async function deployWorkflowFull() {
             connections: state.connections
         };
         
-        const response = await fetch(`${API_BASE}/workflow`, {
+        const response = await fetch(`${API_BASE}/workflow?workflow=${state.activeWorkflowId}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(workflow)
@@ -366,6 +385,16 @@ export function importWorkflow() {
         const workflow = JSON.parse(text);
         
         try {
+            // Import creates a new workflow tab
+            const { createNewWorkflow } = await import('./workflows.js');
+            
+            // Derive name from filename (strip .json)
+            let name = file.name.replace(/\.json$/i, '');
+            
+            // Create new workflow
+            await createNewWorkflow(name);
+            
+            // Now populate the new (now active) workflow with imported data
             state.nodes.clear();
             state.connections = [];
             document.getElementById('nodes-container').innerHTML = '';
@@ -391,7 +420,7 @@ export function importWorkflow() {
             });
             
             setModified(true);
-            showToast('Workflow imported. Deploy to activate.');
+            showToast('Workflow imported into new tab. Deploy to activate.');
         } catch (error) {
             console.error('Failed to import workflow:', error);
             showToast('Failed to import workflow');

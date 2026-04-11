@@ -19,7 +19,11 @@ export const state = {
     addedNodes: new Set(),
     deletedNodes: new Set(),
     addedConnections: [],
-    deletedConnections: []
+    deletedConnections: [],
+    // Multi-workflow state
+    workflows: new Map(), // workflow_id -> { name, enabled, nodeCount }
+    activeWorkflowId: null,
+    workflowCache: new Map() // workflow_id -> { nodes, connections, changes }
 };
 
 // Set node types and build lookup map
@@ -142,4 +146,42 @@ export function isConnectionSelected(connection) {
     }
     
     return false;
+}
+
+/**
+ * Save current canvas state into workflow cache for tab switching.
+ */
+export function saveActiveWorkflowToCache() {
+    if (!state.activeWorkflowId) return;
+    state.workflowCache.set(state.activeWorkflowId, {
+        nodes: new Map(state.nodes),
+        connections: [...state.connections],
+        modifiedNodes: new Set(state.modifiedNodes),
+        addedNodes: new Set(state.addedNodes),
+        deletedNodes: new Set(state.deletedNodes),
+        addedConnections: [...state.addedConnections],
+        deletedConnections: [...state.deletedConnections],
+        isModified: state.isModified,
+        nextNodeId: state.nextNodeId
+    });
+}
+
+/**
+ * Restore canvas state from workflow cache.
+ * Returns true if cache was found and restored.
+ */
+export function restoreWorkflowFromCache(workflowId) {
+    const cached = state.workflowCache.get(workflowId);
+    if (!cached) return false;
+    
+    state.nodes = new Map(cached.nodes);
+    state.connections = [...cached.connections];
+    state.modifiedNodes = new Set(cached.modifiedNodes);
+    state.addedNodes = new Set(cached.addedNodes);
+    state.deletedNodes = new Set(cached.deletedNodes);
+    state.addedConnections = [...cached.addedConnections];
+    state.deletedConnections = [...cached.deletedConnections];
+    state.isModified = cached.isModified;
+    state.nextNodeId = cached.nextNodeId;
+    return true;
 }

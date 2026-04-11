@@ -60,6 +60,16 @@ export function setupEventListeners() {
     document.getElementById('import-btn').addEventListener('click', importWorkflow);
     document.getElementById('clear-debug-btn').addEventListener('click', clearDebug);
     
+    // Add workflow button
+    const addWorkflowBtn = document.getElementById('add-workflow-btn');
+    if (addWorkflowBtn) {
+        addWorkflowBtn.addEventListener('click', () => {
+            import('./workflows.js').then(({ createNewWorkflow }) => {
+                createNewWorkflow();
+            });
+        });
+    }
+    
     // Deploy dropdown
     const deployDropdownBtn = document.getElementById('deploy-dropdown-btn');
     const deployDropdown = document.getElementById('deploy-dropdown');

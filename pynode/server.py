@@ -24,11 +24,12 @@ PKG_DIR = os.path.dirname(os.path.abspath(__file__))
 app = Flask(__name__, static_folder=os.path.join(PKG_DIR, 'static'), static_url_path='')
 CORS(app)  # Enable CORS for frontend
 
-# Separate working and deployed workflow engines
-# working_engine: Contains the user's current edits (not running)
-# deployed_engine: Contains the deployed workflow (actually running)
-working_engine = WorkflowEngine()
-deployed_engine = WorkflowEngine()
+# Multi-workflow state
+# Each workflow has its own working + deployed engine pair
+_workflows = {}          # workflow_id -> { 'name': str, 'enabled': bool }
+_working_engines = {}    # workflow_id -> WorkflowEngine
+_deployed_engines = {}   # workflow_id -> WorkflowEngine
+_active_workflow_id = None
 
 # Workflow persistence directories and files
 WORKFLOWS_DIR = os.path.join(BASE_DIR, 'workflows')
@@ -37,10 +38,74 @@ WORKFLOW_FILE = os.path.join(WORKFLOWS_DIR, 'workflow.json')
 # Ensure workflows directory exists
 os.makedirs(WORKFLOWS_DIR, exist_ok=True)
 
-# Register all available node types for both engines
-for engine in [working_engine, deployed_engine]:
+# Reference engine for node type introspection only
+_reference_engine = WorkflowEngine()
+for node_class in nodes.get_all_node_types():
+    _reference_engine.register_node_type(node_class)
+
+
+def _create_workflow_engine():
+    """Create a new WorkflowEngine with all node types registered."""
+    engine = WorkflowEngine()
     for node_class in nodes.get_all_node_types():
         engine.register_node_type(node_class)
+    return engine
+
+
+def _get_workflow_id_from_request():
+    """Extract workflow_id from request query params, defaulting to active."""
+    return request.args.get('workflow', _active_workflow_id)
+
+
+def _get_working_engine(workflow_id=None):
+    """Get working engine for a workflow, defaulting to active."""
+    wid = workflow_id or _active_workflow_id
+    return _working_engines.get(wid)
+
+
+def _get_deployed_engine(workflow_id=None):
+    """Get deployed engine for a workflow, defaulting to active."""
+    wid = workflow_id or _active_workflow_id
+    return _deployed_engines.get(wid)
+
+
+def _find_deployed_node(node_id):
+    """Find a node across all deployed engines. Returns (node, workflow_id) or (None, None)."""
+    for wid, engine in _deployed_engines.items():
+        node = engine.get_node(node_id)
+        if node:
+            return node, wid
+    return None, None
+
+
+def _unique_workflow_name(desired_name, exclude_id=None):
+    """Ensure unique workflow name, appending (n) if needed."""
+    existing = {w['name'] for wid, w in _workflows.items() if wid != exclude_id}
+    if desired_name not in existing:
+        return desired_name
+    n = 1
+    while f"{desired_name} ({n})" in existing:
+        n += 1
+    return f"{desired_name} ({n})"
+
+
+def _create_new_workflow(name=None, workflow_id=None, enabled=True):
+    """Create a new workflow with working and deployed engines."""
+    global _active_workflow_id
+    if workflow_id is None:
+        workflow_id = f"wf_{int(time.time() * 1000)}"
+    if name is None:
+        name = "New Workflow"
+    name = _unique_workflow_name(name)
+
+    _workflows[workflow_id] = {'name': name, 'enabled': enabled}
+    _working_engines[workflow_id] = _create_workflow_engine()
+    _deployed_engines[workflow_id] = _create_workflow_engine()
+
+    if _active_workflow_id is None:
+        _active_workflow_id = workflow_id
+
+    return workflow_id
 
 # Cache for node types (built once at startup or on first request)
 _node_types_cache = None
@@ -67,7 +132,7 @@ def _build_node_types_cache():
     ]
     
     node_types = []
-    for name, node_class in working_engine.node_types.items():
+    for name, node_class in _reference_engine.node_types.items():
         # Skip ErrorNode - it's a system node that shouldn't be manually added
         if node_class.hidden:
             continue
@@ -198,7 +263,7 @@ def _register_dynamic_node_routes():
 def _register_json_route(route, methods, handler_name, endpoint_name):
     """Register a standard JSON API route."""
     def handler(node_id):
-        node = deployed_engine.get_node(node_id)
+        node, _ = _find_deployed_node(node_id)
         if not node:
             return jsonify({'error': 'Node not found'}), 404
         
@@ -225,7 +290,7 @@ def _register_json_route(route, methods, handler_name, endpoint_name):
 def _register_file_upload_route(route, methods, handler_name, endpoint_name, allowed_extensions):
     """Register a file upload API route."""
     def handler(node_id):
-        node = deployed_engine.get_node(node_id)
+        node, _ = _find_deployed_node(node_id)
         if not node:
             return jsonify({'success': False, 'error': 'Node not found'}), 404
         
@@ -263,7 +328,7 @@ def _register_file_upload_route(route, methods, handler_name, endpoint_name, all
 def _register_stream_route(route, handler_name, endpoint_name):
     """Register an MJPEG stream route."""
     def handler(node_id):
-        node = deployed_engine.get_node(node_id)
+        node, _ = _find_deployed_node(node_id)
         if not node:
             return jsonify({'error': 'Node not found'}), 404
         
@@ -325,60 +390,65 @@ def _debug_broadcast_worker():
             current_time = time.time()
             messages_sent = False
             
-            # Get errors from system error node
-            all_errors = deployed_engine.get_system_errors()
-            if all_errors:
-                data = {'type': 'errors', 'data': all_errors}
-                _broadcast_to_all_clients(data)
-                deployed_engine.clear_system_errors()
-                messages_sent = True
-            
-            # Poll all nodes that have registered SSE handlers
-            for node_id, node in deployed_engine.nodes.items():
-                if node.type not in _sse_handler_registry:
+            # Iterate all deployed engines
+            for wid, engine in list(_deployed_engines.items()):
+                if not engine.running:
                     continue
                 
-                for handler_def in _sse_handler_registry[node.type]:
-                    event_type = handler_def['type']
-                    handler_name = handler_def['handler']
-                    throttle = handler_def.get('throttle')
-                    
-                    # Check throttle
-                    if throttle is not None:
-                        handler_key = f"{node_id}_{event_type}"
-                        last_update = last_throttle_update.get(handler_key, 0)
-                        if current_time - last_update < throttle:
-                            continue
-                        last_throttle_update[handler_key] = current_time
-                    
-                    handler = getattr(node, handler_name, None)
-                    if handler is None or not callable(handler):
+                # Get errors from system error node
+                all_errors = engine.get_system_errors()
+                if all_errors:
+                    data = {'type': 'errors', 'data': all_errors, 'workflowId': wid}
+                    _broadcast_to_all_clients(data)
+                    engine.clear_system_errors()
+                    messages_sent = True
+                
+                # Poll all nodes that have registered SSE handlers
+                for node_id, node in engine.nodes.items():
+                    if node.type not in _sse_handler_registry:
                         continue
                     
-                    try:
-                        result = handler()
-                        if result is None:
+                    for handler_def in _sse_handler_registry[node.type]:
+                        event_type = handler_def['type']
+                        handler_name = handler_def['handler']
+                        throttle = handler_def.get('throttle')
+                        
+                        # Check throttle
+                        if throttle is not None:
+                            handler_key = f"{node_id}_{event_type}"
+                            last_update = last_throttle_update.get(handler_key, 0)
+                            if current_time - last_update < throttle:
+                                continue
+                            last_throttle_update[handler_key] = current_time
+                        
+                        handler = getattr(node, handler_name, None)
+                        if handler is None or not callable(handler):
                             continue
                         
-                        # Special handling for 'messages' type: wrap in data key
-                        if event_type == 'messages':
-                            data = {'type': 'messages', 'data': result}
-                        else:
-                            data = {
-                                'type': event_type,
-                                'nodeId': node_id,
-                            }
-                            # If result is a dict, merge it into data
-                            # (handler returns keys like 'display', 'rate', etc.)
-                            if isinstance(result, dict):
-                                data.update(result)
+                        try:
+                            result = handler()
+                            if result is None:
+                                continue
+                            
+                            # Special handling for 'messages' type: wrap in data key
+                            if event_type == 'messages':
+                                data = {'type': 'messages', 'data': result, 'workflowId': wid}
                             else:
-                                data['data'] = result
-                        
-                        _broadcast_to_all_clients(data)
-                        messages_sent = True
-                    except Exception as e:
-                        print(f"SSE handler error ({node.type}.{handler_name}): {e}")
+                                data = {
+                                    'type': event_type,
+                                    'nodeId': node_id,
+                                    'workflowId': wid,
+                                }
+                                # If result is a dict, merge it into data
+                                if isinstance(result, dict):
+                                    data.update(result)
+                                else:
+                                    data['data'] = result
+                            
+                            _broadcast_to_all_clients(data)
+                            messages_sent = True
+                        except Exception as e:
+                            print(f"SSE handler error ({node.type}.{handler_name}): {e}")
             
             # Adaptive sleep
             if messages_sent:
@@ -411,12 +481,11 @@ workflow_loaded = False
 
 
 def save_workflow_to_disk():
-    """Save the current working workflow to disk with backup."""
+    """Save all workflows to disk with backup."""
     try:
         # Backup existing workflow if it exists
         if os.path.exists(WORKFLOW_FILE):
             try:
-                # Create backup directory inside workflows folder
                 backup_dir = os.path.join(WORKFLOWS_DIR, '_backups')
                 os.makedirs(backup_dir, exist_ok=True)
                 
@@ -426,13 +495,30 @@ def save_workflow_to_disk():
                 print(f"Backed up workflow to {backup_file}")
             except (PermissionError, OSError) as e:
                 print(f"Warning: Failed to create backup: {e}")
-                # Continue preventing backup failure from stopping save
         
-        # Save new workflow
-        workflow_data = working_engine.export_workflow()
+        # Build multi-workflow save data
+        workflows_data = []
+        for wid, meta in _workflows.items():
+            engine = _working_engines.get(wid)
+            if engine:
+                wf_export = engine.export_workflow()
+                workflows_data.append({
+                    'id': wid,
+                    'name': meta['name'],
+                    'enabled': meta['enabled'],
+                    'nodes': wf_export.get('nodes', []),
+                    'connections': wf_export.get('connections', [])
+                })
+        
+        save_data = {
+            'version': 2,
+            'activeWorkflow': _active_workflow_id,
+            'workflows': workflows_data
+        }
+        
         with open(WORKFLOW_FILE, 'w') as f:
-            json.dump(workflow_data, f, indent=2)
-        print(f"Workflow saved to {WORKFLOW_FILE}")
+            json.dump(save_data, f, indent=2)
+        print(f"Saved {len(workflows_data)} workflow(s) to {WORKFLOW_FILE}")
         
     except PermissionError:
         print(f"ERROR: Permission denied when saving to {WORKFLOW_FILE}")
@@ -443,23 +529,60 @@ def save_workflow_to_disk():
 
 
 def load_workflow_from_disk():
-    """Load workflow from disk if it exists."""
+    """Load workflows from disk if file exists. Auto-migrates v1 format."""
+    global _active_workflow_id
     try:
         if os.path.exists(WORKFLOW_FILE):
             with open(WORKFLOW_FILE, 'r') as f:
-                workflow_data = json.load(f)
-            # Load into deployed engine first (creates nodes once)
-            deployed_engine.import_workflow(workflow_data)
-            deployed_engine.start()  # Auto-start deployed workflow
+                data = json.load(f)
             
-            # Copy to working engine (just the data, nodes already created in deployed)
-            working_engine.import_workflow(workflow_data)
+            # Detect and migrate v1 format (single workflow with nodes/connections at top level)
+            if 'workflows' not in data:
+                data = {
+                    'version': 2,
+                    'activeWorkflow': 'workflow_1',
+                    'workflows': [{
+                        'id': 'workflow_1',
+                        'name': 'Workflow 1',
+                        'enabled': True,
+                        'nodes': data.get('nodes', []),
+                        'connections': data.get('connections', [])
+                    }]
+                }
+                print("Migrated v1 workflow format to v2 multi-workflow format")
             
-            print(f"Loaded workflow: {len(working_engine.nodes)} nodes (deployed: running)")
+            # Load each workflow
+            for wf in data.get('workflows', []):
+                wid = wf['id']
+                _workflows[wid] = {
+                    'name': wf.get('name', 'Unnamed'),
+                    'enabled': wf.get('enabled', True)
+                }
+                _working_engines[wid] = _create_workflow_engine()
+                _deployed_engines[wid] = _create_workflow_engine()
+                
+                wf_data = {
+                    'nodes': wf.get('nodes', []),
+                    'connections': wf.get('connections', [])
+                }
+                
+                # Import into both engines
+                _deployed_engines[wid].import_workflow(wf_data)
+                if _workflows[wid]['enabled']:
+                    _deployed_engines[wid].start()
+                _working_engines[wid].import_workflow(wf_data)
+            
+            _active_workflow_id = data.get('activeWorkflow')
+            # Ensure active workflow exists
+            if _active_workflow_id not in _workflows and _workflows:
+                _active_workflow_id = next(iter(_workflows))
+            
+            total_nodes = sum(len(e.nodes) for e in _working_engines.values())
+            print(f"Loaded {len(_workflows)} workflow(s), {total_nodes} total nodes")
         else:
-            # No workflow file exists, but we still need to start the deployed engine
-            # to create the system error node
-            deployed_engine.start()
+            # No workflow file - create default workflow
+            _create_new_workflow(name='Workflow 1', workflow_id='workflow_1')
+            _deployed_engines['workflow_1'].start()
             print("No workflow file found, starting with empty workflow")
     except Exception as e:
         import traceback
@@ -467,9 +590,13 @@ def load_workflow_from_disk():
         print(f"Error type: {type(e).__name__}")
         print(f"Full traceback:")
         traceback.print_exc()
-        # Even on error, start the deployed engine to ensure system nodes exist
+        # On error, ensure at least one workflow exists
+        if not _workflows:
+            _create_new_workflow(name='Workflow 1', workflow_id='workflow_1')
         try:
-            deployed_engine.start()
+            for engine in _deployed_engines.values():
+                if not engine.running:
+                    engine.start()
         except:
             pass
 
@@ -489,12 +616,125 @@ def get_node_types():
     return jsonify(_node_types_cache)
 
 
+# ==============================================================================
+# Workflow Management API (Multi-Workflow)
+# ==============================================================================
+
+@app.route('/api/workflows', methods=['GET'])
+def list_workflows():
+    """List all workflows with metadata."""
+    result = []
+    for wid, meta in _workflows.items():
+        engine = _working_engines.get(wid)
+        node_count = len(engine.nodes) if engine else 0
+        result.append({
+            'id': wid,
+            'name': meta['name'],
+            'enabled': meta['enabled'],
+            'nodeCount': node_count,
+            'active': wid == _active_workflow_id
+        })
+    return jsonify(result)
+
+
+@app.route('/api/workflows', methods=['POST'])
+def create_workflow():
+    """Create a new workflow."""
+    data = request.json or {}
+    name = data.get('name', 'New Workflow')
+    
+    wid = _create_new_workflow(name=name)
+    _deployed_engines[wid].start()
+    save_workflow_to_disk()
+    
+    return jsonify({
+        'id': wid,
+        'name': _workflows[wid]['name'],
+        'enabled': _workflows[wid]['enabled']
+    }), 201
+
+
+@app.route('/api/workflows/<workflow_id>', methods=['PUT'])
+def update_workflow(workflow_id):
+    """Update workflow metadata (name, enabled)."""
+    if workflow_id not in _workflows:
+        return jsonify({'error': 'Workflow not found'}), 404
+    
+    data = request.json
+    meta = _workflows[workflow_id]
+    
+    if 'name' in data:
+        new_name = _unique_workflow_name(data['name'], exclude_id=workflow_id)
+        meta['name'] = new_name
+    
+    if 'enabled' in data:
+        meta['enabled'] = data['enabled']
+        deployed = _deployed_engines.get(workflow_id)
+        if deployed:
+            if data['enabled'] and not deployed.running:
+                deployed.start()
+            elif not data['enabled'] and deployed.running:
+                deployed.stop()
+    
+    save_workflow_to_disk()
+    
+    return jsonify({
+        'id': workflow_id,
+        'name': meta['name'],
+        'enabled': meta['enabled']
+    })
+
+
+@app.route('/api/workflows/<workflow_id>', methods=['DELETE'])
+def delete_workflow(workflow_id):
+    """Delete a workflow."""
+    global _active_workflow_id
+    if workflow_id not in _workflows:
+        return jsonify({'error': 'Workflow not found'}), 404
+    
+    # Don't allow deleting the last workflow
+    if len(_workflows) <= 1:
+        return jsonify({'error': 'Cannot delete the last workflow'}), 400
+    
+    # Stop and remove engines
+    deployed = _deployed_engines.get(workflow_id)
+    if deployed and deployed.running:
+        deployed.stop()
+    
+    del _workflows[workflow_id]
+    _working_engines.pop(workflow_id, None)
+    _deployed_engines.pop(workflow_id, None)
+    
+    # If active workflow was deleted, switch to first remaining
+    if _active_workflow_id == workflow_id:
+        _active_workflow_id = next(iter(_workflows))
+    
+    save_workflow_to_disk()
+    return jsonify({'success': True, 'activeWorkflow': _active_workflow_id})
+
+
+@app.route('/api/workflows/active', methods=['PUT'])
+def set_active_workflow():
+    """Set the active workflow."""
+    global _active_workflow_id
+    data = request.json
+    wid = data.get('workflowId')
+    
+    if wid not in _workflows:
+        return jsonify({'error': 'Workflow not found'}), 404
+    
+    _active_workflow_id = wid
+    return jsonify({'activeWorkflow': _active_workflow_id})
+
+
 @app.route('/api/nodes', methods=['GET'])
 def get_nodes():
     """Get all nodes in the working workflow."""
-    nodes = []
-    for node in working_engine.nodes.values():
-        nodes.append(node.to_dict())
+    wid = _get_workflow_id_from_request()
+    engine = _get_working_engine(wid)
+    if not engine:
+        return jsonify({'error': 'Workflow not found'}), 404
+    nodes = [node.to_dict() for node in engine.nodes.values()]
     return jsonify(nodes)
 
 
@@ -506,9 +746,13 @@ def create_node():
     node_id = data.get('id')
     name = data.get('name', '')
     config = data.get('config', {})
+    wid = _get_workflow_id_from_request()
+    engine = _get_working_engine(wid)
+    if not engine:
+        return jsonify({'error': 'Workflow not found'}), 404
     
     try:
-        node = working_engine.create_node(node_type, node_id, name, config)
+        node = engine.create_node(node_type, node_id, name, config)
         # Set position if provided
         if 'x' in data:
             node.x = data.get('x', 0)
@@ -522,7 +766,11 @@ def create_node():
 @app.route('/api/nodes/<node_id>', methods=['GET'])
 def get_node(node_id):
     """Get a specific node from working workflow."""
-    node = working_engine.get_node(node_id)
+    wid = _get_workflow_id_from_request()
+    engine = _get_working_engine(wid)
+    if not engine:
+        return jsonify({'error': 'Workflow not found'}), 404
+    node = engine.get_node(node_id)
     if node:
         return jsonify(node.to_dict())
     return jsonify({'error': 'Node not found'}), 404
@@ -531,7 +779,11 @@ def get_node(node_id):
 @app.route('/api/nodes/<node_id>', methods=['PUT'])
 def update_node(node_id):
     """Update a node's configuration in working workflow."""
-    node = working_engine.get_node(node_id)
+    wid = _get_workflow_id_from_request()
+    engine = _get_working_engine(wid)
+    if not engine:
+        return jsonify({'error': 'Workflow not found'}), 404
+    node = engine.get_node(node_id)
     if not node:
         return jsonify({'error': 'Node not found'}), 404
     
@@ -550,8 +802,12 @@ def update_node(node_id):
 @app.route('/api/nodes/<node_id>', methods=['DELETE'])
 def delete_node(node_id):
     """Delete a node from working workflow."""
+    wid = _get_workflow_id_from_request()
+    engine = _get_working_engine(wid)
+    if not engine:
+        return jsonify({'error': 'Workflow not found'}), 404
     try:
-        working_engine.delete_node(node_id)
+        engine.delete_node(node_id)
         return '', 204
     except Exception as e:
         return jsonify({'error': str(e)}), 400
@@ -561,8 +817,12 @@ def delete_node(node_id):
 def update_node_position(node_id):
     """Update a node's position in working workflow."""
     data = request.json
+    wid = _get_workflow_id_from_request()
+    engine = _get_working_engine(wid)
+    if not engine:
+        return jsonify({'error': 'Workflow not found'}), 404
     try:
-        node = working_engine.nodes.get(node_id)
+        node = engine.nodes.get(node_id)
         if not node:
             return jsonify({'error': 'Node not found'}), 404
         
@@ -581,14 +841,15 @@ def set_node_enabled(node_id):
     
     try:
         # Update BOTH working and deployed engines so state is preserved
-        working_node = working_engine.nodes.get(node_id)
-        deployed_node = deployed_engine.nodes.get(node_id)
-        
-        if working_node:
-            working_node.enabled = enabled
-        
-        if deployed_node:
-            deployed_node.enabled = enabled
+        # Search all workflows for this node
+        for wid in _workflows:
+            working_node = _working_engines[wid].nodes.get(node_id)
+            deployed_node = _deployed_engines[wid].nodes.get(node_id)
+            
+            if working_node:
+                working_node.enabled = enabled
+            if deployed_node:
+                deployed_node.enabled = enabled
         
         # Save workflow to persist the state
         save_workflow_to_disk()
@@ -602,8 +863,12 @@ def set_node_enabled(node_id):
 def get_node_enabled(node_id):
     """Get node enabled state."""
     try:
-        # Check deployed engine first, fall back to working
-        node = deployed_engine.nodes.get(node_id) or working_engine.nodes.get(node_id)
+        # Search all workflows for this node
+        node = None
+        for wid in _workflows:
+            node = _deployed_engines[wid].nodes.get(node_id) or _working_engines[wid].nodes.get(node_id)
+            if node:
+                break
         
         if not node:
             return jsonify({'error': 'Node not found'}), 404
@@ -621,9 +886,13 @@ def create_connection():
     target_id = data.get('target')
     source_output = data.get('sourceOutput', 0)
     target_input = data.get('targetInput', 0)
+    wid = _get_workflow_id_from_request()
+    engine = _get_working_engine(wid)
+    if not engine:
+        return jsonify({'error': 'Workflow not found'}), 404
     
     try:
-        working_engine.connect_nodes(source_id, target_id, source_output, target_input)
+        engine.connect_nodes(source_id, target_id, source_output, target_input)
         return jsonify({
             'source': source_id,
             'target': target_id,
@@ -641,9 +910,13 @@ def delete_connection():
     source_id = data.get('source')
     target_id = data.get('target')
     source_output = data.get('sourceOutput', 0)
+    wid = _get_workflow_id_from_request()
+    engine = _get_working_engine(wid)
+    if not engine:
+        return jsonify({'error': 'Workflow not found'}), 404
     
     try:
-        working_engine.disconnect_nodes(source_id, target_id, source_output)
+        engine.disconnect_nodes(source_id, target_id, source_output)
         return '', 204
     except Exception as e:
         return jsonify({'error': str(e)}), 400
@@ -651,58 +924,83 @@ def delete_connection():
 
 @app.route('/api/workflow', methods=['GET'])
 def get_workflow():
-    """Export the working workflow."""
-    return jsonify(working_engine.export_workflow())
+    """Export the working workflow for the active/requested workflow."""
+    wid = _get_workflow_id_from_request()
+    engine = _get_working_engine(wid)
+    if not engine:
+        return jsonify({'error': 'Workflow not found'}), 404
+    result = engine.export_workflow()
+    result['id'] = wid
+    result['name'] = _workflows[wid]['name']
+    result['enabled'] = _workflows[wid]['enabled']
+    return jsonify(result)
 
 
 @app.route('/api/workflow/deployed', methods=['GET'])
 def get_deployed_workflow():
     """Export the deployed workflow."""
-    return jsonify(deployed_engine.export_workflow())
+    wid = _get_workflow_id_from_request()
+    engine = _get_deployed_engine(wid)
+    if not engine:
+        return jsonify({'error': 'Workflow not found'}), 404
+    return jsonify(engine.export_workflow())
 
 
 @app.route('/api/workflow', methods=['POST'])
 def import_workflow():
-    """Import a workflow into both working and deployed engines."""
+    """Import a workflow into both working and deployed engines (full deploy for one workflow)."""
     data = request.json
+    wid = _get_workflow_id_from_request()
+    working = _get_working_engine(wid)
+    deployed = _get_deployed_engine(wid)
+    if not working or not deployed:
+        return jsonify({'error': 'Workflow not found'}), 404
     try:
-        deployed_engine.stop()  # Stop current deployed workflow
-        working_engine.import_workflow(data)
-        deployed_engine.import_workflow(data)
+        deployed.stop()
+        working.import_workflow(data)
+        deployed.import_workflow(data)
         save_workflow_to_disk()
-        deployed_engine.start()  # Start new deployed workflow
-        return jsonify(working_engine.export_workflow()), 201
+        if _workflows[wid]['enabled']:
+            deployed.start()
+        result = working.export_workflow()
+        result['id'] = wid
+        return jsonify(result), 201
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
 
 @app.route('/api/workflow/save', methods=['POST'])
 def save_workflow():
-    """Deploy the working workflow to the running engine."""
+    """Deploy all workflows - full deploy across all workflows."""
     try:
-        # Export from working engine
-        workflow_data = working_engine.export_workflow()
-        
-        # Preserve runtime state (enabled, gate state) from deployed engine
-        for node_data in workflow_data.get('nodes', []):
-            node_id = node_data['id']
-            deployed_node = deployed_engine.nodes.get(node_id)
+        for wid in list(_workflows.keys()):
+            working = _working_engines.get(wid)
+            deployed = _deployed_engines.get(wid)
+            if not working or not deployed:
+                continue
             
-            if deployed_node:
-                # Preserve enabled state (for debug nodes, gate nodes, etc.)
-                node_data['enabled'] = deployed_node.enabled
+            # Export from working engine
+            workflow_data = working.export_workflow()
+            
+            # Preserve runtime state from deployed engine
+            for node_data in workflow_data.get('nodes', []):
+                node_id = node_data['id']
+                deployed_node = deployed.nodes.get(node_id)
+                if deployed_node:
+                    node_data['enabled'] = deployed_node.enabled
+            
+            # Stop deployed engine and import new workflow
+            deployed.stop()
+            deployed.import_workflow(workflow_data)
+            
+            # Also update working engine with preserved states
+            working.import_workflow(workflow_data)
+            
+            # Start if workflow is enabled
+            if _workflows[wid]['enabled']:
+                deployed.start()
         
-        # Stop deployed engine and import new workflow
-        deployed_engine.stop()
-        deployed_engine.import_workflow(workflow_data)
-        
-        # Also update working engine with preserved states to keep them in sync
-        working_engine.import_workflow(workflow_data)
-        
-        # Save to disk and start deployed engine
         save_workflow_to_disk()
-        deployed_engine.start()
-        
         return jsonify({'success': True}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 400
@@ -710,9 +1008,15 @@ def save_workflow():
 
 @app.route('/api/workflow/deploy-changes', methods=['POST'])
 def deploy_changes():
-    """Incrementally deploy only changed nodes without stopping the entire workflow."""
+    """Incrementally deploy only changed nodes for a specific workflow."""
     try:
         data = request.json
+        wid = data.get('workflowId', _active_workflow_id)
+        working = _working_engines.get(wid)
+        deployed = _deployed_engines.get(wid)
+        if not working or not deployed:
+            return jsonify({'error': 'Workflow not found'}), 404
+        
         modified_nodes = data.get('modifiedNodes', [])
         added_nodes = data.get('addedNodes', [])
         deleted_nodes = data.get('deletedNodes', [])
@@ -724,12 +1028,12 @@ def deploy_changes():
         # 1. Delete removed connections first
         for conn in deleted_connections:
             try:
-                deployed_engine.disconnect_nodes(
+                deployed.disconnect_nodes(
                     conn['source'], 
                     conn['target'], 
                     conn.get('sourceOutput', 0)
                 )
-                working_engine.disconnect_nodes(
+                working.disconnect_nodes(
                     conn['source'], 
                     conn['target'], 
                     conn.get('sourceOutput', 0)
@@ -740,12 +1044,11 @@ def deploy_changes():
         # 2. Delete removed nodes
         for node_id in deleted_nodes:
             try:
-                # Stop the node first
-                node = deployed_engine.get_node(node_id)
+                node = deployed.get_node(node_id)
                 if node:
                     node.on_stop()
-                deployed_engine.delete_node(node_id)
-                working_engine.delete_node(node_id)
+                deployed.delete_node(node_id)
+                working.delete_node(node_id)
                 nodes_restarted += 1
             except Exception as e:
                 print(f"Error deleting node {node_id}: {e}")
@@ -753,8 +1056,7 @@ def deploy_changes():
         # 3. Add new nodes
         for node_data in added_nodes:
             try:
-                # Create in deployed engine
-                node = deployed_engine.create_node(
+                node = deployed.create_node(
                     node_type=node_data['type'],
                     node_id=node_data['id'],
                     name=node_data.get('name', ''),
@@ -764,12 +1066,10 @@ def deploy_changes():
                 node.x = node_data.get('x', 0)
                 node.y = node_data.get('y', 0)
                 
-                # Start the new node if engine is running
-                if deployed_engine.running:
+                if deployed.running:
                     node.on_start()
                 
-                # Create in working engine
-                w_node = working_engine.create_node(
+                w_node = working.create_node(
                     node_type=node_data['type'],
                     node_id=node_data['id'],
                     name=node_data.get('name', ''),
@@ -787,24 +1087,18 @@ def deploy_changes():
         for node_data in modified_nodes:
             node_id = node_data['id']
             try:
-                deployed_node = deployed_engine.get_node(node_id)
-                working_node = working_engine.get_node(node_id)
+                deployed_node = deployed.get_node(node_id)
+                working_node = working.get_node(node_id)
                 
                 if deployed_node:
-                    # Stop the node
                     deployed_node.on_stop()
-                    
-                    # Update configuration
                     deployed_node.name = node_data.get('name', deployed_node.name)
                     deployed_node.configure(node_data.get('config', {}))
                     deployed_node.enabled = node_data.get('enabled', True)
                     deployed_node.x = node_data.get('x', 0)
                     deployed_node.y = node_data.get('y', 0)
-                    
-                    # Restart the node
-                    if deployed_engine.running:
+                    if deployed.running:
                         deployed_node.on_start()
-                    
                     nodes_restarted += 1
                 
                 if working_node:
@@ -820,13 +1114,13 @@ def deploy_changes():
         # 5. Add new connections
         for conn in added_connections:
             try:
-                deployed_engine.connect_nodes(
+                deployed.connect_nodes(
                     conn['source'],
                     conn['target'],
                     conn.get('sourceOutput', 0),
                     conn.get('targetInput', 0)
                 )
-                working_engine.connect_nodes(
+                working.connect_nodes(
                     conn['source'],
                     conn['target'],
                     conn.get('sourceOutput', 0),
@@ -835,7 +1129,6 @@ def deploy_changes():
             except Exception as e:
                 print(f"Error adding connection: {e}")
         
-        # Save the updated workflow to disk
         save_workflow_to_disk()
         
         return jsonify({
@@ -850,15 +1143,17 @@ def deploy_changes():
 
 @app.route('/api/workflow/restart', methods=['POST'])
 def restart_workflow():
-    """Restart the deployed workflow by re-importing and starting all nodes."""
+    """Restart all deployed workflows."""
     try:
-        # Export current deployed workflow state
-        workflow_data = deployed_engine.export_workflow()
-        
-        # Stop, re-import, and start - this fully reinitializes all nodes
-        deployed_engine.stop()
-        deployed_engine.import_workflow(workflow_data)
-        deployed_engine.start()
+        for wid in list(_workflows.keys()):
+            deployed = _deployed_engines.get(wid)
+            if not deployed:
+                continue
+            workflow_data = deployed.export_workflow()
+            deployed.stop()
+            deployed.import_workflow(workflow_data)
+            if _workflows[wid]['enabled']:
+                deployed.start()
         
         return jsonify({'success': True}), 200
     except Exception as e:
@@ -869,7 +1164,11 @@ def restart_workflow():
 @app.route('/api/workflow/stats', methods=['GET'])
 def get_workflow_stats():
     """Get deployed workflow statistics."""
-    return jsonify(deployed_engine.get_workflow_stats())
+    wid = _get_workflow_id_from_request()
+    engine = _get_deployed_engine(wid)
+    if not engine:
+        return jsonify({'error': 'Workflow not found'}), 404
+    return jsonify(engine.get_workflow_stats())
 
 
 # ==============================================================================
@@ -1026,7 +1325,7 @@ def upload_model():
 def trigger_node_action(node_id, action):
     """Trigger a button action on a node in deployed workflow."""
     try:
-        node = deployed_engine.get_node(node_id)
+        node, _ = _find_deployed_node(node_id)
         if not node:
             return jsonify({'error': 'Node not found'}), 404
         
