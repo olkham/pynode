@@ -42,6 +42,16 @@ class ImageUploadNode(BaseNode):
 
     properties = []
 
+    api_routes = [
+        {
+            'route': 'upload_image',
+            'methods': ['POST'],
+            'handler': 'handle_upload_image',
+            'type': 'file_upload',
+            'allowed_extensions': {'.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.webp'},
+        },
+    ]
+
     def __init__(self, node_id=None, name="image upload"):
         super().__init__(node_id, name)
 
@@ -79,3 +89,8 @@ class ImageUploadNode(BaseNode):
             'filename': filename,
         })
         self.send(msg)
+
+    def handle_upload_image(self, file_bytes, filename):
+        """API route handler for image upload. Called by the server."""
+        self.receive_image(file_bytes, filename)
+        return {'success': True, 'filename': filename}

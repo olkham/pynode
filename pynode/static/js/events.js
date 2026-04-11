@@ -217,21 +217,25 @@ export function setupEventListeners() {
     
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
-        // Check if user is typing in an input field
-        const isInputField = e.target.tagName === 'INPUT' || 
-                           e.target.tagName === 'TEXTAREA' || 
-                           e.target.isContentEditable;
-        
-        // Check if focus is within the properties panel
-        const propertiesPanel = document.getElementById('properties-panel');
-        const isInPropertiesPanel = propertiesPanel && propertiesPanel.contains(document.activeElement);
+        // Check if user is actively editing a form field (use activeElement, not e.target
+        // which is always the document for listeners attached to document)
+        const activeEl = document.activeElement;
+        const isEditingInput = activeEl && (
+            activeEl.tagName === 'INPUT' ||
+            activeEl.tagName === 'TEXTAREA' ||
+            activeEl.tagName === 'SELECT' ||
+            activeEl.isContentEditable
+        );
         
         if (e.key === 'Escape') {
             deselectAllNodes();
+            // Return focus to the canvas so keyboard shortcuts work immediately
+            const canvas = document.getElementById('canvas');
+            if (canvas) canvas.focus();
         }
         
-        // Delete only works when not in input field AND not in properties panel
-        if (e.key === 'Delete' && !isInputField && !isInPropertiesPanel) {
+        // Delete works unless user is actively editing a text field
+        if ((e.key === 'Delete' || e.key === 'Backspace') && !isEditingInput) {
             console.log('Delete key pressed, selectedNodes:', state.selectedNodes.size, 'selectedConnection:', state.selectedConnection);
             if (state.selectedNodes.size > 0) {
                 const nodesToDelete = Array.from(state.selectedNodes);
@@ -261,7 +265,7 @@ export function setupEventListeners() {
         }
         
         // Copy (Ctrl+C or Cmd+C)
-        if ((e.ctrlKey || e.metaKey) && e.key === 'c' && !isInputField) {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'c' && !isEditingInput) {
             e.preventDefault();
             import('./clipboard.js').then(({ copySelectedNodes }) => {
                 copySelectedNodes();
@@ -269,7 +273,7 @@ export function setupEventListeners() {
         }
         
         // Cut (Ctrl+X or Cmd+X)
-        if ((e.ctrlKey || e.metaKey) && e.key === 'x' && !isInputField) {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'x' && !isEditingInput) {
             e.preventDefault();
             import('./clipboard.js').then(({ cutSelectedNodes }) => {
                 cutSelectedNodes();
@@ -280,7 +284,7 @@ export function setupEventListeners() {
         }
         
         // Paste (Ctrl+V or Cmd+V)
-        if ((e.ctrlKey || e.metaKey) && e.key === 'v' && !isInputField) {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'v' && !isEditingInput) {
             e.preventDefault();
             import('./clipboard.js').then(({ pasteNodes }) => {
                 pasteNodes();
@@ -291,7 +295,7 @@ export function setupEventListeners() {
         }
         
         // Undo (Ctrl+Z or Cmd+Z)
-        if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey && !isInputField) {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey && !isEditingInput) {
             e.preventDefault();
             import('./history.js').then(({ undo }) => {
                 undo();
@@ -299,7 +303,7 @@ export function setupEventListeners() {
         }
         
         // Redo (Ctrl+Y or Cmd+Shift+Z)
-        if (((e.ctrlKey && e.key === 'y') || (e.metaKey && e.shiftKey && e.key === 'z')) && !isInputField) {
+        if (((e.ctrlKey && e.key === 'y') || (e.metaKey && e.shiftKey && e.key === 'z')) && !isEditingInput) {
             e.preventDefault();
             import('./history.js').then(({ redo }) => {
                 redo();

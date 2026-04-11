@@ -41,6 +41,15 @@ class ImageViewerNode(BaseNode):
     output_count = 0
     info = str(_info)
     
+    api_routes = [
+        {'route': 'frame', 'methods': ['GET'], 'handler': 'get_current_frame'},
+        {'route': 'stream', 'methods': ['GET'], 'handler': 'get_mjpeg_stream', 'type': 'stream'},
+    ]
+    
+    sse_handlers = [
+        {'type': 'frame', 'handler': 'get_current_frame_sse'},
+    ]
+    
     DEFAULT_CONFIG = {
         MessageKeys.IMAGE.WIDTH: 320,
         MessageKeys.IMAGE.HEIGHT: 240,
@@ -124,3 +133,30 @@ class ImageViewerNode(BaseNode):
             self.last_sent_timestamp = self.frame_timestamp
             return self.current_frame
         return None
+
+    def get_current_frame_sse(self):
+        """SSE handler: return frame wrapped in 'data' key for client compatibility."""
+        frame = self.get_current_frame()
+        if frame:
+            return {'data': frame}
+        return None
+
+    def get_mjpeg_stream(self):
+        """Generator for MJPEG streaming. Yields (content_type, image_bytes) tuples."""
+        import time
+        import base64
+        last_timestamp = 0
+        while True:
+            try:
+                if self.frame_timestamp > last_timestamp and self.current_frame:
+                    last_timestamp = self.frame_timestamp
+                    frame_data = self.current_frame
+                    if isinstance(frame_data, dict) and 'data' in frame_data:
+                        img_data = base64.b64decode(frame_data['data'])
+                        yield img_data
+                    else:
+                        time.sleep(0.033)
+                else:
+                    time.sleep(0.033)
+            except Exception:
+                time.sleep(0.1)

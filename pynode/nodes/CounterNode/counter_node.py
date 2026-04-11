@@ -50,6 +50,10 @@ class CounterNode(BaseNode):
         'tooltip': 'Reset Count'
     }
     
+    sse_handlers = [
+        {'type': 'counter', 'handler': 'get_count_sse', 'throttle': 0.5},
+    ]
+    
     DEFAULT_CONFIG = {
         'initial_value': '0',
         'increment': '1',
@@ -160,3 +164,10 @@ class CounterNode(BaseNode):
             topic='counter/reset'
         )
         self.send(msg)
+
+    def get_count_sse(self):
+        """SSE handler: return counter data for broadcast."""
+        return {
+            'display': self.get_count_display(),
+            'count': self.get_count(),
+        }

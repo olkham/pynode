@@ -48,6 +48,14 @@ class RateProbeNode(BaseNode):
         'precision': 1
     }
 
+    api_routes = [
+        {'route': 'rate', 'methods': ['GET'], 'handler': 'get_rate_info'},
+    ]
+
+    sse_handlers = [
+        {'type': 'rate', 'handler': 'get_rate_sse', 'throttle': 0.5},
+    ]
+
     DEFAULT_CONFIG = {
         'window_size': 1.0,  # in seconds
         MessageKeys.DROP_MESSAGES: 'false'
@@ -158,3 +166,18 @@ class RateProbeNode(BaseNode):
         self._timestamps.clear()
         self._current_rate = 0.0
         super().on_stop()
+
+    def get_rate_info(self):
+        """API route handler: return rate info as dict."""
+        rate = self.get_rate()
+        return {
+            'rate': rate,
+            'display': self.get_rate_display(),
+        }
+
+    def get_rate_sse(self):
+        """SSE handler: return rate data for broadcast."""
+        return {
+            'display': self.get_rate_display(),
+            'rate': self.get_rate(),
+        }

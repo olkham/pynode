@@ -138,6 +138,160 @@ def _build_node_types_cache():
 # Build cache at startup
 _build_node_types_cache()
 
+# ==============================================================================
+# Dynamic Node Endpoint and SSE Registration
+# ==============================================================================
+
+# Build a registry of node types that have SSE handlers
+# Maps node_type_name -> list of sse_handler defs
+_sse_handler_registry = {}
+
+# Build a registry of node types that have api_routes
+# Maps node_type_name -> list of route defs  
+_api_route_registry = {}
+
+def _build_node_registries():
+    """Scan all node classes and build registries for API routes and SSE handlers."""
+    for node_class in nodes.get_all_node_types():
+        node_type_name = node_class.__name__
+        
+        api_routes = getattr(node_class, 'api_routes', [])
+        if api_routes:
+            _api_route_registry[node_type_name] = api_routes
+        
+        sse_handlers = getattr(node_class, 'sse_handlers', [])
+        if sse_handlers:
+            _sse_handler_registry[node_type_name] = sse_handlers
+
+_build_node_registries()
+
+
+def _register_dynamic_node_routes():
+    """Register Flask routes for all node types that declare api_routes."""
+    registered = set()
+    
+    for node_type_name, routes in _api_route_registry.items():
+        for route_def in routes:
+            route = route_def['route']
+            methods = route_def.get('methods', ['GET'])
+            handler_name = route_def['handler']
+            route_type = route_def.get('type', 'json')
+            
+            # Create a unique endpoint name for Flask
+            # Combine methods to handle same route with different methods
+            methods_key = '_'.join(sorted(methods))
+            endpoint_name = f"node_{node_type_name}_{route}_{methods_key}"
+            
+            if endpoint_name in registered:
+                continue
+            registered.add(endpoint_name)
+            
+            if route_type == 'file_upload':
+                allowed_ext = route_def.get('allowed_extensions', set())
+                _register_file_upload_route(route, methods, handler_name, endpoint_name, allowed_ext)
+            elif route_type == 'stream':
+                _register_stream_route(route, handler_name, endpoint_name)
+            else:
+                _register_json_route(route, methods, handler_name, endpoint_name)
+
+
+def _register_json_route(route, methods, handler_name, endpoint_name):
+    """Register a standard JSON API route."""
+    def handler(node_id):
+        node = deployed_engine.get_node(node_id)
+        if not node:
+            return jsonify({'error': 'Node not found'}), 404
+        
+        method = getattr(node, handler_name, None)
+        if method is None or not callable(method):
+            return jsonify({'error': f'Node does not support {handler_name}'}), 400
+        
+        try:
+            result = method()
+            if result is None:
+                return '', 204
+            return jsonify(result)
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+    
+    app.add_url_rule(
+        f'/api/nodes/<node_id>/{route}',
+        endpoint=endpoint_name,
+        view_func=handler,
+        methods=methods
+    )
+
+
+def _register_file_upload_route(route, methods, handler_name, endpoint_name, allowed_extensions):
+    """Register a file upload API route."""
+    def handler(node_id):
+        node = deployed_engine.get_node(node_id)
+        if not node:
+            return jsonify({'success': False, 'error': 'Node not found'}), 404
+        
+        method = getattr(node, handler_name, None)
+        if method is None or not callable(method):
+            return jsonify({'success': False, 'error': f'Node does not support {handler_name}'}), 400
+        
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'error': 'No file provided'}), 400
+        
+        file = request.files['file']
+        if not file.filename or file.filename == '':
+            return jsonify({'success': False, 'error': 'No file selected'}), 400
+        
+        if allowed_extensions:
+            ext = os.path.splitext(file.filename)[1].lower()
+            if ext not in allowed_extensions:
+                return jsonify({'success': False, 'error': f'Unsupported file type: {ext}'}), 400
+        
+        try:
+            file_bytes = file.read()
+            result = method(file_bytes, file.filename)
+            return jsonify(result)
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+    
+    app.add_url_rule(
+        f'/api/nodes/<node_id>/{route}',
+        endpoint=endpoint_name,
+        view_func=handler,
+        methods=methods
+    )
+
+
+def _register_stream_route(route, handler_name, endpoint_name):
+    """Register an MJPEG stream route."""
+    def handler(node_id):
+        node = deployed_engine.get_node(node_id)
+        if not node:
+            return jsonify({'error': 'Node not found'}), 404
+        
+        method = getattr(node, handler_name, None)
+        if method is None or not callable(method):
+            return jsonify({'error': f'Node does not support {handler_name}'}), 400
+        
+        def generate():
+            for img_data in method():
+                yield (b'--frame\r\n'
+                       b'Content-Type: image/jpeg\r\n\r\n' + img_data + b'\r\n')
+        
+        return Response(
+            stream_with_context(generate()),
+            mimetype='multipart/x-mixed-replace; boundary=frame'
+        )
+    
+    app.add_url_rule(
+        f'/api/nodes/<node_id>/{route}',
+        endpoint=endpoint_name,
+        view_func=handler,
+        methods=['GET']
+    )
+
+
+# Register all dynamic routes at startup (before app.run)
+_register_dynamic_node_routes()
+
 # Queue for debug messages (for SSE)
 debug_message_queues = {}
 debug_broadcast_thread = None
@@ -157,9 +311,9 @@ def start_debug_broadcast():
         debug_broadcast_thread.start()
 
 def _debug_broadcast_worker():
-    """Background worker that polls nodes and broadcasts to all connected clients."""
-    last_rate_update = 0
-    rate_update_interval = 0.5
+    """Background worker that polls nodes and broadcasts to all connected clients.
+    Uses the SSE handler registry to dynamically discover what to broadcast."""
+    last_throttle_update = {}  # handler_key -> last_update_time
     
     while debug_broadcast_running:
         try:
@@ -171,73 +325,60 @@ def _debug_broadcast_worker():
             current_time = time.time()
             messages_sent = False
             
-            # Check all debug nodes in deployed workflow for new messages
-            all_messages = []
-            for node_id, node in deployed_engine.nodes.items():
-                if node.type == 'DebugNode':
-                    if hasattr(node, 'messages') and node.messages:
-                        all_messages.extend(node.messages.copy())
-                        node.messages.clear()
-            
             # Get errors from system error node
             all_errors = deployed_engine.get_system_errors()
-            
-            if all_messages:
-                data = {'type': 'messages', 'data': all_messages}
-                _broadcast_to_all_clients(data)
-                messages_sent = True
-            
             if all_errors:
                 data = {'type': 'errors', 'data': all_errors}
                 _broadcast_to_all_clients(data)
                 deployed_engine.clear_system_errors()
                 messages_sent = True
             
-            # Check image viewer nodes
+            # Poll all nodes that have registered SSE handlers
             for node_id, node in deployed_engine.nodes.items():
-                if node.type == 'ImageViewerNode':
-                    if hasattr(node, 'get_current_frame'):
-                        frame = node.get_current_frame()
-                        if frame:
+                if node.type not in _sse_handler_registry:
+                    continue
+                
+                for handler_def in _sse_handler_registry[node.type]:
+                    event_type = handler_def['type']
+                    handler_name = handler_def['handler']
+                    throttle = handler_def.get('throttle')
+                    
+                    # Check throttle
+                    if throttle is not None:
+                        handler_key = f"{node_id}_{event_type}"
+                        last_update = last_throttle_update.get(handler_key, 0)
+                        if current_time - last_update < throttle:
+                            continue
+                        last_throttle_update[handler_key] = current_time
+                    
+                    handler = getattr(node, handler_name, None)
+                    if handler is None or not callable(handler):
+                        continue
+                    
+                    try:
+                        result = handler()
+                        if result is None:
+                            continue
+                        
+                        # Special handling for 'messages' type: wrap in data key
+                        if event_type == 'messages':
+                            data = {'type': 'messages', 'data': result}
+                        else:
                             data = {
-                                'type': 'frame',
+                                'type': event_type,
                                 'nodeId': node_id,
-                                'data': frame
                             }
-                            _broadcast_to_all_clients(data)
-                            messages_sent = True
-            
-            # Check rate probe nodes (throttled)
-            if current_time - last_rate_update >= rate_update_interval:
-                last_rate_update = current_time
-                for node_id, node in deployed_engine.nodes.items():
-                    if node.type == 'RateProbeNode':
-                        if hasattr(node, 'get_rate_display'):
-                            data = {
-                                'type': 'rate',
-                                'nodeId': node_id,
-                                'display': node.get_rate_display(),
-                                'rate': node.get_rate()
-                            }
-                            _broadcast_to_all_clients(data)
-                    elif node.type == 'QueueLengthProbeNode':
-                        if hasattr(node, 'get_queue_length_display'):
-                            data = {
-                                'type': 'queue_length',
-                                'nodeId': node_id,
-                                'display': node.get_queue_length_display(),
-                                'queue_length': node.get_queue_length()
-                            }
-                            _broadcast_to_all_clients(data)
-                    elif node.type == 'CounterNode':
-                        if hasattr(node, 'get_count_display'):
-                            data = {
-                                'type': 'counter',
-                                'nodeId': node_id,
-                                'display': node.get_count_display(),
-                                'count': node.get_count()
-                            }
-                            _broadcast_to_all_clients(data)
+                            # If result is a dict, merge it into data
+                            # (handler returns keys like 'display', 'rate', etc.)
+                            if isinstance(result, dict):
+                                data.update(result)
+                            else:
+                                data['data'] = result
+                        
+                        _broadcast_to_all_clients(data)
+                        messages_sent = True
+                    except Exception as e:
+                        print(f"SSE handler error ({node.type}.{handler_name}): {e}")
             
             # Adaptive sleep
             if messages_sent:
@@ -881,43 +1022,6 @@ def upload_model():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-# ==============================================================================
-# Image Upload API (for ImageUploadNode drag-and-drop)
-# ==============================================================================
-
-ALLOWED_IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.webp'}
-
-@app.route('/api/nodes/<node_id>/upload_image', methods=['POST'])
-def upload_image_to_node(node_id):
-    """Upload an image file to an ImageUploadNode."""
-    try:
-        node = deployed_engine.get_node(node_id)
-        if not node:
-            return jsonify({'success': False, 'error': 'Node not found'}), 404
-
-        if not hasattr(node, 'receive_image'):
-            return jsonify({'success': False, 'error': 'Node does not support image upload'}), 400
-
-        if 'file' not in request.files:
-            return jsonify({'success': False, 'error': 'No file provided'}), 400
-
-        file = request.files['file']
-        if not file.filename or file.filename == '':
-            return jsonify({'success': False, 'error': 'No file selected'}), 400
-
-        # Validate file extension
-        ext = os.path.splitext(file.filename)[1].lower()
-        if ext not in ALLOWED_IMAGE_EXTENSIONS:
-            return jsonify({'success': False, 'error': f'Unsupported file type: {ext}'}), 400
-
-        image_bytes = file.read()
-        node.receive_image(image_bytes, file.filename)
-
-        return jsonify({'success': True, 'filename': file.filename})
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
 @app.route('/api/nodes/<node_id>/<action>', methods=['POST'])
 def trigger_node_action(node_id, action):
     """Trigger a button action on a node in deployed workflow."""
@@ -940,15 +1044,6 @@ def trigger_node_action(node_id, action):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-
-@app.route('/api/nodes/<node_id>/debug', methods=['GET'])
-def get_debug_messages(node_id):
-    """Get debug messages from a debug node in deployed workflow."""
-    try:
-        messages = deployed_engine.get_debug_messages(node_id)
-        return jsonify(messages)
-    except Exception as e:
-        return jsonify({'error': str(e)}), 400
 
 @app.route('/api/debug/stream')
 def debug_stream():
@@ -983,106 +1078,6 @@ def debug_stream():
             debug_message_queues.pop(client_id, None)
     
     return Response(stream_with_context(generate()), mimetype='text/event-stream')
-
-
-@app.route('/api/nodes/<node_id>/debug', methods=['DELETE'])
-def clear_debug_messages(node_id):
-    """Clear debug messages from a debug node in deployed workflow."""
-    try:
-        deployed_engine.clear_debug_messages(node_id)
-        return '', 204
-    except Exception as e:
-        return jsonify({'error': str(e)}), 400
-
-
-@app.route('/api/nodes/<node_id>/frame', methods=['GET'])
-def get_image_frame(node_id):
-    """Get the current frame from an image viewer node.
-    
-    This is a single snapshot, not a stream. It has a lower latency for messages that are delivered slowly.
-    """
-    try:
-        node = deployed_engine.get_node(node_id)
-        if not node:
-            return jsonify({'error': 'Node not found'}), 404
-        
-        if not hasattr(node, 'get_current_frame'):
-            return jsonify({'error': 'Node does not support frame viewing'}), 400
-        
-        frame = node.get_current_frame()
-        if frame:
-            return jsonify(frame)
-        else:
-            return jsonify({'error': 'No frame available'}), 404
-    except Exception as e:
-        return jsonify({'error': str(e)}), 400
-
-
-@app.route('/api/nodes/<node_id>/stream')
-def get_image_stream(node_id):
-    """MJPEG stream from an image viewer node - can be opened in a browser tab.
-    
-    It has a smoother frame rate and lower latency for video streams, but a higher latency for messages that are delivered slowly.
-    """
-    import time
-    import base64
-    
-    def generate():
-        last_timestamp = 0
-        while True:
-            try:
-                node = deployed_engine.get_node(node_id)
-                if not node or not hasattr(node, 'current_frame'):
-                    time.sleep(0.1)
-                    continue
-                
-                # Check if there's a new frame
-                if node.frame_timestamp > last_timestamp and node.current_frame:
-                    last_timestamp = node.frame_timestamp
-                    frame_data = node.current_frame
-                    
-                    # Get the base64 data
-                    if isinstance(frame_data, dict) and 'data' in frame_data:
-                        img_data = base64.b64decode(frame_data['data'])
-                    else:
-                        time.sleep(0.033)
-                        continue
-                    
-                    # Yield MJPEG frame
-                    yield (b'--frame\r\n'
-                           b'Content-Type: image/jpeg\r\n\r\n' + img_data + b'\r\n')
-                else:
-                    time.sleep(0.033)  # ~30fps max polling rate
-            except Exception as e:
-                print(f"Stream error: {e}")
-                time.sleep(0.1)
-    
-    return Response(
-        stream_with_context(generate()),
-        mimetype='multipart/x-mixed-replace; boundary=frame'
-    )
-
-
-@app.route('/api/nodes/<node_id>/rate', methods=['GET'])
-def get_node_rate(node_id):
-    """Get the current message rate from a rate probe node."""
-    try:
-        node = deployed_engine.get_node(node_id)
-        if not node:
-            return jsonify({'error': 'Node not found'}), 404
-        
-        if not hasattr(node, 'get_rate'):
-            return jsonify({'error': 'Node does not support rate monitoring'}), 400
-        
-        rate = node.get_rate()
-        display = node.get_rate_display() if hasattr(node, 'get_rate_display') else f"{rate:.1f}/s"
-        
-        return jsonify({
-            'rate': rate,
-            'display': display
-        })
-    except Exception as e:
-        return jsonify({'error': str(e)}), 400
 
 
 # if __name__ == '__main__':

@@ -46,6 +46,10 @@ class QueueLengthProbeNode(BaseNode):
         'precision': 0
     }
 
+    sse_handlers = [
+        {'type': 'queue_length', 'handler': 'get_queue_length_sse', 'throttle': 0.5},
+    ]
+
     DEFAULT_CONFIG = {
         MessageKeys.DROP_MESSAGES: 'false'
     }
@@ -103,3 +107,10 @@ class QueueLengthProbeNode(BaseNode):
         """Reset queue length when stopped."""
         self._current_queue_length = 0
         super().on_stop()
+
+    def get_queue_length_sse(self):
+        """SSE handler: return queue length data for broadcast."""
+        return {
+            'display': self.get_queue_length_display(),
+            'queue_length': self.get_queue_length(),
+        }

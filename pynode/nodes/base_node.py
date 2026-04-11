@@ -340,6 +340,24 @@ class BaseNode:
         }
     ]
     
+    # API routes that this node type exposes.
+    # The server will register these as Flask routes at startup.
+    # Nodes do NOT need to import Flask - the server handles request/response.
+    # Format: [{'route': '/sub_path', 'methods': ['GET'], 'handler': 'method_name'}, ...]
+    # The server creates /api/nodes/<node_id>/<route> for each entry.
+    # Handler methods receive (request_data: dict) and return a result dict,
+    # or just return a dict for GET requests with no input.
+    # For file uploads, handler receives (file_storage, filename) parameters.
+    api_routes: List[Dict[str, Any]] = []
+    
+    # SSE broadcast handlers for real-time UI updates.
+    # The SSE broadcast worker calls these methods and pushes results to clients.
+    # Format: [{'type': 'event_type', 'handler': 'method_name', 'throttle': None|seconds}, ...]
+    # 'type' is the SSE event type sent to the client.
+    # 'handler' is the method name to call on the node instance.
+    # 'throttle' (optional): minimum interval in seconds between broadcasts (None = every cycle).
+    sse_handlers: List[Dict[str, Any]] = []
+    
     def __init__(self, node_id: Optional[str] = None, name: str = ""):
         """
         Initialize a base node.

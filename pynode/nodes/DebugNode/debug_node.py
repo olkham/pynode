@@ -44,6 +44,15 @@ class DebugNode(BaseNode):
         'label': 'Enable'
     }
     
+    api_routes = [
+        {'route': 'debug', 'methods': ['GET'], 'handler': 'get_debug_messages'},
+        {'route': 'debug', 'methods': ['DELETE'], 'handler': 'clear_debug_messages'},
+    ]
+    
+    sse_handlers = [
+        {'type': 'messages', 'handler': 'consume_messages'},
+    ]
+    
     DEFAULT_CONFIG = {
         'console': True,
         'complete': MessageKeys.PAYLOAD,
@@ -141,3 +150,20 @@ class DebugNode(BaseNode):
     def get_enabled(self) -> bool:
         """Get the enabled state of the debug node."""
         return self.enabled
+
+    def get_debug_messages(self):
+        """API route handler: return stored debug messages."""
+        return self.messages
+
+    def clear_debug_messages(self):
+        """API route handler: clear stored debug messages."""
+        self.messages.clear()
+        return None  # 204 No Content
+
+    def consume_messages(self):
+        """SSE handler: return and clear pending messages."""
+        if self.messages:
+            msgs = self.messages.copy()
+            self.messages.clear()
+            return msgs
+        return None
