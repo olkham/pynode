@@ -1289,12 +1289,12 @@ def test_mqtt_service(service_id):
 
 
 # ==============================================================================
-# Model Upload API
+# File Upload API
 # ==============================================================================
 
-@app.route('/api/upload/model', methods=['POST'])
-def upload_model():
-    """Upload a model file for inference nodes."""
+@app.route('/api/upload/file', methods=['POST'])
+def upload_file():
+    """Upload a file (model, video, etc.) and save to the server."""
     try:
         if 'file' not in request.files:
             return jsonify({'success': False, 'error': 'No file provided'}), 400
@@ -1303,18 +1303,20 @@ def upload_model():
         if not file.filename or file.filename == '':
             return jsonify({'success': False, 'error': 'No file selected'}), 400
         
-        # Create models directory if it doesn't exist
-        models_dir = os.path.join(os.path.dirname(__file__), 'models')
-        os.makedirs(models_dir, exist_ok=True)
+        # Determine upload directory from optional 'directory' field, default to models
+        upload_subdir = request.form.get('directory', 'models')
+        upload_dir = os.path.join(os.path.dirname(__file__), upload_subdir)
+        os.makedirs(upload_dir, exist_ok=True)
         
         # Save the file
-        filename = file.filename
-        model_path = os.path.join(models_dir, filename)
-        file.save(model_path)
+        filename = os.path.basename(file.filename)
+        file_path = os.path.join(upload_dir, filename)
+        file.save(file_path)
         
         return jsonify({
             'success': True,
-            'model_path': model_path,
+            'model_path': file_path,
+            'file_path': file_path,
             'filename': filename
         })
     except Exception as e:

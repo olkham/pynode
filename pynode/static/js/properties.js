@@ -3,6 +3,7 @@ import { state, markNodeModified, setModified, getNodeType } from './state.js';
 import { API_BASE } from './config.js';
 import { updateNodeOutputCount, updateNodeInputCount } from './nodes.js';
 import { updateConnections } from './connections.js';
+import { showToast } from './ui-utils.js';
 
 // Helper function to check if property should be shown
 function shouldShowProperty(showIf, config) {
@@ -138,16 +139,25 @@ export function renderProperties(nodeData) {
             } else if (prop.type === 'file') {
                 const value = nodeData.config[prop.name] !== undefined ? nodeData.config[prop.name] : (prop.default || '');
                 const accept = prop.accept || '';
+                const uploadRoute = prop.uploadRoute || '';
+                const placeholder = prop.placeholder || 'Select or enter file path...';
+                const fileId = `file-${nodeData.id}-${prop.name}`;
                 html += `
                     <label class="property-label">${prop.label}</label>
                     <div class="property-file-container">
                         <input type="text" class="property-input property-file-path" 
                                value="${value}"
-                               placeholder="Select or enter model path..."
+                               placeholder="${placeholder}"
                                onchange="window.updateNodeConfig('${nodeData.id}', '${prop.name}', this.value)">
-                        <button class="btn btn-secondary property-file-btn" onclick="window.selectFile('${nodeData.id}', '${prop.name}', '${accept}')">
+                        <button class="btn btn-secondary property-file-btn" onclick="window.selectFile('${nodeData.id}', '${prop.name}', '${accept}', '${uploadRoute}')">
                             <i class="fas fa-folder-open"></i>
                         </button>
+                    </div>
+                    <div class="upload-progress-container" id="${fileId}-progress" style="display:none;">
+                        <div class="upload-progress-bar">
+                            <div class="upload-progress-fill" id="${fileId}-fill"></div>
+                        </div>
+                        <span class="upload-progress-text" id="${fileId}-text">0%</span>
                     </div>
                 `;
             } else if (prop.type === 'mqtt-service') {
@@ -397,55 +407,94 @@ export const toggleGate = toggleNodeState;
 export const toggleNodeEnabled = toggleNodeState;
 
 /**
- * Opens a file dialog to select a model file and updates the node config.
+ * Opens a file dialog to select a file and updates the node config.
+ * Uses XMLHttpRequest for upload progress tracking.
  * @param {string} nodeId - The node ID
  * @param {string} propName - The property name to update
  * @param {string} accept - Comma-separated list of accepted file extensions
+ * @param {string} uploadRoute - Optional node-specific upload route (e.g. 'upload_video')
  */
-export function selectFile(nodeId, propName, accept) {
+export function selectFile(nodeId, propName, accept, uploadRoute) {
     const input = document.createElement('input');
     input.type = 'file';
     if (accept) {
         input.accept = accept;
     }
     
-    input.onchange = async (e) => {
+    input.onchange = (e) => {
         const file = e.target.files[0];
         if (!file) return;
         
-        try {
-            // Upload the file to the server
-            const formData = new FormData();
-            formData.append('file', file);
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        let url;
+        if (uploadRoute) {
+            url = `${API_BASE}/nodes/${nodeId}/${uploadRoute}`;
+        } else {
             formData.append('nodeId', nodeId);
-            
-            const response = await fetch(`${API_BASE}/upload/model`, {
-                method: 'POST',
-                body: formData
-            });
-            
-            if (!response.ok) {
-                throw new Error(`Upload failed: ${response.statusText}`);
-            }
-            
-            const result = await response.json();
-            
-            if (result.success) {
-                // Update the node config with the uploaded file path
-                updateNodeConfig(nodeId, propName, result.model_path);
-                
-                // Update the input field display
-                const nodeData = state.nodes.get(nodeId);
-                renderProperties(nodeData);
-                
-                showToast(`Model uploaded: ${file.name}`);
-            } else {
-                showToast(`Upload failed: ${result.error}`, 'error');
-            }
-        } catch (error) {
-            console.error('Failed to upload file:', error);
-            showToast(`Failed to upload file: ${error.message}`, 'error');
+            url = `${API_BASE}/upload/file`;
         }
+        
+        // Progress bar elements
+        const fileId = `file-${nodeId}-${propName}`;
+        const progressContainer = document.getElementById(`${fileId}-progress`);
+        const progressFill = document.getElementById(`${fileId}-fill`);
+        const progressText = document.getElementById(`${fileId}-text`);
+        
+        const xhr = new XMLHttpRequest();
+        
+        xhr.upload.addEventListener('progress', (evt) => {
+            if (evt.lengthComputable && progressContainer) {
+                const pct = Math.round((evt.loaded / evt.total) * 100);
+                progressContainer.style.display = '';
+                progressFill.style.width = `${pct}%`;
+                progressText.textContent = `${pct}%`;
+            }
+        });
+        
+        xhr.addEventListener('load', () => {
+            // Hide progress bar
+            if (progressContainer) progressContainer.style.display = 'none';
+            
+            if (xhr.status >= 200 && xhr.status < 300) {
+                try {
+                    const result = JSON.parse(xhr.responseText);
+                    if (result.success) {
+                        const filePath = result.file_path || result.model_path;
+                        updateNodeConfig(nodeId, propName, filePath);
+                        
+                        const nodeData = state.nodes.get(nodeId);
+                        renderProperties(nodeData);
+                        
+                        showToast(`Uploaded: ${file.name}`);
+                    } else {
+                        showToast(`Upload failed: ${result.error}`, 'error');
+                    }
+                } catch (parseErr) {
+                    showToast(`Upload failed: invalid server response`, 'error');
+                }
+            } else {
+                let errorMsg = `Upload failed (${xhr.status})`;
+                try {
+                    const errResult = JSON.parse(xhr.responseText);
+                    errorMsg = errResult.error || errResult.message || errorMsg;
+                } catch (_) { /* use default */ }
+                showToast(errorMsg, 'error');
+            }
+        });
+        
+        xhr.addEventListener('error', () => {
+            if (progressContainer) progressContainer.style.display = 'none';
+            showToast('Upload failed: network error', 'error');
+        });
+        
+        xhr.addEventListener('abort', () => {
+            if (progressContainer) progressContainer.style.display = 'none';
+        });
+        
+        xhr.open('POST', url);
+        xhr.send(formData);
     };
     
     input.click();

@@ -160,6 +160,10 @@ class MessageKeys:
         JPEG_QUALITY: str = 'jpeg_quality'
         ENCODE_JPEG: str = 'encode_jpeg'
         
+    class VIDEO:
+        LOOP: str = 'loop'
+        SOURCE: str = 'source'
+        
     class CV:
         BBOX: str = 'bbox'
         BBOX_FORMAT: str = 'bbox_format'

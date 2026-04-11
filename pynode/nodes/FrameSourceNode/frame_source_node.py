@@ -1,9 +1,10 @@
 """
-Camera node - captures frames from a webcam using OpenCV.
+Frame Source node - captures frames from various video sources.
 """
 
 import cv2
 import base64
+import os
 import threading
 import time
 import sys
@@ -33,7 +34,8 @@ _info.add_header("Output Format")
 _info.add_bullets(
     (f"{MessageKeys.PAYLOAD}.image:", "Image data as numpy array or base64 JPEG"),
     (f"{MessageKeys.PAYLOAD}.frame_count:", "Frame sequence number"),
-    (f"{MessageKeys.PAYLOAD}.width/height:", "Frame dimensions")
+    (f"{MessageKeys.PAYLOAD}.width/height:", "Frame dimensions"),
+    (f"{MessageKeys.PAYLOAD}.loop:", "Indicates if the video/folder is looping")
 )
 
 # Add FrameSource package to path
@@ -58,6 +60,16 @@ class FrameSourceNode(BaseNode):
     output_count = 1
     info = str(_info)
 
+    api_routes = [
+        {
+            'route': 'upload_video',
+            'methods': ['POST'],
+            'handler': 'handle_upload_video',
+            'type': 'file_upload',
+            'allowed_extensions': {'.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.webm', '.m4v', '.mpg', '.mpeg'},
+        },
+    ]
+
     DEFAULT_CONFIG = {
         MessageKeys.CAMERA.SOURCE_TYPE: 'webcam',
         MessageKeys.CAMERA.SOURCE: 0,
@@ -65,7 +77,8 @@ class FrameSourceNode(BaseNode):
         MessageKeys.CAMERA.WIDTH: 640,
         MessageKeys.CAMERA.HEIGHT: 480,
         MessageKeys.CAMERA.ENCODE_JPEG: False,
-        MessageKeys.CAMERA.JPEG_QUALITY: 75
+        MessageKeys.CAMERA.JPEG_QUALITY: 75,
+        MessageKeys.VIDEO.LOOP: True
     }
 
     properties = [
@@ -88,15 +101,32 @@ class FrameSourceNode(BaseNode):
         },
         {
             'name': MessageKeys.CAMERA.SOURCE,
+            'label': 'Video File',
+            'type': 'file',
+            'accept': '.mp4,.avi,.mkv,.mov,.wmv,.flv,.webm,.m4v,.mpg,.mpeg',
+            'uploadRoute': 'upload_video',
+            'placeholder': 'Upload or enter video file path...',
+            'showIf': {MessageKeys.CAMERA.SOURCE_TYPE: 'video_file'},
+        },
+        {
+            'name': MessageKeys.CAMERA.SOURCE,
             'label': 'Source',
             'type': 'text',
-            'default': str(DEFAULT_CONFIG[MessageKeys.CAMERA.SOURCE])
+            'default': str(DEFAULT_CONFIG[MessageKeys.CAMERA.SOURCE]),
+            'showIf': {MessageKeys.CAMERA.SOURCE_TYPE: ['webcam', 'ipcam', 'folder', 'basler', 'realsense', 'screen', 'genicam', 'audio_spectrogram']},
         },
         {
             'name': MessageKeys.CAMERA.FPS,
             'label': 'Frame Rate (FPS)',
             'type': 'number',
             'default': DEFAULT_CONFIG[MessageKeys.CAMERA.FPS]
+        },
+        {
+            'name': MessageKeys.VIDEO.LOOP,
+            'label': 'Loop Video/Folder',
+            'type': 'checkbox',
+            'default': DEFAULT_CONFIG[MessageKeys.VIDEO.LOOP],
+            'showIf': {MessageKeys.CAMERA.SOURCE_TYPE: ['video_file', 'folder']}
         },
         {
             'name': MessageKeys.CAMERA.WIDTH,
@@ -131,6 +161,28 @@ class FrameSourceNode(BaseNode):
         self.running = False
         self.frame_count = 0
     
+    def handle_upload_video(self, file_bytes, filename):
+        """Handle video file upload via the dynamic API route."""
+        try:
+            # Save to a videos directory next to this node
+            videos_dir = os.path.join(os.path.dirname(__file__), 'videos')
+            os.makedirs(videos_dir, exist_ok=True)
+            
+            file_path = os.path.join(videos_dir, os.path.basename(filename))
+            with open(file_path, 'wb') as f:
+                f.write(file_bytes)
+            
+            return {
+                'success': True,
+                'file_path': file_path,
+                'filename': filename
+            }
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e)
+            }
+
     def on_start(self):
         """Start the camera capture when workflow starts."""
         super().on_start()  # Start base node worker thread
@@ -140,6 +192,7 @@ class FrameSourceNode(BaseNode):
         fps = self.get_config_int(MessageKeys.CAMERA.FPS, 30)
         width = self.get_config_int(MessageKeys.CAMERA.WIDTH, 640)
         height = self.get_config_int(MessageKeys.CAMERA.HEIGHT, 480)
+        loop = self.get_config_bool(MessageKeys.VIDEO.LOOP, False)
         
         try:
             # Create camera with config including resolution and fps
@@ -148,7 +201,8 @@ class FrameSourceNode(BaseNode):
                 source=source,
                 width=width,
                 height=height,
-                fps=fps
+                fps=fps,
+                loop=loop
             )
             
             if not self.camera.connect():

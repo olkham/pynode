@@ -38,6 +38,10 @@ body {
     opacity: 1;
 }
 
+.toast.toast-error {
+    background: #c42b1c;
+}
+
 /* Header */
 .header {
     background: #252526;
@@ -1367,6 +1371,37 @@ body {
 
 .property-file-btn:hover {
     background: #1177bb;
+}
+
+/* Upload progress bar */
+.upload-progress-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.upload-progress-bar {
+    flex: 1;
+    height: 6px;
+    background: #3e3e42;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.upload-progress-fill {
+    height: 100%;
+    width: 0%;
+    background: #0e639c;
+    border-radius: 3px;
+    transition: width 0.15s ease;
+}
+
+.upload-progress-text {
+    font-size: 11px;
+    color: #999;
+    min-width: 32px;
+    text-align: right;
 }
 
 /* Service property with select and buttons */
