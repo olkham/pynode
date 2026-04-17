@@ -2,11 +2,7 @@
 
 A Node-RED-like visual workflow editor with a Python backend. Create workflows by connecting Python nodes that process and route messages.
 
-
-
 https://github.com/user-attachments/assets/0b53085a-2cc6-4c26-bd43-e0de1e0716a2
-
-
 
 ## Features
 
@@ -24,7 +20,12 @@ https://github.com/user-attachments/assets/0b53085a-2cc6-4c26-bd43-e0de1e0716a2
   - **DelayNode**: Delay message delivery
   - **GateNode**: Control message flow with real-time toggle
   - **RateProbeNode**: Monitor message throughput
-  - **Vision Nodes**: Camera input, YOLO detection, image processing
+  - **QueueLengthProbeNode**: Monitor queue lengths
+  - **CounterNode**: Count messages
+  - **MQTTNode**: MQTT communication
+  - **MessageWriterNode**: Save message data
+  - **VideoWriterNode**: Save video output
+  - **Vision Nodes**: Camera input, YOLO detection, tracking, image processing, display, and file output
 - **REST API**: Complete API for programmatic workflow management
 - **Export/Import**: Save and load workflows as JSON
 - **Dynamic Properties**: Node properties and UI components defined in node classes
@@ -94,7 +95,7 @@ PyNode can be run in a Docker container with GPU support (CUDA 12.6).
 
 ### Running with Docker Compose
 
-For mDNS service discovery to work correctly inside Docker, you need to set the `HOST_IP` environment variable to your host machine's IP address:
+For mDNS service discovery to work correctly inside Docker, set the `HOST_IP` environment variable to your host machine's IP address.
 
 ```bash
 # Set the host IP address
@@ -111,14 +112,14 @@ The container will:
 - Expose port 5000 for web interface
 - Support mDNS broadcasting with the correct host IP
 
-**Why set HOST_IP?**
-When using the mDNS Broadcast Node inside Docker, it needs to advertise the host machine's IP address (not the container's internal IP like 172.x.x.x) so other devices on your network can discover and connect to the service.
+**Why set HOST_IP?**  
+When using the mDNS Broadcast Node inside Docker, it needs to advertise the host machine's IP address rather than the container's internal IP so other devices on your network can discover and connect to the service.
 
 **Access the application:**
 - Web UI: `http://localhost:5000`
 - From other devices: `http://<your-host-ip>:5000`
 
-**GPU Access:**
+**GPU Access:**  
 The Docker setup requires [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html) to be installed on the host system.
 
 For more details, see [DOCKER.md](DOCKER.md).
@@ -133,7 +134,7 @@ PyNode is designed to be easily extended with custom nodes:
 
 ## Project Structure
 
-```
+```text
 pynode/                     # Project root
 ├── pynode/                 # Main package
 │   ├── __init__.py
@@ -202,25 +203,23 @@ pynode/                     # Project root
 
 ## Creating Custom Nodes
 
-PyNode is fully extensible! All node information (visual properties, property schemas, behavior) is contained within the node class itself. The main application has no hardcoded knowledge of specific node types.
+PyNode is fully extensible. All node information (visual properties, property schemas, and behavior) is contained within the node class itself. The main application has no hardcoded knowledge of specific node types.
 
 For a complete guide, see [docs/CUSTOM_NODES.md](docs/CUSTOM_NODES.md)
 
-Here's a simple example:
+Here is a simple example:
 
 ```python
-from base_node import BaseNode
+from pynode.nodes.base_node import BaseNode
 
 class MyCustomNode(BaseNode):
     """Example custom node."""
-    
-    # Visual properties
+
     category = 'custom'
     color = '#FFA07A'
     border_color = '#FF7F50'
     text_color = '#000000'
-    
-    # Property schema (appears in UI)
+
     properties = [
         {
             'name': 'multiplier',
@@ -228,30 +227,32 @@ class MyCustomNode(BaseNode):
             'type': 'text'
         }
     ]
-    
+
     def __init__(self, node_id=None, name="custom"):
         super().__init__(node_id, name)
         self.configure({
             'multiplier': 2
         })
-    
+
     def on_input(self, msg, input_index=0):
-        # Process the incoming message
-        payload = msg[MessageKeys.PAYLOAD]
+        payload = msg.get('payload')
         multiplier = float(self.config.get('multiplier', 2))
-        
-        # Modify the payload
         new_payload = payload * multiplier
-        
-        # Create and send new message
+
         new_msg = self.create_message(
             payload=new_payload,
             topic=msg.get('topic', '')
         )
         self.send(new_msg)
+```
 
-# Register your node in app.py
-from nodes import MyCustomNode
+Register the node with the workflow engine used by your application:
+
+```python
+from pynode.workflow_engine import WorkflowEngine
+from my_custom_node import MyCustomNode
+
+engine = WorkflowEngine()
 engine.register_node_type(MyCustomNode)
 ```
 
@@ -261,9 +262,9 @@ Messages follow the Node-RED format:
 
 ```python
 {
-    'payload': 'any data type',  # The main message content
-    'topic': 'string',            # Optional topic/category
-    '_msgid': 'unique-id',        # Auto-generated message ID
+    'payload': 'any data type',
+    'topic': 'string',
+    '_msgid': 'unique-id',
     # ... any additional properties
 }
 ```
@@ -276,7 +277,7 @@ Messages follow the Node-RED format:
 - `GET /api/nodes/<id>` - Get node details
 - `PUT /api/nodes/<id>` - Update node
 - `DELETE /api/nodes/<id>` - Delete node
-- `POST /api/nodes/<id>/<action>` - Trigger node action (e.g., inject, start_broadcast, etc.)
+- `POST /api/nodes/<id>/<action>` - Trigger node action
 
 ### Connections
 - `POST /api/connections` - Create connection
@@ -299,13 +300,11 @@ Messages follow the Node-RED format:
 from pynode.workflow_engine import WorkflowEngine
 from pynode.nodes import InjectNode, FunctionNode, DebugNode
 
-# Create and configure engine
 engine = WorkflowEngine()
 engine.register_node_type(InjectNode)
 engine.register_node_type(FunctionNode)
 engine.register_node_type(DebugNode)
 
-# Create nodes
 inject = engine.create_node('InjectNode', name='source')
 inject.configure({'payload': 10, 'payloadType': 'num'})
 
@@ -314,27 +313,24 @@ func.configure({'func': 'msg["payload"] = msg["payload"] * 2\nreturn msg'})
 
 debug = engine.create_node('DebugNode', name='output')
 
-# Connect nodes: inject -> function -> debug
 engine.connect_nodes(inject.id, func.id)
 engine.connect_nodes(func.id, debug.id)
 
-# Start and trigger
 engine.start()
 engine.trigger_inject_node(inject.id)
 
-# Check debug output
 messages = engine.get_debug_messages(debug.id)
-print(messages)  # Should show payload=20
+print(messages)
 ```
 
 ## Web UI Usage
 
 1. **Add Nodes**: Drag nodes from the palette onto the canvas
-2. **Connect Nodes**: Click on an output port (right side) and drag to an input port (left side)
+2. **Connect Nodes**: Click an output port and drag to an input port
 3. **Configure Nodes**: Click a node to show its properties panel
-4. **Test Workflow**: 
-   - Click "Start" to activate the workflow
-   - Use "Inject" button on inject nodes to send messages
+4. **Test Workflow**:
+   - Click **Start** to activate the workflow
+   - Use the **Inject** button on inject nodes to send messages
    - View output in the debug panel at the bottom
 5. **Save/Load**: Use Export/Import buttons to save workflows
 
@@ -347,13 +343,13 @@ print(messages)  # Should show payload=20
 3. Override `on_input()` for message processing
 4. Define `properties` for UI configuration
 5. Create `requirements.txt` in the node's directory if needed
-6. Reload the server to automatically detect new nodes
+6. Reload the server to detect the new node
 
 ### Custom Message Processing
 
 Nodes can:
 - Modify message payload
-- Add/remove message properties
+- Add or remove message properties
 - Send to multiple outputs
 - Send multiple messages
 - Filter messages
@@ -363,52 +359,43 @@ Nodes can:
 
 - **Background Processing**: Use threading for long-running operations
 - **External APIs**: Make HTTP requests from function nodes
-- **Database Integration**: Store/retrieve data from databases
-- **File I/O**: Read/write files in custom nodes
+- **Database Integration**: Store and retrieve data from databases
+- **File I/O**: Read and write files in custom nodes
 - **Scheduling**: Implement timed node execution
 
 ## Development TODOs
 
-### TODOs for Launch
-- [ ] Remove some nodes from standard set
-- [ ] Create a new repo for extra nodes
-- [ ] Model repository management
+### Ongoing
+- ⬜ Centralize more strings / constants
+- ⬜ Test all nodes
+- ✅ Add multiple workspaces / canvases
 
-### Ongoing TODOs
-- [ ] Centralize more strings / constants
-
-### Testing
-- [ ] Test all nodes
-
-### General TODOs
-- [ ] Add multiple workspaces / canvases
-
-### New Nodes
-- [ ] OCR (PaddlePaddle) Node
-- [ ] Qwen VLM Node
-- [ ] SAM3 Node
-- [ ] REST Endpoint Node
-- [ ] Webhook Node
-- [ ] UDP/TCP Node
+### Planned Nodes
+- ⬜ OCR (PaddlePaddle) Node
+- ✅ Qwen VLM Node
+- ⬜ SAM3 Node
+- ✅ REST Endpoint Node
+- ✅ Webhook Node
+- ⬜ UDP/TCP Node
 
 ### Example Flow Documentation Needed
-- [ ] Bird Seed level monitor
-- [ ] Capture data send to Roboflow / Geti
-- [ ] Track objects time in zone
-- [ ] Live VLMs
-- [ ] ANPR (Detect, Crop, OCR, MQTT)
+- ⬜ Bird seed level monitor
+- ⬜ Capture data and send to Roboflow / Geti
+- ⬜ Track objects time in zone
+- ⬜ Live VLMs
+- ⬜ ANPR (Detect, Crop, OCR, MQTT)
 
-### Node-Specific TODOs
-- [ ] YOLO: Add custom model support
-- [ ] YOLO: Add custom target HW string
-- [ ] Roboflow: rfdetr
-- [ ] Roboflow: upload images
-- [ ] DeepSort: Add option to use different feature extractor model
+### Node-Specific
+- ✅ YOLO: Add custom model support
+- ✅ YOLO: Add custom target HW string
+- ⬜ Roboflow: RF-DETR
+- ⬜ Roboflow: Upload images
+- ⬜ DeepSort: Add option to use a different feature extractor model
 
 ## License
 
-MIT License - Feel free to use and modify!
+MIT License - Feel free to use and modify.
 
 ## Contributing
 
-Contributions welcome! Add new node types, improve the UI, or enhance the engine.
+Contributions are welcome. Add new node types, improve the UI, or enhance the engine.
