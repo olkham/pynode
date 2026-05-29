@@ -35,6 +35,12 @@ _working_engines = {}    # workflow_id -> WorkflowEngine
 _deployed_engines = {}   # workflow_id -> WorkflowEngine
 _active_workflow_id = None
 
+# Reentrant lock guarding all mutations/iterations of the workflow state dicts
+# above (_workflows, _working_engines, _deployed_engines) and _active_workflow_id.
+# Reentrant so helpers that already hold it (e.g. _create_new_workflow) can be
+# called from routes that also acquire it.
+_state_lock = threading.RLock()
+
 # Workflow persistence directories and files
 WORKFLOWS_DIR = os.path.join(BASE_DIR, 'workflows')
 WORKFLOW_FILE = os.path.join(WORKFLOWS_DIR, 'workflow.json')
@@ -96,20 +102,21 @@ def _unique_workflow_name(desired_name, exclude_id=None):
 def _create_new_workflow(name=None, workflow_id=None, enabled=True):
     """Create a new workflow with working and deployed engines."""
     global _active_workflow_id
-    if workflow_id is None:
-        workflow_id = f"wf_{int(time.time() * 1000)}"
-    if name is None:
-        name = "New Workflow"
-    name = _unique_workflow_name(name)
+    with _state_lock:
+        if workflow_id is None:
+            workflow_id = f"wf_{int(time.time() * 1000)}"
+        if name is None:
+            name = "New Workflow"
+        name = _unique_workflow_name(name)
 
-    _workflows[workflow_id] = {'name': name, 'enabled': enabled}
-    _working_engines[workflow_id] = _create_workflow_engine()
-    _deployed_engines[workflow_id] = _create_workflow_engine()
+        _workflows[workflow_id] = {'name': name, 'enabled': enabled}
+        _working_engines[workflow_id] = _create_workflow_engine()
+        _deployed_engines[workflow_id] = _create_workflow_engine()
 
-    if _active_workflow_id is None:
-        _active_workflow_id = workflow_id
+        if _active_workflow_id is None:
+            _active_workflow_id = workflow_id
 
-    return workflow_id
+        return workflow_id
 
 # Cache for node types (built once at startup or on first request)
 _node_types_cache = None
@@ -264,17 +271,39 @@ def _register_dynamic_node_routes():
                 _register_json_route(route, methods, handler_name, endpoint_name)
 
 
+def _resolve_node_handler(node_id, handler_name):
+    """Resolve a deployed node and one of its callable handler methods.
+
+    Returns (node, method, error_response). On success error_response is None;
+    on failure node/method are None and error_response is a (json, status) tuple.
+    """
+    node, _ = _find_deployed_node(node_id)
+    if not node:
+        return None, None, (jsonify({'error': 'Node not found'}), 404)
+
+    method = getattr(node, handler_name, None)
+    if method is None or not callable(method):
+        return None, None, (jsonify({'error': f'Node does not support {handler_name}'}), 400)
+
+    return node, method, None
+
+
+def _add_node_route(route, view_func, endpoint_name, methods):
+    """Register a Flask URL rule under the standard node API prefix."""
+    app.add_url_rule(
+        f'/api/nodes/<node_id>/{route}',
+        endpoint=endpoint_name,
+        view_func=view_func,
+        methods=methods
+    )
+
+
 def _register_json_route(route, methods, handler_name, endpoint_name):
     """Register a standard JSON API route."""
     def handler(node_id):
-        node, _ = _find_deployed_node(node_id)
-        if not node:
-            return jsonify({'error': 'Node not found'}), 404
-        
-        method = getattr(node, handler_name, None)
-        if method is None or not callable(method):
-            return jsonify({'error': f'Node does not support {handler_name}'}), 400
-        
+        _, method, error = _resolve_node_handler(node_id, handler_name)
+        if error:
+            return error
         try:
             result = method()
             if result is None:
@@ -282,80 +311,59 @@ def _register_json_route(route, methods, handler_name, endpoint_name):
             return jsonify(result)
         except Exception as e:
             return jsonify({'error': str(e)}), 500
-    
-    app.add_url_rule(
-        f'/api/nodes/<node_id>/{route}',
-        endpoint=endpoint_name,
-        view_func=handler,
-        methods=methods
-    )
+
+    _add_node_route(route, handler, endpoint_name, methods)
 
 
 def _register_file_upload_route(route, methods, handler_name, endpoint_name, allowed_extensions):
     """Register a file upload API route."""
     def handler(node_id):
-        node, _ = _find_deployed_node(node_id)
-        if not node:
-            return jsonify({'success': False, 'error': 'Node not found'}), 404
-        
-        method = getattr(node, handler_name, None)
-        if method is None or not callable(method):
-            return jsonify({'success': False, 'error': f'Node does not support {handler_name}'}), 400
-        
+        _, method, error = _resolve_node_handler(node_id, handler_name)
+        if error:
+            # Re-shape error payload to the success/error contract used by uploads
+            payload, status = error
+            return jsonify({'success': False, 'error': payload.get_json()['error']}), status
+
         if 'file' not in request.files:
             return jsonify({'success': False, 'error': 'No file provided'}), 400
-        
+
         file = request.files['file']
         if not file.filename or file.filename == '':
             return jsonify({'success': False, 'error': 'No file selected'}), 400
-        
+
         if allowed_extensions:
             ext = os.path.splitext(file.filename)[1].lower()
             if ext not in allowed_extensions:
                 return jsonify({'success': False, 'error': f'Unsupported file type: {ext}'}), 400
-        
+
         try:
             file_bytes = file.read()
             result = method(file_bytes, file.filename)
             return jsonify(result)
         except Exception as e:
             return jsonify({'success': False, 'error': str(e)}), 500
-    
-    app.add_url_rule(
-        f'/api/nodes/<node_id>/{route}',
-        endpoint=endpoint_name,
-        view_func=handler,
-        methods=methods
-    )
+
+    _add_node_route(route, handler, endpoint_name, methods)
 
 
 def _register_stream_route(route, handler_name, endpoint_name):
     """Register an MJPEG stream route."""
     def handler(node_id):
-        node, _ = _find_deployed_node(node_id)
-        if not node:
-            return jsonify({'error': 'Node not found'}), 404
-        
-        method = getattr(node, handler_name, None)
-        if method is None or not callable(method):
-            return jsonify({'error': f'Node does not support {handler_name}'}), 400
-        
+        _, method, error = _resolve_node_handler(node_id, handler_name)
+        if error:
+            return error
+
         def generate():
             for img_data in method():
                 yield (b'--frame\r\n'
                        b'Content-Type: image/jpeg\r\n\r\n' + img_data + b'\r\n')
-        
+
         return Response(
             stream_with_context(generate()),
             mimetype='multipart/x-mixed-replace; boundary=frame'
         )
-    
-    app.add_url_rule(
-        f'/api/nodes/<node_id>/{route}',
-        endpoint=endpoint_name,
-        view_func=handler,
-        methods=['GET']
-    )
+
+    _add_node_route(route, handler, endpoint_name, ['GET'])
 
 
 # Register all dynamic routes at startup (before app.run)
@@ -363,6 +371,8 @@ _register_dynamic_node_routes()
 
 # Queue for debug messages (for SSE)
 debug_message_queues = {}
+# Lock guarding registration/removal of SSE client queues in debug_message_queues
+_clients_lock = threading.Lock()
 debug_broadcast_thread = None
 debug_broadcast_running = False
 debug_broadcast_lock = threading.Lock()
@@ -477,8 +487,10 @@ def _broadcast_to_all_clients(data):
             dead_clients.append(client_id)
     
     # Clean up dead clients
-    for client_id in dead_clients:
-        debug_message_queues.pop(client_id, None)
+    if dead_clients:
+        with _clients_lock:
+            for client_id in dead_clients:
+                debug_message_queues.pop(client_id, None)
 
 # Track if workflow has been loaded
 workflow_loaded = False
@@ -502,21 +514,23 @@ def save_workflow_to_disk():
         
         # Build multi-workflow save data
         workflows_data = []
-        for wid, meta in _workflows.items():
-            engine = _working_engines.get(wid)
-            if engine:
-                wf_export = engine.export_workflow()
-                workflows_data.append({
-                    'id': wid,
-                    'name': meta['name'],
-                    'enabled': meta['enabled'],
-                    'nodes': wf_export.get('nodes', []),
-                    'connections': wf_export.get('connections', [])
-                })
+        with _state_lock:
+            active_workflow = _active_workflow_id
+            for wid, meta in _workflows.items():
+                engine = _working_engines.get(wid)
+                if engine:
+                    wf_export = engine.export_workflow()
+                    workflows_data.append({
+                        'id': wid,
+                        'name': meta['name'],
+                        'enabled': meta['enabled'],
+                        'nodes': wf_export.get('nodes', []),
+                        'connections': wf_export.get('connections', [])
+                    })
         
         save_data = {
             'version': 2,
-            'activeWorkflow': _active_workflow_id,
+            'activeWorkflow': active_workflow,
             'workflows': workflows_data
         }
         
@@ -556,32 +570,33 @@ def load_workflow_from_disk():
                 logger.info("Migrated v1 workflow format to v2 multi-workflow format")
             
             # Load each workflow
-            for wf in data.get('workflows', []):
-                wid = wf['id']
-                _workflows[wid] = {
-                    'name': wf.get('name', 'Unnamed'),
-                    'enabled': wf.get('enabled', True)
-                }
-                _working_engines[wid] = _create_workflow_engine()
-                _deployed_engines[wid] = _create_workflow_engine()
+            with _state_lock:
+                for wf in data.get('workflows', []):
+                    wid = wf['id']
+                    _workflows[wid] = {
+                        'name': wf.get('name', 'Unnamed'),
+                        'enabled': wf.get('enabled', True)
+                    }
+                    _working_engines[wid] = _create_workflow_engine()
+                    _deployed_engines[wid] = _create_workflow_engine()
+                    
+                    wf_data = {
+                        'nodes': wf.get('nodes', []),
+                        'connections': wf.get('connections', [])
+                    }
+                    
+                    # Import into both engines
+                    _deployed_engines[wid].import_workflow(wf_data)
+                    if _workflows[wid]['enabled']:
+                        _deployed_engines[wid].start()
+                    _working_engines[wid].import_workflow(wf_data)
                 
-                wf_data = {
-                    'nodes': wf.get('nodes', []),
-                    'connections': wf.get('connections', [])
-                }
+                _active_workflow_id = data.get('activeWorkflow')
+                # Ensure active workflow exists
+                if _active_workflow_id not in _workflows and _workflows:
+                    _active_workflow_id = next(iter(_workflows))
                 
-                # Import into both engines
-                _deployed_engines[wid].import_workflow(wf_data)
-                if _workflows[wid]['enabled']:
-                    _deployed_engines[wid].start()
-                _working_engines[wid].import_workflow(wf_data)
-            
-            _active_workflow_id = data.get('activeWorkflow')
-            # Ensure active workflow exists
-            if _active_workflow_id not in _workflows and _workflows:
-                _active_workflow_id = next(iter(_workflows))
-            
-            total_nodes = sum(len(e.nodes) for e in _working_engines.values())
+                total_nodes = sum(len(e.nodes) for e in _working_engines.values())
             logger.info(f"Loaded {len(_workflows)} workflow(s), {total_nodes} total nodes")
         else:
             # No workflow file - create default workflow
@@ -625,16 +640,17 @@ def get_node_types():
 def list_workflows():
     """List all workflows with metadata."""
     result = []
-    for wid, meta in _workflows.items():
-        engine = _working_engines.get(wid)
-        node_count = len(engine.nodes) if engine else 0
-        result.append({
-            'id': wid,
-            'name': meta['name'],
-            'enabled': meta['enabled'],
-            'nodeCount': node_count,
-            'active': wid == _active_workflow_id
-        })
+    with _state_lock:
+        for wid, meta in _workflows.items():
+            engine = _working_engines.get(wid)
+            node_count = len(engine.nodes) if engine else 0
+            result.append({
+                'id': wid,
+                'name': meta['name'],
+                'enabled': meta['enabled'],
+                'nodeCount': node_count,
+                'active': wid == _active_workflow_id
+            })
     return jsonify(result)
 
 
@@ -644,74 +660,77 @@ def create_workflow():
     data = request.json or {}
     name = data.get('name', 'New Workflow')
     
-    wid = _create_new_workflow(name=name)
-    _deployed_engines[wid].start()
+    with _state_lock:
+        wid = _create_new_workflow(name=name)
+        _deployed_engines[wid].start()
+        meta = dict(_workflows[wid])
     save_workflow_to_disk()
     
     return jsonify({
         'id': wid,
-        'name': _workflows[wid]['name'],
-        'enabled': _workflows[wid]['enabled']
+        'name': meta['name'],
+        'enabled': meta['enabled']
     }), 201
 
 
 @app.route('/api/workflows/<workflow_id>', methods=['PUT'])
 def update_workflow(workflow_id):
     """Update workflow metadata (name, enabled)."""
-    if workflow_id not in _workflows:
-        return jsonify({'error': 'Workflow not found'}), 404
-    
     data = request.json
-    meta = _workflows[workflow_id]
-    
-    if 'name' in data:
-        new_name = _unique_workflow_name(data['name'], exclude_id=workflow_id)
-        meta['name'] = new_name
-    
-    if 'enabled' in data:
-        meta['enabled'] = data['enabled']
-        deployed = _deployed_engines.get(workflow_id)
-        if deployed:
-            if data['enabled'] and not deployed.running:
-                deployed.start()
-            elif not data['enabled'] and deployed.running:
-                deployed.stop()
+    with _state_lock:
+        if workflow_id not in _workflows:
+            return jsonify({'error': 'Workflow not found'}), 404
+        
+        meta = _workflows[workflow_id]
+        
+        if 'name' in data:
+            new_name = _unique_workflow_name(data['name'], exclude_id=workflow_id)
+            meta['name'] = new_name
+        
+        if 'enabled' in data:
+            meta['enabled'] = data['enabled']
+            deployed = _deployed_engines.get(workflow_id)
+            if deployed:
+                if data['enabled'] and not deployed.running:
+                    deployed.start()
+                elif not data['enabled'] and deployed.running:
+                    deployed.stop()
+        
+        result = {'id': workflow_id, 'name': meta['name'], 'enabled': meta['enabled']}
     
     save_workflow_to_disk()
     
-    return jsonify({
-        'id': workflow_id,
-        'name': meta['name'],
-        'enabled': meta['enabled']
-    })
+    return jsonify(result)
 
 
 @app.route('/api/workflows/<workflow_id>', methods=['DELETE'])
 def delete_workflow(workflow_id):
     """Delete a workflow."""
     global _active_workflow_id
-    if workflow_id not in _workflows:
-        return jsonify({'error': 'Workflow not found'}), 404
-    
-    # Don't allow deleting the last workflow
-    if len(_workflows) <= 1:
-        return jsonify({'error': 'Cannot delete the last workflow'}), 400
-    
-    # Stop and remove engines
-    deployed = _deployed_engines.get(workflow_id)
-    if deployed and deployed.running:
-        deployed.stop()
-    
-    del _workflows[workflow_id]
-    _working_engines.pop(workflow_id, None)
-    _deployed_engines.pop(workflow_id, None)
-    
-    # If active workflow was deleted, switch to first remaining
-    if _active_workflow_id == workflow_id:
-        _active_workflow_id = next(iter(_workflows))
+    with _state_lock:
+        if workflow_id not in _workflows:
+            return jsonify({'error': 'Workflow not found'}), 404
+        
+        # Don't allow deleting the last workflow
+        if len(_workflows) <= 1:
+            return jsonify({'error': 'Cannot delete the last workflow'}), 400
+        
+        # Stop and remove engines
+        deployed = _deployed_engines.get(workflow_id)
+        if deployed and deployed.running:
+            deployed.stop()
+        
+        del _workflows[workflow_id]
+        _working_engines.pop(workflow_id, None)
+        _deployed_engines.pop(workflow_id, None)
+        
+        # If active workflow was deleted, switch to first remaining
+        if _active_workflow_id == workflow_id:
+            _active_workflow_id = next(iter(_workflows))
+        active = _active_workflow_id
     
     save_workflow_to_disk()
-    return jsonify({'success': True, 'activeWorkflow': _active_workflow_id})
+    return jsonify({'success': True, 'activeWorkflow': active})
 
 
 @app.route('/api/workflows/active', methods=['PUT'])
@@ -721,11 +740,12 @@ def set_active_workflow():
     data = request.json
     wid = data.get('workflowId')
     
-    if wid not in _workflows:
-        return jsonify({'error': 'Workflow not found'}), 404
-    
-    _active_workflow_id = wid
-    return jsonify({'activeWorkflow': _active_workflow_id})
+    with _state_lock:
+        if wid not in _workflows:
+            return jsonify({'error': 'Workflow not found'}), 404
+        
+        _active_workflow_id = wid
+    return jsonify({'activeWorkflow': wid})
 
 
 @app.route('/api/nodes', methods=['GET'])
@@ -1354,7 +1374,8 @@ def debug_stream():
         # Create a queue for this client
         q = queue.Queue(maxsize=100)
         client_id = id(q)
-        debug_message_queues[client_id] = q
+        with _clients_lock:
+            debug_message_queues[client_id] = q
         
         # Start broadcast thread if not running
         start_debug_broadcast()
@@ -1373,10 +1394,12 @@ def debug_stream():
                     
         except GeneratorExit:
             # Client disconnected
-            debug_message_queues.pop(client_id, None)
+            with _clients_lock:
+                debug_message_queues.pop(client_id, None)
         except Exception as e:
             # Log error and close connection
             logger.error(f"SSE Error: {e}")
-            debug_message_queues.pop(client_id, None)
+            with _clients_lock:
+                debug_message_queues.pop(client_id, None)
     
     return Response(stream_with_context(generate()), mimetype='text/event-stream')

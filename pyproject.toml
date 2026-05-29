@@ -21,6 +21,7 @@ pynode = "pynode.main:main"
 dev = [
     "opencv-stubs",
     "types-flask",
+    "pytest",
 ]
 
 [tool.pyright]
@@ -73,3 +74,8 @@ target-version = ["py311"]
 
 [tool.setuptools.dynamic]
 version = {attr = "pynode._version.__version__"}
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
