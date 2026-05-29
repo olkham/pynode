@@ -66,7 +66,7 @@ class UltralyticsEngine(BaseInferenceEngine):
             import os
             os.environ['YOLO_VERBOSE'] = 'False'
             
-        except:
+        except Exception:
             pass  # If ultralytics not available or other error, continue
         
         # Auto-detect Intel hardware and optimize device string
@@ -421,7 +421,7 @@ except Exception as e:
                         # Clean up temporary script
                         try:
                             os.unlink(temp_script)
-                        except:
+                        except Exception:
                             pass
                             
             except Exception as torch_error:

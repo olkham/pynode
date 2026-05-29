@@ -214,7 +214,7 @@ class DrawNode(BaseNode):
             if len(parts) >= 3:
                 return (parts[0], parts[1], parts[2])
             return (0, 255, 0)
-        except:
+        except Exception:
             return (0, 255, 0)
     
     def _get_value_from_path(self, msg, path):
@@ -230,7 +230,7 @@ class DrawNode(BaseNode):
                 if value is None:
                     return ''
             return str(value)
-        except:
+        except Exception:
             return ''
     
     def _draw_shape(self, img, shape_info, msg=None):

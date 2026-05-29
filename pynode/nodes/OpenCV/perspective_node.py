@@ -108,7 +108,7 @@ class PerspectiveNode(BaseNode):
                     y = y * img_h
                 points.append([x, y])
             return np.float32(points)
-        except:
+        except Exception:
             return None
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):

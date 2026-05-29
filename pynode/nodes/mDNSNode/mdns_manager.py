@@ -95,11 +95,11 @@ class MDNSServiceListener(ServiceListenerBase):  # type: ignore
                         try:
                             parsed = json.loads(decoded_value)
                             self.logger.info(f"    {key}: {json.dumps(parsed, indent=6)}")
-                        except:
+                        except Exception:
                             self.logger.info(f"    {key}: {decoded_value}")
                     else:
                         self.logger.info(f"    {key}: {value}")
-                except:
+                except Exception:
                     self.logger.info(f"    {key}: {value}")
     
 

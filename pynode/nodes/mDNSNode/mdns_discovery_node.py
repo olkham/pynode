@@ -153,11 +153,11 @@ class MDNSDiscoveryNode(BaseNode):
                         # Try to parse as JSON
                         try:
                             properties[key.decode('utf-8') if isinstance(key, bytes) else key] = json.loads(decoded_value)
-                        except:
+                        except Exception:
                             properties[key.decode('utf-8') if isinstance(key, bytes) else key] = decoded_value
                     else:
                         properties[key.decode('utf-8') if isinstance(key, bytes) else key] = value
-                except:
+                except Exception:
                     pass
             service_data['properties'] = properties
         
@@ -308,7 +308,7 @@ class MDNSDiscoveryNode(BaseNode):
         if self.zeroconf:
             try:
                 self.zeroconf.close()
-            except:
+            except Exception:
                 pass
             self.zeroconf = None
         

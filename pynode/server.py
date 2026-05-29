@@ -11,10 +11,14 @@ import time
 import queue
 import threading
 import shutil
+import logging
+import traceback
 from datetime import datetime
 
 from pynode.workflow_engine import WorkflowEngine
 from pynode import nodes
+
+logger = logging.getLogger(__name__)
 
 # Set the base directory for project root (for workflow.json)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -448,7 +452,7 @@ def _debug_broadcast_worker():
                             _broadcast_to_all_clients(data)
                             messages_sent = True
                         except Exception as e:
-                            print(f"SSE handler error ({node.type}.{handler_name}): {e}")
+                            logger.warning(f"SSE handler error ({node.type}.{handler_name}): {e}")
             
             # Adaptive sleep
             if messages_sent:
@@ -457,7 +461,7 @@ def _debug_broadcast_worker():
                 time.sleep(0.05)
                 
         except Exception as e:
-            print(f"Debug broadcast error: {e}")
+            logger.error(f"Debug broadcast error: {e}")
             time.sleep(0.1)
 
 def _broadcast_to_all_clients(data):
@@ -492,9 +496,9 @@ def save_workflow_to_disk():
                 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
                 backup_file = os.path.join(backup_dir, f'workflow_{timestamp}.json')
                 shutil.copy2(WORKFLOW_FILE, backup_file)
-                print(f"Backed up workflow to {backup_file}")
+                logger.info(f"Backed up workflow to {backup_file}")
             except (PermissionError, OSError) as e:
-                print(f"Warning: Failed to create backup: {e}")
+                logger.warning(f"Failed to create backup: {e}")
         
         # Build multi-workflow save data
         workflows_data = []
@@ -518,14 +522,14 @@ def save_workflow_to_disk():
         
         with open(WORKFLOW_FILE, 'w') as f:
             json.dump(save_data, f, indent=2)
-        print(f"Saved {len(workflows_data)} workflow(s) to {WORKFLOW_FILE}")
+        logger.info(f"Saved {len(workflows_data)} workflow(s) to {WORKFLOW_FILE}")
         
     except PermissionError:
-        print(f"ERROR: Permission denied when saving to {WORKFLOW_FILE}")
-        print("Please run the following command in terminal to fix ownership:")
-        print(f"  sudo chown -R $USER:$USER {WORKFLOWS_DIR}")
+        logger.error(f"Permission denied when saving to {WORKFLOW_FILE}")
+        logger.error("Please run the following command in terminal to fix ownership:")
+        logger.error(f"  sudo chown -R $USER:$USER {WORKFLOWS_DIR}")
     except Exception as e:
-        print(f"Failed to save workflow: {e}")
+        logger.error(f"Failed to save workflow: {e}")
 
 
 def load_workflow_from_disk():
@@ -549,7 +553,7 @@ def load_workflow_from_disk():
                         'connections': data.get('connections', [])
                     }]
                 }
-                print("Migrated v1 workflow format to v2 multi-workflow format")
+                logger.info("Migrated v1 workflow format to v2 multi-workflow format")
             
             # Load each workflow
             for wf in data.get('workflows', []):
@@ -578,18 +582,15 @@ def load_workflow_from_disk():
                 _active_workflow_id = next(iter(_workflows))
             
             total_nodes = sum(len(e.nodes) for e in _working_engines.values())
-            print(f"Loaded {len(_workflows)} workflow(s), {total_nodes} total nodes")
+            logger.info(f"Loaded {len(_workflows)} workflow(s), {total_nodes} total nodes")
         else:
             # No workflow file - create default workflow
             _create_new_workflow(name='Workflow 1', workflow_id='workflow_1')
             _deployed_engines['workflow_1'].start()
-            print("No workflow file found, starting with empty workflow")
+            logger.info("No workflow file found, starting with empty workflow")
     except Exception as e:
-        import traceback
-        print(f"Failed to load workflow: {e}")
-        print(f"Error type: {type(e).__name__}")
-        print(f"Full traceback:")
-        traceback.print_exc()
+        logger.error(f"Failed to load workflow: {e} (type: {type(e).__name__})")
+        logger.debug("Full traceback:", exc_info=True)
         # On error, ensure at least one workflow exists
         if not _workflows:
             _create_new_workflow(name='Workflow 1', workflow_id='workflow_1')
@@ -597,8 +598,8 @@ def load_workflow_from_disk():
             for engine in _deployed_engines.values():
                 if not engine.running:
                     engine.start()
-        except:
-            pass
+        except Exception as start_error:
+            logger.error(f"Failed to start deployed engine during recovery: {start_error}")
 
 
 @app.route('/')
@@ -1039,7 +1040,7 @@ def deploy_changes():
                     conn.get('sourceOutput', 0)
                 )
             except Exception as e:
-                print(f"Error deleting connection: {e}")
+                logger.error(f"Error deleting connection: {e}")
         
         # 2. Delete removed nodes
         for node_id in deleted_nodes:
@@ -1051,7 +1052,7 @@ def deploy_changes():
                 working.delete_node(node_id)
                 nodes_restarted += 1
             except Exception as e:
-                print(f"Error deleting node {node_id}: {e}")
+                logger.error(f"Error deleting node {node_id}: {e}")
         
         # 3. Add new nodes
         for node_data in added_nodes:
@@ -1081,7 +1082,7 @@ def deploy_changes():
                 
                 nodes_restarted += 1
             except Exception as e:
-                print(f"Error adding node: {e}")
+                logger.error(f"Error adding node: {e}")
         
         # 4. Update modified nodes (stop, reconfigure, restart)
         for node_data in modified_nodes:
@@ -1109,7 +1110,7 @@ def deploy_changes():
                     working_node.y = node_data.get('y', 0)
                     
             except Exception as e:
-                print(f"Error updating node {node_id}: {e}")
+                logger.error(f"Error updating node {node_id}: {e}")
         
         # 5. Add new connections
         for conn in added_connections:
@@ -1127,7 +1128,7 @@ def deploy_changes():
                     conn.get('targetInput', 0)
                 )
             except Exception as e:
-                print(f"Error adding connection: {e}")
+                logger.error(f"Error adding connection: {e}")
         
         save_workflow_to_disk()
         
@@ -1137,7 +1138,7 @@ def deploy_changes():
         }), 200
         
     except Exception as e:
-        print(f"Error in incremental deploy: {e}")
+        logger.error(f"Error in incremental deploy: {e}")
         return jsonify({'error': str(e)}), 400
 
 
@@ -1157,7 +1158,7 @@ def restart_workflow():
         
         return jsonify({'success': True}), 200
     except Exception as e:
-        print(f"Error restarting workflow: {e}")
+        logger.error(f"Error restarting workflow: {e}")
         return jsonify({'error': str(e)}), 400
 
 
@@ -1375,22 +1376,7 @@ def debug_stream():
             debug_message_queues.pop(client_id, None)
         except Exception as e:
             # Log error and close connection
-            print(f"SSE Error: {e}")
+            logger.error(f"SSE Error: {e}")
             debug_message_queues.pop(client_id, None)
     
     return Response(stream_with_context(generate()), mimetype='text/event-stream')
-
-
-# if __name__ == '__main__':
-#     # Create static directory if it doesn't exist
-#     os.makedirs('static', exist_ok=True)
-    
-#     # Load workflow from disk on startup
-#     print("Loading workflow from disk...")
-#     load_workflow_from_disk()
-    
-#     print("Starting PyNode server...")
-#     print("API available at: http://localhost:5000")
-#     print("UI available at: http://localhost:5000")
-    
-#     app.run(debug=True, host='0.0.0.0', port=5000)

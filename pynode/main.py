@@ -24,9 +24,11 @@ Usage Example:
 """
 
 import argparse
-import os
+import logging
 
 from pynode.server import app, load_workflow_from_disk
+
+logger = logging.getLogger(__name__)
 
 
 def main():
@@ -37,32 +39,40 @@ def main():
                         help='Run in production mode using Waitress server')
     parser.add_argument('--host', default='0.0.0.0', 
                         help='Host address to bind to (default: 0.0.0.0)')
-    parser.add_argument('--port', type=int, default=500, 
-                        help='Port to bind to (default: 500)')
+    parser.add_argument('--port', type=int, default=5000, 
+                        help='Port to bind to (default: 5000)')
+    parser.add_argument('--log-level', default='INFO',
+                        help='Logging level (DEBUG, INFO, WARNING, ERROR). Default: INFO')
     args = parser.parse_args()
-    
+
+    # Configure application-wide logging
+    logging.basicConfig(
+        level=getattr(logging, args.log_level.upper(), logging.INFO),
+        format='%(asctime)s [%(levelname)s] %(name)s: %(message)s'
+    )
+
     # Load workflow from disk on startup
-    print("Loading workflow from disk...")
+    logger.info("Loading workflow from disk...")
     load_workflow_from_disk()
     
     if args.production:
         # Production mode with Waitress
         try:
             from waitress import serve
-            print(f"Starting PyNode server in PRODUCTION mode...")
-            print(f"Server running at: http://{args.host}:{args.port}")
-            print(f"Supports unlimited concurrent connections")
+            logger.info("Starting PyNode server in PRODUCTION mode...")
+            logger.info(f"Server running at: http://{args.host}:{args.port}")
+            logger.info("Supports unlimited concurrent connections")
             serve(app, host=args.host, port=args.port, threads=10, 
                   channel_timeout=120, backlog=1024, connection_limit=1000)
         except ImportError:
-            print("ERROR: waitress not installed. Install with: pip install waitress")
-            print("Falling back to development server...")
+            logger.error("waitress not installed. Install with: pip install waitress")
+            logger.warning("Falling back to development server...")
             app.run(debug=False, host=args.host, port=args.port, threaded=True)
     else:
         # Development mode with Flask built-in server
-        print(f"Starting PyNode server in DEVELOPMENT mode...")
-        print(f"Server running at: http://{args.host}:{args.port}")
-        print(f"For production use: pynode --production")
+        logger.info("Starting PyNode server in DEVELOPMENT mode...")
+        logger.info(f"Server running at: http://{args.host}:{args.port}")
+        logger.info("For production use: pynode --production")
         app.run(debug=False, host=args.host, port=args.port, threaded=True)
 
 

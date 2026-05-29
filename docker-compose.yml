@@ -14,8 +14,17 @@ services:
       - PYTHONUNBUFFERED=1
       - HOST_IP=${HOST_IP:-}
     restart: unless-stopped
+    # Rotate container logs so they cannot fill the host disk
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     deploy:
       resources:
+        # Memory limit is a safety cap; tune to your hardware/models.
+        limits:
+          memory: 8g
         reservations:
           devices:
             - driver: nvidia

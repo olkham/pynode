@@ -106,7 +106,7 @@ class RotateNode(BaseNode):
             if len(parts) >= 3:
                 return (parts[0], parts[1], parts[2])
             return (0, 0, 0)
-        except:
+        except Exception:
             return (0, 0, 0)
     
     @process_image()

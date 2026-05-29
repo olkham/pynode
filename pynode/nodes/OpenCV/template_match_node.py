@@ -119,7 +119,7 @@ class TemplateMatchNode(BaseNode):
             if len(parts) >= 3:
                 return (parts[0], parts[1], parts[2])
             return (0, 255, 0)
-        except:
+        except Exception:
             return (0, 255, 0)
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):

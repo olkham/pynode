@@ -111,7 +111,7 @@ class SwitchNode(BaseNode):
             try:
                 import json
                 return json.loads(value_str)
-            except:
+            except Exception:
                 return value_str
         else:  # 'str' or default
             return str(value_str)

@@ -94,7 +94,7 @@ class MqttInNode(BaseNode):
             except (json.JSONDecodeError, ValueError):
                 pass
             payload_data = decoded
-        except:
+        except Exception:
             payload_data = payload
         
         msg = self.create_message(
