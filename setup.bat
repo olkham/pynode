@@ -123,12 +123,10 @@ if defined PYTORCH_INDEX_URL (
 )
 
 echo.
-echo Installing requirements...
-pip install -r requirements.txt
-
-echo.
-echo Installing PyNode in editable mode...
-pip install -e .
+echo Installing PyNode in editable mode with all extras...
+REM Dependencies are declared in pyproject.toml; torch/torchvision installed
+REM above are reused as-is.
+pip install -e ".[vision,mqtt]"
 
 echo.
 set /p INSTALL_NODES="Would you like to install node dependencies? (y/n): "

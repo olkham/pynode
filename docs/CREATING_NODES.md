@@ -126,7 +126,7 @@ class MyNewNode(BaseNode):
 
 ### 4. Create `requirements.txt` (if the node uses third-party packages)
 
-If your node imports any packages that are **not** part of the Python standard library and are **not** already in the project's root `requirements.txt`, create a `requirements.txt` in your node folder. The install script will automatically `pip install` these when the node is installed.
+If your node imports any packages that are **not** part of the Python standard library and are **not** already declared as project dependencies in the root `pyproject.toml`, create a `requirements.txt` in your node folder. The install script will automatically `pip install` these when the node is installed.
 
 ```
 # pynode/nodes/MyNewNode/requirements.txt
@@ -137,7 +137,7 @@ beautifulsoup4>=4.11.0
 Rules:
 - **Always pin a minimum version** (e.g., `>=2.28.0`) to avoid compatibility surprises.
 - **Only list direct dependencies** your node imports. Don't list transitive dependencies.
-- **Don't duplicate** packages already in the project root `requirements.txt` (e.g., `numpy`, `opencv-python`, `torch`, `flask`, `paho-mqtt`, `ultralytics`, `supervision` are already project dependencies).
+- **Don't duplicate** packages already declared in the project's `pyproject.toml` (e.g., `numpy`, `opencv-python`, `flask` are core dependencies; `torch`, `ultralytics`, `supervision`, `paho-mqtt` are provided by the `vision`/`mqtt` extras).
 - If your node uses **only standard library and existing project dependencies**, you can skip this file.
 
 ---

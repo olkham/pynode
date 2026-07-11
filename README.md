@@ -74,7 +74,11 @@ The scripts will:
 If you prefer manual installation or have specific requirements:
 
 ```bash
+# Core install (extras optional — see pyproject.toml)
 pip install -e .
+
+# With optional extras: ML vision nodes and/or MQTT nodes
+pip install -e .[vision,mqtt]
 ```
 
 ### Run the Server
@@ -190,8 +194,8 @@ pynode/                     # Project root
 ├── _backup/                # Workflow backups
 ├── setup.py                # Package installation
 ├── setup.bat / setup.sh    # Setup scripts
-├── requirements.txt        # Core dependencies
-├── pyproject.toml          # Build configuration
+├── requirements.txt        # Convenience installer (deps live in pyproject.toml)
+├── pyproject.toml          # Package metadata, dependencies and build config
 ├── INSTALL.md              # Installation guide
 ├── DOCKER.md               # Docker setup
 ├── docker-compose.yml      # Docker compose config
