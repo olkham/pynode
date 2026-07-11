@@ -30,6 +30,15 @@ except ImportError:
         # Last resort - direct import from the same directory
         from base_engine import BaseInferenceEngine
 
+try:
+    from ..device_detection import resolve_intel_device, to_openvino_device_name
+except ImportError:
+    try:
+        from InferenceEngine.device_detection import resolve_intel_device, to_openvino_device_name
+    except ImportError:
+        # Standalone: inference_engine_dir was inserted into sys.path above
+        from device_detection import resolve_intel_device, to_openvino_device_name
+
 
 from ultralytics import YOLO
 
@@ -109,10 +118,13 @@ class UltralyticsEngine(BaseInferenceEngine):
             optimized_device = device_mapping[device_base] + device_index
             if optimized_device.startswith('intel:'):
                 self.use_openvino = True
-            return optimized_device.lower()
+            # Resolve a plain 'intel:gpu' to the first detected GPU
+            # (e.g. 'intel:gpu.0') so OpenVINO targets a real device
+            # instead of falling back to AUTO on multi-GPU systems.
+            return resolve_intel_device(optimized_device.lower())
         elif device.lower().startswith('intel:'):
             self.use_openvino = True
-            return device.lower()
+            return resolve_intel_device(device.lower())
         else:
             return device.lower()
                 
@@ -120,6 +132,11 @@ class UltralyticsEngine(BaseInferenceEngine):
 
         if device is None:
             device = self.device
+
+        # Resolve a plain 'intel:gpu' (e.g. from saved workflow configs) to the
+        # first detected GPU ('intel:gpu.0') so multi-GPU systems target a real
+        # OpenVINO device instead of the nonexistent 'GPU' -> AUTO fallback.
+        device = resolve_intel_device(device)
 
         if model_file is None:
             model_file = self.model_path
@@ -169,8 +186,11 @@ class UltralyticsEngine(BaseInferenceEngine):
             model_to_load = model_file
             try:
                 # Check if we should use OpenVINO optimization
-                if self.use_openvino or device.startswith('intel:'):
-                    logger.info(f"Using Intel OpenVINO optimization for device: {device}")
+                if self.use_openvino or device.lower().startswith('intel:'):
+                    logger.info(
+                        f"Using Intel OpenVINO optimization for device: {device} "
+                        f"(OpenVINO device: {to_openvino_device_name(device)})"
+                    )
                     
                     # Load original model first with explicit task
                     self.model = YOLO(model_file, task=self.task)

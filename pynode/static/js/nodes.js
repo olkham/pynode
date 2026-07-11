@@ -1,6 +1,6 @@
 // Node rendering and management
 import { API_BASE } from './config.js';
-import { state, generateNodeId, markNodeModified, markNodeAdded, markNodeDeleted, setModified, getNodeType } from './state.js';
+import { state, generateNodeId, markNodeModified, markNodeAdded, markNodeDeleted, markConnectionDeleted, setModified, getNodeType } from './state.js';
 import { updateConnections, nodeHasConnections, getConnectionAtPoint, highlightConnectionForInsert, clearConnectionHighlight, getHoveredConnection, insertNodeIntoConnection } from './connections.js';
 import { selectNode, selectPathBetweenNodes } from './selection.js';
 
@@ -371,7 +371,18 @@ function attachNodeEventHandlers(nodeEl, nodeData) {
         
         // Only handle left mouse button (button === 0) for node selection and dragging
         if (e.button !== 0) return;
-        
+
+        // e.preventDefault() below suppresses the browser's default focus shift,
+        // which would otherwise leave focus stuck in the palette search or a
+        // properties-panel input - silently swallowing the Delete key
+        // (see the isEditingInput guard in events.js). Blur any focused form
+        // field outside this node so keyboard shortcuts target the canvas.
+        const activeEl = document.activeElement;
+        if (activeEl && activeEl !== document.body && !nodeEl.contains(activeEl) &&
+            typeof activeEl.blur === 'function') {
+            activeEl.blur();
+        }
+
         // Bring node to front
         nodeEl.style.zIndex = nodeZIndex++;
         
@@ -707,15 +718,16 @@ function attachNodeEventHandlers(nodeEl, nodeData) {
 }
 
 export function deleteNode(nodeId) {
-    // Track deleted connections for incremental deploy
-    import('./state.js').then(({ markConnectionDeleted }) => {
-        state.connections.forEach(c => {
-            if (c.source === nodeId || c.target === nodeId) {
-                markConnectionDeleted(c);
-            }
-        });
+    // Track deleted connections for incremental deploy. This must run
+    // synchronously BEFORE the connections are filtered out below - the old
+    // dynamic import ran as a microtask after the filter, so it always saw an
+    // empty result and deleted connections were never tracked.
+    state.connections.forEach(c => {
+        if (c.source === nodeId || c.target === nodeId) {
+            markConnectionDeleted(c);
+        }
     });
-    
+
     state.nodes.delete(nodeId);
     state.connections = state.connections.filter(
         c => c.source !== nodeId && c.target !== nodeId

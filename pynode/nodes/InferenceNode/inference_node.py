@@ -106,13 +106,21 @@ class InferenceNode(BaseNode):
         except Exception as e:
             logger.warning(f"Error detecting CUDA devices: {e}")
         
-        # Add Intel OpenVINO devices
-        devices.extend([
-            {'value': 'intel:cpu', 'label': 'Intel CPU (OpenVINO)'},
-            {'value': 'intel:gpu', 'label': 'Intel GPU (OpenVINO)'},
-            {'value': 'intel:npu', 'label': 'Intel NPU (OpenVINO)'},
-        ])
-        
+        # Add Intel OpenVINO devices (enumerated via openvino when available;
+        # falls back to the historical static CPU/GPU/NPU list otherwise)
+        try:
+            from pynode.nodes.InferenceNode.InferenceEngine.device_detection import (
+                get_intel_device_options,
+            )
+            devices.extend(get_intel_device_options())
+        except Exception as e:
+            logger.warning(f"Error detecting Intel OpenVINO devices: {e}")
+            devices.extend([
+                {'value': 'intel:cpu', 'label': 'Intel CPU (OpenVINO)'},
+                {'value': 'intel:gpu', 'label': 'Intel GPU (OpenVINO)'},
+                {'value': 'intel:npu', 'label': 'Intel NPU (OpenVINO)'},
+            ])
+
         return devices
     
     @classmethod

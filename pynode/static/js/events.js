@@ -228,10 +228,13 @@ export function setupEventListeners() {
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
         // Check if user is actively editing a form field (use activeElement, not e.target
-        // which is always the document for listeners attached to document)
+        // which is always the document for listeners attached to document).
+        // Only text-entry controls swallow Delete/Backspace - non-text inputs
+        // (checkboxes, buttons, etc.) must not block node deletion.
         const activeEl = document.activeElement;
+        const NON_TEXT_INPUT_TYPES = ['checkbox', 'radio', 'button', 'submit', 'reset', 'range', 'color', 'file'];
         const isEditingInput = activeEl && (
-            activeEl.tagName === 'INPUT' ||
+            (activeEl.tagName === 'INPUT' && !NON_TEXT_INPUT_TYPES.includes(activeEl.type)) ||
             activeEl.tagName === 'TEXTAREA' ||
             activeEl.tagName === 'SELECT' ||
             activeEl.isContentEditable
@@ -509,8 +512,18 @@ function handleCanvasDrop(e) {
     
     const newNodeId = createNode(nodeType, x, y);
 
-    // Snap the new node so input port 0 aligns to the grid.
     if (newNodeId) {
+        // Drop focus out of the palette search (or any other input) so keyboard
+        // shortcuts like Delete work immediately on the new node.
+        const activeEl = document.activeElement;
+        if (activeEl && activeEl !== document.body && typeof activeEl.blur === 'function') {
+            activeEl.blur();
+        }
+
+        // Select the freshly dropped node so it can be deleted/moved right away.
+        selectNode(newNodeId, false);
+
+        // Snap the new node so input port 0 aligns to the grid.
         setTimeout(() => {
             snapNodeToGrid(newNodeId);
         }, 0);

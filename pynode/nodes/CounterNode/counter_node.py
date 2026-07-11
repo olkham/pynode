@@ -53,8 +53,11 @@ class CounterNode(BaseNode):
     # UI-triggerable actions (see BaseNode.actions)
     actions = ['reset_counter']
 
+    # get_count_sse does its own change-detection (returns None when the count
+    # is unchanged), so a low throttle just bounds the cheap comparison rate
+    # while letting visible updates through almost immediately.
     sse_handlers = [
-        {'type': 'counter', 'handler': 'get_count_sse', 'throttle': 0.5},
+        {'type': 'counter', 'handler': 'get_count_sse', 'throttle': 0.1},
     ]
     
     DEFAULT_CONFIG = {
@@ -101,6 +104,9 @@ class CounterNode(BaseNode):
     def __init__(self, node_id=None, name="counter"):
         super().__init__(node_id, name)
         self.count = 0
+        # Last value emitted via SSE; None means nothing emitted yet so the
+        # first poll always broadcasts the current count.
+        self._last_sse_count = None
         self._reset_to_initial()
     
     def _reset_to_initial(self):
@@ -169,8 +175,17 @@ class CounterNode(BaseNode):
         self.send(msg)
 
     def get_count_sse(self):
-        """SSE handler: return counter data for broadcast."""
+        """SSE handler: return counter data for broadcast.
+
+        Change-detection: returns None when the count has not changed since
+        the last emitted value, so the broadcast worker skips redundant
+        messages (it treats a None result as "nothing to send").
+        """
+        count = self.get_count()
+        if count == self._last_sse_count:
+            return None
+        self._last_sse_count = count
         return {
             'display': self.get_count_display(),
-            'count': self.get_count(),
+            'count': count,
         }
