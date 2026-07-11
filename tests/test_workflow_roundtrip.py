@@ -108,7 +108,8 @@ class TestUnknownNodePlaceholder:
         node = real_engine.get_node('ghost-1')
         assert node is not None
         assert node.type == 'UnknownNode'
-        assert node.name == 'TotallyFakeCameraNode (missing)'
+        # The user-given name is preserved with a ' (missing)' marker
+        assert node.name == 'my camera (missing)'
         assert node.enabled is False
         # Original port counts preserved so connections still fit
         assert node.input_count == 2
@@ -139,13 +140,23 @@ class TestUnknownNodePlaceholder:
         assert ghost['x'] == 100 and ghost['y'] == 200
         assert ghost['inputCount'] == 2
         assert ghost['outputCount'] == 3
-        # The ' (missing)' suffix is stripped on export. NOTE: the original
-        # node NAME ('my camera') is not preserved - the placeholder is named
-        # after the type, so export yields the type name (known quirk/bug in
-        # _create_unknown_node, which ignores node_data['name']).
-        assert ghost['name'] == 'TotallyFakeCameraNode'
+        # The ' (missing)' suffix is stripped on export, so the original
+        # user-given node name round-trips unchanged.
+        assert ghost['name'] == 'my camera'
         # Connection from the placeholder is preserved in the export
         assert exported['connections'] == self.UNKNOWN_WORKFLOW['connections']
+
+    def test_placeholder_without_name_falls_back_to_type(self, real_engine):
+        real_engine.import_workflow({
+            'nodes': [{'id': 'ghost-2', 'type': 'NamelessGhostNode',
+                       'config': {}, 'enabled': True}],
+            'connections': [],
+        })
+        node = real_engine.get_node('ghost-2')
+        assert node.name == 'NamelessGhostNode (missing)'
+        exported = real_engine.export_workflow()
+        ghost = next(n for n in exported['nodes'] if n['id'] == 'ghost-2')
+        assert ghost['name'] == 'NamelessGhostNode'
 
     def test_placeholder_round_trip_is_stable(self, real_engine):
         real_engine.import_workflow(self.UNKNOWN_WORKFLOW)
@@ -197,6 +208,18 @@ class TestSystemErrorNodeExclusion:
         assert real_engine.get_node('new-node') is not None
         assert '__system_error__' in real_engine.nodes
         assert real_engine.running is True
+
+    def test_stats_exclude_system_error_node(self, real_engine):
+        real_engine.create_node('InjectNode', 'sys-src', 'src', {})
+        real_engine.start()
+        assert '__system_error__' in real_engine.nodes
+        real_engine.connect_nodes('sys-src', '__system_error__', 0, 0)
+
+        stats = real_engine.get_workflow_stats()
+        assert stats['total_nodes'] == 1
+        assert stats['node_types'] == {'InjectNode': 1}
+        # The connection into the system node is excluded too
+        assert stats['total_connections'] == 0
 
     def test_import_while_stopped_does_not_create_system_node(self, real_engine):
         real_engine.import_workflow({

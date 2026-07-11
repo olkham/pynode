@@ -414,16 +414,21 @@ class WorkflowEngine:
         
         original_type = node_data['type']
         original_config = node_data.get('config', {})
-        
+
         # Try to preserve input/output counts from connections in the workflow
         # Default to 1 each if we can't determine
         input_count = node_data.get('inputCount', 1)
         output_count = node_data.get('outputCount', 1)
-        
+
+        # Preserve the user-given node name in the placeholder's display name;
+        # fall back to the original type when no name was given. Export strips
+        # the ' (missing)' suffix again, so the original name round-trips.
+        original_name = node_data.get('name') or original_type
+
         # Create the unknown node with original type info
         node = UnknownNode(
             node_id=node_data['id'],
-            name=f"{original_type} (missing)",
+            name=f"{original_name} (missing)",
             original_type=original_type,
             original_config=original_config,
             input_count=input_count,
@@ -445,18 +450,30 @@ class WorkflowEngine:
         Returns:
             Dictionary with workflow statistics
         """
+        def _is_system(node):
+            return (node.id == '__system_error__'
+                    or getattr(node, 'is_system_node', False))
+
         node_types_count = {}
+        total_nodes = 0
         total_connections = 0
-        
+
+        # System nodes (e.g. the hidden __system_error__ ErrorNode) are an
+        # implementation detail: exclude them and any connections to them,
+        # mirroring export_workflow().
         for node in self.nodes.values():
+            if _is_system(node):
+                continue
+            total_nodes += 1
             node_type = node.type
             node_types_count[node_type] = node_types_count.get(node_type, 0) + 1
-            
+
             for connections in node.outputs.values():
-                total_connections += len(connections)
-        
+                total_connections += sum(
+                    1 for target, _ in connections if not _is_system(target))
+
         return {
-            'total_nodes': len(self.nodes),
+            'total_nodes': total_nodes,
             'total_connections': total_connections,
             'node_types': node_types_count,
             'running': self.running

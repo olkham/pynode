@@ -306,17 +306,20 @@ class TestCreateMessage:
         assert MessageKeys.PAYLOAD not in msg
         assert MessageKeys.TOPIC not in msg  # empty topic omitted too
 
-    def test_explicit_none_payload_is_omitted(self):
-        # NOTE (product-code quirk): create_message() has a branch meant to
-        # include an explicitly-passed payload=None ("if PAYLOAD in kwargs"),
-        # but 'payload' is a named parameter, so it can never appear in
-        # **kwargs - that branch is unreachable dead code. Actual behavior:
-        # an explicit None payload is always omitted from the message.
+    def test_explicit_none_payload_is_included(self):
+        # An explicitly-passed payload=None is included in the message
+        # (sentinel default distinguishes it from create_message(), which
+        # omits the key entirely - see test_default_payload_none_omits_key).
         node = BaseNode()
-        msg = node.create_message(**{MessageKeys.PAYLOAD: None})
-        assert MessageKeys.PAYLOAD not in msg
         msg = node.create_message(payload=None)
-        assert MessageKeys.PAYLOAD not in msg
+        assert MessageKeys.PAYLOAD in msg
+        assert msg[MessageKeys.PAYLOAD] is None
+        # Same via kwargs expansion (the InjectNode create_message(**msg) path)
+        msg = node.create_message(**{MessageKeys.PAYLOAD: None})
+        assert msg[MessageKeys.PAYLOAD] is None
+        # Positional None counts as explicit too
+        msg = node.create_message(None)
+        assert msg[MessageKeys.PAYLOAD] is None
 
     def test_extra_kwargs_merged(self):
         node = BaseNode()

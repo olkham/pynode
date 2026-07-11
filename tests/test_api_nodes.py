@@ -7,8 +7,6 @@ empty state per test, engines stopped on teardown).
 
 import pytest
 
-import pynode.server as server
-
 
 @pytest.fixture
 def wf(api_client):
@@ -43,7 +41,7 @@ class TestCreateNode:
         assert 'id' in body
         assert 'inputCount' in body and 'outputCount' in body
         # Node lives in the working engine of the active workflow
-        node = server._working_engines[wf].get_node(body['id'])
+        node = api_client.manager.working_engines[wf].get_node(body['id'])
         assert node is not None
         assert node.x == 100 and node.y == 200
 
@@ -53,8 +51,8 @@ class TestCreateNode:
                                json={'name': 'other wf'}).get_json()['id']
         resp = _post_node(api_client, {'type': 'InjectNode', 'name': 'n'})
         node_id = resp.get_json()['id']
-        assert server._working_engines[wf].get_node(node_id) is not None
-        assert server._working_engines[wid2].get_node(node_id) is None
+        assert api_client.manager.working_engines[wf].get_node(node_id) is not None
+        assert api_client.manager.working_engines[wid2].get_node(node_id) is None
 
     def test_create_node_with_workflow_param(self, api_client, wf):
         wid2 = api_client.post('/api/workflows',
@@ -62,8 +60,8 @@ class TestCreateNode:
         resp = _post_node(api_client, {'type': 'InjectNode', 'name': 'n'},
                           workflow=wid2)
         node_id = resp.get_json()['id']
-        assert server._working_engines[wid2].get_node(node_id) is not None
-        assert server._working_engines[wf].get_node(node_id) is None
+        assert api_client.manager.working_engines[wid2].get_node(node_id) is not None
+        assert api_client.manager.working_engines[wf].get_node(node_id) is None
 
     def test_create_node_explicit_id(self, api_client, wf):
         resp = _post_node(api_client, {'type': 'DebugNode', 'id': 'fixed-id'})
@@ -121,7 +119,7 @@ class TestUpdateNode:
         resp = api_client.put(f'/api/nodes/{node_id}', json={'name': 'after'})
         assert resp.status_code == 200
         assert resp.get_json()['name'] == 'after'
-        assert server._working_engines[wf].get_node(node_id).name == 'after'
+        assert api_client.manager.working_engines[wf].get_node(node_id).name == 'after'
 
     def test_update_config_merges(self, api_client, wf):
         node_id = _post_node(api_client, {
@@ -139,7 +137,7 @@ class TestUpdateNode:
         resp = api_client.put(f'/api/nodes/{node_id}', json={'enabled': False})
         assert resp.status_code == 200
         assert resp.get_json()['enabled'] is False
-        assert server._working_engines[wf].get_node(node_id).enabled is False
+        assert api_client.manager.working_engines[wf].get_node(node_id).enabled is False
 
     def test_update_unknown_node_404(self, api_client, wf):
         resp = api_client.put('/api/nodes/ghost', json={'name': 'x'})
@@ -152,7 +150,7 @@ class TestUpdateNode:
                               json={'x': 300, 'y': 400})
         assert resp.status_code == 200
         assert resp.get_json()['success'] is True
-        node = server._working_engines[wf].get_node(node_id)
+        node = api_client.manager.working_engines[wf].get_node(node_id)
         assert node.x == 300 and node.y == 400
 
     def test_update_position_unknown_node_404(self, api_client, wf):
@@ -171,7 +169,7 @@ class TestDeleteNode:
         node_id = _post_node(api_client, {'type': 'DebugNode'}).get_json()['id']
         resp = api_client.delete(f'/api/nodes/{node_id}')
         assert resp.status_code == 204
-        assert server._working_engines[wf].get_node(node_id) is None
+        assert api_client.manager.working_engines[wf].get_node(node_id) is None
         assert api_client.get(f'/api/nodes/{node_id}').status_code == 404
 
     def test_delete_removes_inbound_connections(self, api_client, wf):
@@ -251,8 +249,8 @@ class TestNodeEnabledEndpoints:
                                json={'enabled': False})
         assert resp.status_code == 200
         assert resp.get_json() == {'success': True, 'enabled': False}
-        assert server._working_engines[wf].get_node(node_id).enabled is False
-        assert server._deployed_engines[wf].get_node(node_id).enabled is False
+        assert api_client.manager.working_engines[wf].get_node(node_id).enabled is False
+        assert api_client.manager.deployed_engines[wf].get_node(node_id).enabled is False
 
         resp = api_client.get(f'/api/nodes/{node_id}/enabled')
         assert resp.status_code == 200

@@ -6,7 +6,6 @@ empty workflow state per test, engines stopped on teardown. Only
 dependency-light node types (DebugNode, InjectNode, ChangeNode) are used.
 """
 
-import pynode.server as server
 
 
 def _create_wf(client, name):
@@ -43,9 +42,9 @@ class TestWorkflowCrud:
         assert body['enabled'] is True
         wid = body['id']
         # Working + deployed engines exist; deployed engine is started
-        assert wid in server._working_engines
-        assert server._deployed_engines[wid].running is True
-        assert server._working_engines[wid].running is False
+        assert wid in api_client.manager.working_engines
+        assert api_client.manager.deployed_engines[wid].running is True
+        assert api_client.manager.working_engines[wid].running is False
 
     def test_create_duplicate_name_gets_unique_suffix(self, api_client):
         _create_wf(api_client, 'dup wf')
@@ -84,7 +83,7 @@ class TestWorkflowCrud:
         resp = api_client.put(f'/api/workflows/{wid}', json={'name': 'new name'})
         assert resp.status_code == 200
         assert resp.get_json()['name'] == 'new name'
-        assert server._workflows[wid]['name'] == 'new name'
+        assert api_client.manager.workflows[wid]['name'] == 'new name'
 
     def test_rename_collision_gets_suffix(self, api_client):
         _create_wf(api_client, 'taken')
@@ -94,7 +93,7 @@ class TestWorkflowCrud:
 
     def test_disable_stops_and_enable_starts_deployed_engine(self, api_client):
         wid = _create_wf(api_client, 'toggle wf')
-        deployed = server._deployed_engines[wid]
+        deployed = api_client.manager.deployed_engines[wid]
         assert deployed.running is True
 
         resp = api_client.put(f'/api/workflows/{wid}', json={'enabled': False})
@@ -115,16 +114,16 @@ class TestWorkflowCrud:
     def test_delete_workflow(self, api_client):
         wid1 = _create_wf(api_client, 'keep')
         wid2 = _create_wf(api_client, 'remove')
-        deployed2 = server._deployed_engines[wid2]
+        deployed2 = api_client.manager.deployed_engines[wid2]
 
         resp = api_client.delete(f'/api/workflows/{wid2}')
         assert resp.status_code == 200
         body = resp.get_json()
         assert body['success'] is True
         assert body['activeWorkflow'] == wid1
-        assert wid2 not in server._workflows
-        assert wid2 not in server._working_engines
-        assert wid2 not in server._deployed_engines
+        assert wid2 not in api_client.manager.workflows
+        assert wid2 not in api_client.manager.working_engines
+        assert wid2 not in api_client.manager.deployed_engines
         assert deployed2.running is False  # engine was stopped
 
     def test_delete_active_workflow_switches_active(self, api_client):
@@ -133,7 +132,7 @@ class TestWorkflowCrud:
         resp = api_client.delete(f'/api/workflows/{wid1}')
         assert resp.status_code == 200
         assert resp.get_json()['activeWorkflow'] == wid2
-        assert server._active_workflow_id == wid2
+        assert api_client.manager.active_workflow_id == wid2
 
     def test_delete_last_workflow_rejected_400(self, api_client):
         wid = _create_wf(api_client, 'only one')
@@ -142,7 +141,7 @@ class TestWorkflowCrud:
         body = resp.get_json()
         assert body['success'] is False
         assert 'last' in body['error'].lower()
-        assert wid in server._workflows  # still there
+        assert wid in api_client.manager.workflows  # still there
 
     def test_delete_unknown_workflow_404(self, api_client):
         _create_wf(api_client, 'wf')
@@ -159,12 +158,12 @@ class TestActiveWorkflow:
     def test_switch_active(self, api_client):
         wid1 = _create_wf(api_client, 'a')
         wid2 = _create_wf(api_client, 'b')
-        assert server._active_workflow_id == wid1
+        assert api_client.manager.active_workflow_id == wid1
 
         resp = api_client.put('/api/workflows/active', json={'workflowId': wid2})
         assert resp.status_code == 200
         assert resp.get_json() == {'success': True, 'activeWorkflow': wid2}
-        assert server._active_workflow_id == wid2
+        assert api_client.manager.active_workflow_id == wid2
 
         actives = {w['id']: w['active'] for w in
                    api_client.get('/api/workflows').get_json()}
@@ -251,8 +250,8 @@ class TestWorkflowImport:
         assert body['id'] == wid
         assert {n['id'] for n in body['nodes']} == {'imp-src', 'imp-dst'}
 
-        working = server._working_engines[wid]
-        deployed = server._deployed_engines[wid]
+        working = api_client.manager.working_engines[wid]
+        deployed = api_client.manager.deployed_engines[wid]
         for eng in (working, deployed):
             assert eng.get_node('imp-src') is not None
             assert eng.get_node('imp-dst') is not None
@@ -269,7 +268,7 @@ class TestWorkflowImport:
                 'connections': []}
         resp = api_client.post(f'/api/workflow?workflow={wid}', json=data)
         assert resp.status_code == 201
-        assert server._deployed_engines[wid].running is False
+        assert api_client.manager.deployed_engines[wid].running is False
 
 
 # ------------------------------------------------------------------
@@ -282,7 +281,7 @@ class TestWorkflowSave:
         wid = _create_wf(api_client, 'save wf')
         node = _add_node(api_client, wid, 'ChangeNode', 'ch',
                          config={'rules': []})
-        deployed = server._deployed_engines[wid]
+        deployed = api_client.manager.deployed_engines[wid]
         assert deployed.get_node(node['id']) is None  # not deployed yet
 
         resp = api_client.post('/api/workflow/save')
@@ -300,12 +299,12 @@ class TestWorkflowSave:
         resp = api_client.put(f'/api/nodes/{node["id"]}?workflow={wid}',
                               json={'config': {'complete': 'true'}})
         assert resp.status_code == 200
-        deployed_node = server._deployed_engines[wid].get_node(node['id'])
+        deployed_node = api_client.manager.deployed_engines[wid].get_node(node['id'])
         assert deployed_node.config.get('complete') != 'true'
 
         api_client.post('/api/workflow/save')
 
-        deployed_node = server._deployed_engines[wid].get_node(node['id'])
+        deployed_node = api_client.manager.deployed_engines[wid].get_node(node['id'])
         assert deployed_node is not None
         assert deployed_node.config['complete'] == 'true'
 
@@ -335,7 +334,7 @@ class TestDeployChanges:
         assert body['success'] is True
         assert body['nodesRestarted'] == 1
 
-        for eng in (server._working_engines[wid], server._deployed_engines[wid]):
+        for eng in (api_client.manager.working_engines[wid], api_client.manager.deployed_engines[wid]):
             node = eng.get_node('add-1')
             assert node is not None
             assert node.name == 'added'
@@ -358,10 +357,10 @@ class TestDeployChanges:
         assert resp.status_code == 200
         assert resp.get_json()['nodesRestarted'] == 1
 
-        deployed_node = server._deployed_engines[wid].get_node('mod-1')
+        deployed_node = api_client.manager.deployed_engines[wid].get_node('mod-1')
         assert deployed_node.name == 'after'
         assert deployed_node.config['complete'] == 'payload.thing'
-        working_node = server._working_engines[wid].get_node('mod-1')
+        working_node = api_client.manager.working_engines[wid].get_node('mod-1')
         assert working_node.name == 'after'
         assert working_node.config['complete'] == 'payload.thing'
 
@@ -377,8 +376,8 @@ class TestDeployChanges:
             'deletedNodes': ['del-1'],
         })
         assert resp.status_code == 200
-        assert server._deployed_engines[wid].get_node('del-1') is None
-        assert server._working_engines[wid].get_node('del-1') is None
+        assert api_client.manager.deployed_engines[wid].get_node('del-1') is None
+        assert api_client.manager.working_engines[wid].get_node('del-1') is None
 
     def test_added_and_deleted_connections(self, api_client):
         wid = _create_wf(api_client, 'dc conn wf')
@@ -405,15 +404,15 @@ class TestDeployChanges:
                        for targets in src.outputs.values()
                        for t, _ in targets)
 
-        assert connected(server._deployed_engines[wid])
-        assert connected(server._working_engines[wid])
+        assert connected(api_client.manager.deployed_engines[wid])
+        assert connected(api_client.manager.working_engines[wid])
 
         resp = api_client.post('/api/workflow/deploy-changes', json={
             'workflowId': wid, 'deletedConnections': [conn],
         })
         assert resp.status_code == 200
-        assert not connected(server._deployed_engines[wid])
-        assert not connected(server._working_engines[wid])
+        assert not connected(api_client.manager.deployed_engines[wid])
+        assert not connected(api_client.manager.working_engines[wid])
 
     def test_unknown_workflow_404(self, api_client):
         _create_wf(api_client, 'dc wf')
@@ -449,11 +448,10 @@ class TestWorkflowStats:
                               'node_types', 'running'}
         assert stats['running'] is True
         assert stats['total_connections'] == 1
-        # Note: stats come from the deployed engine, which also contains the
-        # hidden __system_error__ ErrorNode while running.
-        assert stats['total_nodes'] >= 2
-        assert stats['node_types'].get('InjectNode') == 1
-        assert stats['node_types'].get('DebugNode') == 1
+        # The deployed engine also contains the hidden __system_error__
+        # ErrorNode while running, but system nodes are excluded from stats.
+        assert stats['total_nodes'] == 2
+        assert stats['node_types'] == {'InjectNode': 1, 'DebugNode': 1}
 
     def test_stats_unknown_workflow_404(self, api_client):
         _create_wf(api_client, 'stats wf 2')

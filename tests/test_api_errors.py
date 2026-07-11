@@ -7,18 +7,11 @@ unknown routes and wrong methods.
 
 import pytest
 
-import pynode.server as server
-
 
 @pytest.fixture
-def client(tmp_path, monkeypatch):
-    monkeypatch.setattr(server, 'save_workflow_to_disk', lambda: None)
-    monkeypatch.setattr(server, 'WORKFLOWS_DIR', str(tmp_path / 'workflows'))
-    monkeypatch.setattr(server, 'WORKFLOW_FILE',
-                        str(tmp_path / 'workflows' / 'workflow.json'))
-    server.app.config['TESTING'] = True
-    with server.app.test_client() as c:
-        yield c
+def client(api_client):
+    """Sandboxed per-test app client (see conftest.api_client)."""
+    return api_client
 
 
 def _assert_json_error(resp, status):

@@ -45,63 +45,47 @@ class _SinkNode(BaseNode):
 
 
 @pytest.fixture
-def isolated_workflow_state():
-    """Snapshot, clear and restore pynode.server's module-global workflow state.
+def api_app(tmp_path):
+    """A fresh, fully sandboxed Flask app built via ``create_app``.
 
-    Keeps tests that exercise the real save/load/deploy paths from seeing (or
-    perturbing) workflows accumulated by other test modules in this process.
+    - Every persistence/upload path points into tmp_path, so the real
+      workflows/ dir is never touched.
+    - The app has its own WorkflowManager (empty workflow state) and its own
+      SSE broadcast state - nothing is shared with other tests or with the
+      module-level default app.
+    - Teardown calls ``manager.shutdown()`` so every deployed engine (and its
+      worker threads) plus the SSE broadcast thread is stopped/joined before
+      the test's tmp_path fixtures are torn down.
     """
-    import pynode.server as server
+    from pynode.server import create_app
 
-    with server._state_lock:
-        saved_workflows = dict(server._workflows)
-        saved_working = dict(server._working_engines)
-        saved_deployed = dict(server._deployed_engines)
-        saved_active = server._active_workflow_id
-        server._workflows.clear()
-        server._working_engines.clear()
-        server._deployed_engines.clear()
-        server._active_workflow_id = None
-    yield
-    with server._state_lock:
-        # Stop any engines the test started before dropping them
-        for eng in server._deployed_engines.values():
-            try:
-                eng.stop()
-            except Exception:
-                pass
-        server._workflows.clear()
-        server._workflows.update(saved_workflows)
-        server._working_engines.clear()
-        server._working_engines.update(saved_working)
-        server._deployed_engines.clear()
-        server._deployed_engines.update(saved_deployed)
-        server._active_workflow_id = saved_active
+    upload_base = tmp_path / 'upload_base'
+    upload_base.mkdir()
+    application = create_app({
+        'WORKFLOWS_DIR': str(tmp_path / 'workflows'),
+        'WORKFLOW_FILE': str(tmp_path / 'workflows' / 'workflow.json'),
+        'UPLOAD_BASE_DIR': str(upload_base),
+        'TESTING': True,
+    })
+    yield application
+    application.extensions['workflow_manager'].shutdown()
 
 
 @pytest.fixture
-def api_client(tmp_path, monkeypatch, isolated_workflow_state):
-    """Flask test client with fully sandboxed, empty workflow state.
+def manager(api_app):
+    """The WorkflowManager owned by the app under test."""
+    return api_app.extensions['workflow_manager']
 
-    - Disk persistence is disabled (save_workflow_to_disk is a no-op) and all
-      path globals point into tmp_path, so the real workflows/ dir is never
-      touched.
-    - ``isolated_workflow_state`` guarantees each test starts with zero
-      workflows and that any engines (and their worker threads) started during
-      the test are stopped on teardown.
+
+@pytest.fixture
+def api_client(api_app, manager):
+    """Flask test client for the sandboxed per-test app.
+
+    The client also exposes ``api_client.manager`` (the app's
+    WorkflowManager) so tests can assert on engine/workflow state directly.
     """
-    import pynode.server as server
-
-    monkeypatch.setattr(server, 'save_workflow_to_disk', lambda: None)
-    monkeypatch.setattr(server, 'WORKFLOWS_DIR', str(tmp_path / 'workflows'))
-    monkeypatch.setattr(server, 'WORKFLOW_FILE',
-                        str(tmp_path / 'workflows' / 'workflow.json'))
-    upload_base = tmp_path / 'upload_base'
-    upload_base.mkdir()
-    monkeypatch.setattr(server, 'UPLOAD_BASE_DIR', str(upload_base))
-
-    server.app.config['TESTING'] = True
-    with server.app.test_client() as c:
+    with api_app.test_client() as c:
+        c.manager = manager
         yield c
 
 

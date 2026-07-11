@@ -93,6 +93,17 @@ python -m pynode
 
 Navigate to `http://localhost:5000`
 
+### Data Directory
+
+PyNode persists workflows under `<data dir>/workflows/` (`workflow.json` plus timestamped backups in `_backups/`). The data directory is resolved in this order:
+
+1. `pynode --data-dir <path>` CLI flag,
+2. `PYNODE_DATA_DIR` environment variable,
+3. the source checkout root when running from a git clone / editable install (i.e. `pyproject.toml` sits next to the `pynode` package — this keeps the familiar `workflows/` folder in the repo),
+4. `~/.pynode` otherwise (e.g. a regular `pip install`).
+
+The resolved location is logged at startup (`Workflow data directory: ...`).
+
 ## Securing PyNode
 
 **PyNode executes arbitrary Python by design** (e.g. FunctionNode runs whatever code is in the workflow), so anyone who can reach the API can run code on the host. Authentication is the trust boundary — secure the server before exposing it beyond your own machine:

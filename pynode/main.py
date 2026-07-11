@@ -51,6 +51,12 @@ def main():
                              '(X-API-Key header or api_key query parameter). '
                              'Also settable via the PYNODE_API_KEY env var. '
                              'Default: no authentication.')
+    parser.add_argument('--data-dir', default=None,
+                        help='Directory for PyNode data; workflows are '
+                             'persisted under <data-dir>/workflows/. '
+                             'Also settable via the PYNODE_DATA_DIR env var. '
+                             'Default: the source checkout root when running '
+                             'from a checkout, otherwise ~/.pynode.')
     args = parser.parse_args()
 
     # Configure application-wide logging
@@ -59,12 +65,15 @@ def main():
         format='%(asctime)s [%(levelname)s] %(name)s: %(message)s'
     )
 
-    # CORS is configured when pynode.server is first imported, so the CLI
-    # flag must be exported to the environment BEFORE the import below.
+    # CORS and the data directory are configured when pynode.server is first
+    # imported (it builds the module-level default app), so the CLI flags
+    # must be exported to the environment BEFORE the import below.
     # (This is why the server import lives inside main() rather than at
-    # module top.)
+    # module top.) The env var names live in pynode.config.
     if args.cors_origins is not None:
         os.environ['PYNODE_CORS_ORIGINS'] = args.cors_origins
+    if args.data_dir is not None:
+        os.environ['PYNODE_DATA_DIR'] = args.data_dir
 
     from pynode.server import app, load_workflow_from_disk
 

@@ -4,11 +4,9 @@ Covers Phase 1 fixes:
 - 1.1: /api/upload/file path traversal protection (directory allowlist)
 - 1.2: /api/nodes/<node_id>/<action> only invokes declared node actions
 
-Importing ``pynode.server`` has import-time side effects (builds engines,
-registers routes) but does NOT load or save any workflow from disk - that only
-happens in ``main()``. To keep tests isolated, the fixtures below monkeypatch
-``save_workflow_to_disk`` to a no-op and point the workflow/upload paths at a
-tmp_path before touching any state.
+Uses the sandboxed per-test app from conftest's ``api_client`` fixture: the
+app is built via ``create_app`` with every persistence/upload path pointing
+into tmp_path, so the real workflows/ dir is never touched.
 """
 
 import io
@@ -16,25 +14,11 @@ import os
 
 import pytest
 
-import pynode.server as server
-
 
 @pytest.fixture
-def client(tmp_path, monkeypatch):
+def client(api_client):
     """Flask test client with disk persistence and upload base sandboxed."""
-    # Never write workflow state to the real workflows/ dir
-    monkeypatch.setattr(server, 'save_workflow_to_disk', lambda: None)
-    monkeypatch.setattr(server, 'WORKFLOWS_DIR', str(tmp_path / 'workflows'))
-    monkeypatch.setattr(server, 'WORKFLOW_FILE',
-                        str(tmp_path / 'workflows' / 'workflow.json'))
-    # Sandbox the upload base directory
-    upload_base = tmp_path / 'upload_base'
-    upload_base.mkdir()
-    monkeypatch.setattr(server, 'UPLOAD_BASE_DIR', str(upload_base))
-
-    server.app.config['TESTING'] = True
-    with server.app.test_client() as c:
-        yield c
+    return api_client
 
 
 @pytest.fixture
@@ -120,7 +104,7 @@ class TestUploadDirectoryValidation:
 @pytest.fixture
 def deployed_inject_node(client, workflow_id):
     """Create an InjectNode directly in the deployed engine of the workflow."""
-    engine = server._deployed_engines[workflow_id]
+    engine = client.manager.deployed_engines[workflow_id]
     node = engine.create_node('InjectNode', None, 'inject test', {})
     yield node
     engine.delete_node(node.id)

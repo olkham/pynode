@@ -8,14 +8,15 @@ API key (server.py ``_require_api_key`` before_request hook):
 - Static assets and the index page stay open so the UI can load and
   prompt for the key.
 
-CORS: ``CORS(app, origins=...)`` runs at pynode.server import time, so the
-already-imported module's CORS behavior cannot be reconfigured per-test
-without reimporting pynode.server - and reimporting would break other test
-modules' identity (module-global engines/state). The tests below therefore
-(a) unit-test the ``_parse_cors_origins`` helper, (b) exercise flask-cors
-allowed/disallowed origin handling on a fresh throwaway Flask app wired the
-same way server.py wires it, and (c) assert the imported app's default is
-open CORS.
+CORS: ``CORS(app, origins=...)`` is applied inside ``create_app``. The tests
+below (a) unit-test the ``_parse_cors_origins`` helper, (b) exercise
+flask-cors allowed/disallowed origin handling on a fresh throwaway Flask app
+wired the same way create_app wires it, and (c) assert a default app's CORS
+is open.
+
+Each test gets its own app via conftest's ``api_client`` fixture, so setting
+``PYNODE_API_KEY`` on ``api_client.application.config`` affects only the app
+under test.
 """
 
 import pytest
@@ -27,18 +28,16 @@ import pynode.server as server
 
 @pytest.fixture
 def auth_client(api_client):
-    """api_client with auth explicitly disabled; restores the key after."""
-    with pytest.MonkeyPatch.context() as mp:
-        mp.setitem(server.app.config, 'PYNODE_API_KEY', '')
-        yield api_client
+    """api_client with auth explicitly disabled on the app under test."""
+    api_client.application.config['PYNODE_API_KEY'] = ''
+    return api_client
 
 
 @pytest.fixture
 def keyed_client(api_client):
-    """api_client with an API key configured; restores the key after."""
-    with pytest.MonkeyPatch.context() as mp:
-        mp.setitem(server.app.config, 'PYNODE_API_KEY', 'test-secret-key')
-        yield api_client
+    """api_client with an API key configured on the app under test."""
+    api_client.application.config['PYNODE_API_KEY'] = 'test-secret-key'
+    return api_client
 
 
 # ------------------------------------------------------------------
@@ -62,7 +61,7 @@ class TestAuthDisabled:
 
     def test_empty_string_key_disables_auth(self, auth_client):
         # Explicit empty string == unset == auth disabled
-        assert server.app.config['PYNODE_API_KEY'] == ''
+        assert auth_client.application.config['PYNODE_API_KEY'] == ''
         resp = auth_client.get('/api/node-types')
         assert resp.status_code == 200
 
@@ -149,12 +148,10 @@ class TestParseCorsOrigins:
 
 
 # ------------------------------------------------------------------
-# CORS behavior. The imported pynode.server app was configured at import
-# time (default: open), which is asserted directly. Restricted-origin
-# behavior is exercised on a fresh Flask app wired exactly like server.py
-# wires it, because reconfiguring flask-cors on the imported app would
-# require reimporting pynode.server (breaking module identity for the
-# rest of the suite).
+# CORS behavior. The app under test is built by create_app without a
+# CORS_ORIGINS config (default: open), which is asserted directly.
+# Restricted-origin behavior is exercised on a fresh Flask app wired
+# exactly like create_app wires it.
 # ------------------------------------------------------------------
 
 class TestCorsBehavior:
