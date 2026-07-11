@@ -12,6 +12,7 @@ import queue
 import threading
 import shutil
 import logging
+import hmac
 from datetime import datetime
 
 from pynode.workflow_engine import WorkflowEngine
@@ -25,7 +26,58 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PKG_DIR = os.path.dirname(os.path.abspath(__file__))
 
 app = Flask(__name__, static_folder=os.path.join(PKG_DIR, 'static'), static_url_path='')
-CORS(app)  # Enable CORS for frontend
+
+
+def _parse_cors_origins(value):
+    """Parse a comma-separated origins string into a flask-cors ``origins`` arg.
+
+    ``None``, empty/blank strings, or any list containing ``*`` mean "all
+    origins" (today's default behavior). Otherwise returns the list of
+    origins with whitespace stripped.
+    """
+    if value is None:
+        return '*'
+    origins = [o.strip() for o in value.split(',') if o.strip()]
+    if not origins or '*' in origins:
+        return '*'
+    return origins
+
+
+# Enable CORS for the frontend. Origins are configurable via the
+# PYNODE_CORS_ORIGINS env var (comma-separated); default is open ('*'),
+# matching the previous CORS(app) behavior. This runs at import time, so
+# pynode.main exports the --cors-origins CLI flag to the environment BEFORE
+# importing this module.
+CORS(app, origins=_parse_cors_origins(os.environ.get('PYNODE_CORS_ORIGINS')))
+
+# ------------------------------------------------------------------
+# Optional API key authentication.
+# When app.config['PYNODE_API_KEY'] is a non-empty string, every /api/
+# request must present the key via the X-API-Key header or the api_key
+# query parameter (the latter exists for EventSource, which cannot set
+# headers). Static assets and the index page stay open so the UI can load
+# and prompt the user for the key. Empty/unset key = auth disabled
+# (today's default behavior).
+# ------------------------------------------------------------------
+
+app.config['PYNODE_API_KEY'] = os.environ.get('PYNODE_API_KEY', '')
+
+
+@app.before_request
+def _require_api_key():
+    # Read dynamically from app.config (not captured at import) so tests and
+    # pynode.main can set/clear the key at runtime.
+    key = app.config.get('PYNODE_API_KEY') or ''
+    if not key:
+        return None  # Auth disabled
+    if request.method == 'OPTIONS':
+        return None  # CORS preflight requests cannot carry custom headers
+    if not request.path.startswith('/api/'):
+        return None  # Static assets / index stay open
+    provided = request.headers.get('X-API-Key') or request.args.get('api_key') or ''
+    if not hmac.compare_digest(provided, key):
+        return _json_error('Invalid or missing API key', 401)
+    return None
 
 
 # ------------------------------------------------------------------

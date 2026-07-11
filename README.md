@@ -93,6 +93,14 @@ python -m pynode
 
 Navigate to `http://localhost:5000`
 
+## Securing PyNode
+
+**PyNode executes arbitrary Python by design** (e.g. FunctionNode runs whatever code is in the workflow), so anyone who can reach the API can run code on the host. Authentication is the trust boundary — secure the server before exposing it beyond your own machine:
+
+- **API key**: start with `pynode --api-key <secret>` (or set the `PYNODE_API_KEY` env var). All `/api/` requests then require the key via the `X-API-Key` header or an `api_key` query parameter; the web UI prompts for it on first load and remembers it in the browser. Unset/empty = no authentication (the default).
+- **CORS**: restrict allowed browser origins with `pynode --cors-origins http://localhost:5000,https://myhost` (or the `PYNODE_CORS_ORIGINS` env var). Default is `*` (all origins).
+- **Bind locally**: when you don't need network access, run `pynode --host 127.0.0.1` so the server is only reachable from the local machine.
+
 ## Docker Setup
 
 PyNode can be run in a Docker container with GPU support (CUDA 12.6).

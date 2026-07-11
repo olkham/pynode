@@ -13,7 +13,12 @@ const debugState = {
 };
 
 export function startDebugPolling() {
-    const eventSource = new EventSource(`${API_BASE}/debug/stream`);
+    // EventSource cannot send headers, so the API key (if any) goes in the
+    // query string. window.pynodeApiKey is installed by js/auth.js.
+    const apiKey = (window.pynodeApiKey && window.pynodeApiKey()) || '';
+    const streamUrl = `${API_BASE}/debug/stream` +
+        (apiKey ? `?api_key=${encodeURIComponent(apiKey)}` : '');
+    const eventSource = new EventSource(streamUrl);
     
     eventSource.onmessage = (event) => {
         try {

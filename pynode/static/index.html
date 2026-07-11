@@ -166,6 +166,9 @@
         </div>
     </div>
 
+    <!-- auth.js must load first (classic script, runs during parse) so its
+         fetch wrapper covers every API call made by the module bundle -->
+    <script src="js/auth.js"></script>
     <script type="module" src="js/main.js"></script>
 </body>
 </html>
