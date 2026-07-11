@@ -52,7 +52,10 @@ class InjectNode(BaseNode):
         'action': 'inject',
         'tooltip': 'Inject'
     }
-    
+
+    # UI-triggerable actions (see BaseNode.actions)
+    actions = ['inject']
+
     properties = [
         {
             'name': 'props',

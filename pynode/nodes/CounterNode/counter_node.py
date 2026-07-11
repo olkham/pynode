@@ -50,6 +50,9 @@ class CounterNode(BaseNode):
         'tooltip': 'Reset Count'
     }
     
+    # UI-triggerable actions (see BaseNode.actions)
+    actions = ['reset_counter']
+
     sse_handlers = [
         {'type': 'counter', 'handler': 'get_count_sse', 'throttle': 0.5},
     ]

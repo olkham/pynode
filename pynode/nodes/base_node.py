@@ -344,6 +344,15 @@ class BaseNode:
         }
     ]
     
+    # Action methods that may be triggered from the UI via
+    # POST /api/nodes/<node_id>/<action>.
+    # Only method names listed here can be invoked through that endpoint;
+    # anything not declared (or starting with '_') returns 404.
+    # These are the names referenced by 'action' keys in `properties` button/
+    # toggle entries and in `ui_component_config`.
+    # Format: ['method_name', ...]
+    actions: List[str] = []
+
     # API routes that this node type exposes.
     # The server will register these as Flask routes at startup.
     # Nodes do NOT need to import Flask - the server handles request/response.

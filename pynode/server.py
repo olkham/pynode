@@ -45,6 +45,11 @@ _state_lock = threading.RLock()
 WORKFLOWS_DIR = os.path.join(BASE_DIR, 'workflows')
 WORKFLOW_FILE = os.path.join(WORKFLOWS_DIR, 'workflow.json')
 
+# File upload configuration: uploads may only land in these subdirectories
+# of UPLOAD_BASE_DIR (the package directory). Anything else is rejected.
+UPLOAD_BASE_DIR = PKG_DIR
+ALLOWED_UPLOAD_SUBDIRS = ('models', 'uploads')
+
 # Ensure workflows directory exists
 os.makedirs(WORKFLOWS_DIR, exist_ok=True)
 
@@ -1324,11 +1329,26 @@ def upload_file():
         if not file.filename or file.filename == '':
             return jsonify({'success': False, 'error': 'No file selected'}), 400
         
-        # Determine upload directory from optional 'directory' field, default to models
+        # Determine upload directory from optional 'directory' field, default to models.
+        # Only allowlisted subdirectory names are accepted (no separators, no
+        # traversal) and the resolved path must stay inside UPLOAD_BASE_DIR.
         upload_subdir = request.form.get('directory', 'models')
-        upload_dir = os.path.join(os.path.dirname(__file__), upload_subdir)
+        normalized_subdir = os.path.normpath(upload_subdir).replace('\\', '/')
+        if normalized_subdir not in ALLOWED_UPLOAD_SUBDIRS:
+            return jsonify({
+                'success': False,
+                'error': f"Invalid upload directory. Allowed: {', '.join(ALLOWED_UPLOAD_SUBDIRS)}"
+            }), 400
+
+        base_dir = os.path.realpath(UPLOAD_BASE_DIR)
+        upload_dir = os.path.realpath(os.path.join(base_dir, normalized_subdir))
+        if upload_dir != base_dir and not upload_dir.startswith(base_dir + os.sep):
+            return jsonify({
+                'success': False,
+                'error': 'Invalid upload directory: outside allowed base'
+            }), 400
         os.makedirs(upload_dir, exist_ok=True)
-        
+
         # Save the file
         filename = os.path.basename(file.filename)
         file_path = os.path.join(upload_dir, filename)
@@ -1344,25 +1364,36 @@ def upload_file():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+def _get_declared_actions(node):
+    """Collect the union of 'actions' declared across the node's class hierarchy."""
+    declared = set()
+    for klass in type(node).__mro__:
+        declared.update(getattr(klass, 'actions', None) or [])
+    return declared
+
+
 @app.route('/api/nodes/<node_id>/<action>', methods=['POST'])
 def trigger_node_action(node_id, action):
-    """Trigger a button action on a node in deployed workflow."""
+    """Trigger a button action on a node in deployed workflow.
+
+    Only actions explicitly declared in the node class's `actions` list may be
+    invoked; anything else (including private/underscore names) returns 404.
+    """
     try:
         node, _ = _find_deployed_node(node_id)
         if not node:
             return jsonify({'error': 'Node not found'}), 404
-        
-        # Check if the node has the action method
-        if not hasattr(node, action):
+
+        # Only allow explicitly declared, public action names
+        if action.startswith('_') or action not in _get_declared_actions(node):
             return jsonify({'error': f'Action {action} not found on node'}), 404
-        
-        # Call the action method
-        method = getattr(node, action)
-        if callable(method):
-            method()
-            return jsonify({'status': 'success', 'action': action})
-        else:
+
+        method = getattr(node, action, None)
+        if not callable(method):
             return jsonify({'error': f'{action} is not a callable method'}), 400
+
+        method()
+        return jsonify({'status': 'success', 'action': action})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

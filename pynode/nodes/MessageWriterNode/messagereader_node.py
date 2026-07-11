@@ -65,6 +65,9 @@ class MessageReaderNode(BaseNode):
         'tooltip': 'Read Files'
     }
     info = str(_info)
+
+    # UI-triggerable actions (see BaseNode.actions)
+    actions = ['read_files']
     
     DEFAULT_CONFIG = {
         'directory': './output',
@@ -76,7 +79,8 @@ class MessageReaderNode(BaseNode):
         'max_files': '10',
         'include_metadata': 'true',
         'recursive': 'false',
-        'output_structure': 'auto_detect'
+        'output_structure': 'auto_detect',
+        'allow_pickle': False
     }
     
     properties = [
@@ -130,6 +134,14 @@ class MessageReaderNode(BaseNode):
             ],
             'default': DEFAULT_CONFIG['input_format'],
             'help': 'Format of the input files'
+        },
+        {
+            'name': 'allow_pickle',
+            'label': 'Allow Pickle Loading',
+            'type': 'checkbox',
+            'default': False,
+            'help': 'SECURITY WARNING: pickle files can execute arbitrary code when '
+                    'loaded. Only enable this for files from sources you fully trust.'
         },
         {
             'name': 'sort_order',
@@ -481,7 +493,20 @@ class MessageReaderNode(BaseNode):
         return self._reconstruct_numpy_arrays(data)
     
     def _read_pickle_file(self, file_path: str) -> Any:
-        """Read pickle file."""
+        """Read pickle file (only if explicitly allowed by config).
+
+        Unpickling can execute arbitrary code, so it is gated behind the
+        'allow_pickle' setting (default off). This covers both explicit
+        'pickle' format and auto-detected .pkl/.pickle files, since all
+        pickle reads funnel through this method.
+        """
+        if not self.get_config_bool('allow_pickle', False):
+            self.report_error(
+                "Pickle loading disabled; enable 'Allow Pickle Loading' in node "
+                "settings to load pickle files. Warning: pickle files can execute "
+                f"arbitrary code — only load trusted files. ({file_path})"
+            )
+            return None
         with open(file_path, 'rb') as f:
             return pickle.load(f)
     

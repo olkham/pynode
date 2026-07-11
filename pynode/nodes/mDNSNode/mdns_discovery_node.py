@@ -47,7 +47,10 @@ class MDNSDiscoveryNode(BaseNode):
     text_color = '#FFFFFF'
     input_count = 1  # Receives control commands
     output_count = 1  # Outputs discovered services
-    
+
+    # UI-triggerable actions (see BaseNode.actions)
+    actions = ['start_discovery', 'stop_discovery', 'refresh_now']
+
     DEFAULT_CONFIG = {
         'service_type': '_http._tcp.local.',
         'refresh_interval': '0',
