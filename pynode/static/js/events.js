@@ -2,7 +2,7 @@
 import { state } from './state.js';
 import { createNode, deleteNode, deleteNodeAndReconnect, snapNodeToGrid } from './nodes.js';
 import { deselectNode, deselectAllNodes, selectNode } from './selection.js';
-import { deployWorkflow, deployWorkflowFull, restartWorkflow, clearWorkflow, exportWorkflow, importWorkflow } from './workflow.js';
+import { deployWorkflow, deployWorkflowFull, restartWorkflow, stopWorkflow, clearWorkflow, exportWorkflow, importWorkflow } from './workflow.js';
 import { clearDebug } from './debug.js';
 import { getConnectionAtPoint, highlightConnectionForInsert, clearConnectionHighlight, getHoveredConnection, insertNodeIntoConnection } from './connections.js';
 
@@ -102,6 +102,14 @@ export function setupEventListeners() {
     const deployRestartBtn = document.getElementById('deploy-restart-btn');
     deployRestartBtn.addEventListener('click', () => {
         restartWorkflow();
+        deployDropdown.classList.add('hidden');
+    });
+
+    // Stop button - an action like Restart, not a deploy mode: it does not
+    // change the selected Modified/Full mode.
+    const deployStopBtn = document.getElementById('deploy-stop-btn');
+    deployStopBtn.addEventListener('click', () => {
+        stopWorkflow();
         deployDropdown.classList.add('hidden');
     });
     

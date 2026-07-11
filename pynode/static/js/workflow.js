@@ -1,6 +1,6 @@
 // Workflow import/export and deployment
 import { API_BASE } from './config.js';
-import { state, setModified, clearAllNodeModifiedIndicators, clearChangeTracking, hasChanges, getNodeType } from './state.js';
+import { state, setModified, setWorkflowStopped, clearAllNodeModifiedIndicators, clearChangeTracking, hasChanges, getNodeType } from './state.js';
 import { renderNode } from './nodes.js';
 import { updateConnections } from './connections.js';
 import { showToast } from './ui-utils.js';
@@ -186,12 +186,14 @@ export async function deployWorkflow() {
             const result = await response.json();
             clearAllNodeModifiedIndicators();
             clearChangeTracking();
+            const wasStopped = state.workflowStopped;
+            setWorkflowStopped(false);
             setModified(false);
-            
+
             // Show appropriate message based on what was deployed
             const changedCount = result.nodesRestarted || 0;
             if (changedCount === 0) {
-                showToast('No changes to deploy');
+                showToast(wasStopped ? 'Workflow processing resumed' : 'No changes to deploy');
             } else if (changedCount === 1) {
                 showToast('Deployed 1 changed node');
             } else {
@@ -241,6 +243,7 @@ export async function deployWorkflowFull() {
         if (response.ok) {
             clearAllNodeModifiedIndicators();
             clearChangeTracking();
+            setWorkflowStopped(false);
             setModified(false);
             showToast('Full workflow deployed!');
         } else {
@@ -260,6 +263,9 @@ export async function restartWorkflow() {
         });
         
         if (response.ok) {
+            // Restart starts every enabled workflow again, so any transient
+            // stop is over.
+            setWorkflowStopped(false);
             showToast('Workflow restarted!');
         } else {
             throw new Error('Failed to restart workflow');
@@ -267,6 +273,33 @@ export async function restartWorkflow() {
     } catch (error) {
         console.error('Failed to restart workflow:', error);
         showToast('Failed to restart workflow');
+    }
+}
+
+/**
+ * Transiently stop all deployed workflow processing ("Stop" in the deploy
+ * menu). Workflows stay enabled and nothing is persisted; selecting Deploy
+ * (modified or full) starts processing again.
+ */
+export async function stopWorkflow() {
+    try {
+        const response = await fetch(`${API_BASE}/workflow/stop`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            setWorkflowStopped(true);
+            const count = result.stopped || 0;
+            const flows = count === 1 ? '1 flow' : `${count} flows`;
+            showToast(`Stopped ${flows} - Deploy to start again`);
+        } else {
+            throw new Error('Failed to stop workflow');
+        }
+    } catch (error) {
+        console.error('Failed to stop workflow:', error);
+        showToast('Failed to stop workflow');
     }
 }
 

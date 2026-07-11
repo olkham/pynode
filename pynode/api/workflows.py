@@ -29,13 +29,15 @@ def list_workflows():
     with manager.state_lock:
         for wid, meta in manager.workflows.items():
             engine = manager.working_engines.get(wid)
+            deployed = manager.deployed_engines.get(wid)
             node_count = len(engine.nodes) if engine else 0
             result.append({
                 'id': wid,
                 'name': meta['name'],
                 'enabled': meta['enabled'],
                 'nodeCount': node_count,
-                'active': wid == manager.active_workflow_id
+                'active': wid == manager.active_workflow_id,
+                'running': bool(deployed.running) if deployed else False
             })
     return jsonify(result)
 
@@ -370,6 +372,17 @@ def deploy_changes():
             except Exception as e:
                 logger.error(f"Error adding connection: {e}")
 
+        # 6. If the workflow is enabled but its deployed engine is not
+        # running (e.g. after a transient /api/workflow/stop), start it so
+        # hitting Deploy resumes processing. engine.start() calls on_start()
+        # on every node, including any added/modified above that were not
+        # started individually because the engine was stopped. When the
+        # engine is already running (the normal case) this is a no-op.
+        with manager.state_lock:
+            enabled = manager.workflows.get(wid, {}).get('enabled', False)
+        if enabled and not deployed.running:
+            deployed.start()
+
         manager.save_workflow_to_disk()
 
         return jsonify({
@@ -406,6 +419,33 @@ def restart_workflow():
         return jsonify({'success': True}), 200
     except Exception as e:
         logger.error(f"Error restarting workflow: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+
+@workflows_bp.route('/api/workflow/stop', methods=['POST'])
+def stop_workflows():
+    """Transiently stop ALL deployed workflow engines.
+
+    Unlike disabling a workflow, this does NOT change any workflow's
+    persisted 'enabled' flag and does NOT write to disk - the next Deploy
+    (full save or incremental deploy-changes) starts enabled workflows again.
+    """
+    manager = _get_manager()
+    try:
+        # Snapshot under the lock; engine stop happens outside it.
+        with manager.state_lock:
+            snapshot = [manager.deployed_engines.get(wid)
+                        for wid in manager.workflows]
+
+        stopped = 0
+        for deployed in snapshot:
+            if deployed and deployed.running:
+                deployed.stop()
+                stopped += 1
+
+        return jsonify({'success': True, 'stopped': stopped}), 200
+    except Exception as e:
+        logger.error(f"Error stopping workflows: {e}")
         return jsonify({'success': False, 'error': str(e)}), 400
 
 

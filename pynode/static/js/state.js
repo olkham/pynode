@@ -13,6 +13,7 @@ export const state = {
     selectionBox: null,
     selectionStart: null,
     isModified: false,
+    workflowStopped: false, // Transient stop via deploy menu (Deploy resumes)
     nextNodeId: 1,
     // Track changes for incremental deployment
     modifiedNodes: new Set(),
@@ -46,11 +47,28 @@ export function generateNodeId() {
 // Set modified state and update deploy button
 export function setModified(modified) {
     state.isModified = modified;
-    const deployBtn = document.getElementById('deploy-btn');
-    if (deployBtn) {
-        deployBtn.disabled = !modified;
-    }
+    updateDeployButtonState();
     // Note: deploy-dropdown-btn stays enabled so user can change mode anytime
+}
+
+// Set the transient "processing stopped" state (Stop in the deploy menu).
+// While stopped, the Deploy button stays enabled (even with no edits) and is
+// highlighted so the user can see the flow is stopped and resume it.
+export function setWorkflowStopped(stopped) {
+    state.workflowStopped = stopped;
+    updateDeployButtonState();
+}
+
+function updateDeployButtonState() {
+    const deployBtn = document.getElementById('deploy-btn');
+    if (!deployBtn) return;
+    // Deploy is clickable when there are changes OR when processing is
+    // stopped (deploying resumes processing).
+    deployBtn.disabled = !state.isModified && !state.workflowStopped;
+    deployBtn.classList.toggle('deploy-stopped', state.workflowStopped);
+    deployBtn.title = state.workflowStopped
+        ? 'Processing stopped - Deploy to start again'
+        : '';
 }
 
 // Mark a node as modified

@@ -41,6 +41,8 @@ export function startDebugPolling() {
                 updateQueueLengthDisplay(data.nodeId, data.display);
             } else if (data.type === 'counter') {
                 updateCounterDisplay(data.nodeId, data.display);
+            } else if (data.type === 'video_position') {
+                updateVideoPosition(data.nodeId, data);
             }
         } catch (error) {
             console.error('Error processing SSE message:', error);
@@ -73,6 +75,14 @@ export function updateCounterDisplay(nodeId, displayText) {
     if (counterEl) {
         counterEl.textContent = displayText;
     }
+}
+
+export function updateVideoPosition(nodeId, data) {
+    const posEl = document.getElementById(`transport-pos-${nodeId}`);
+    if (!posEl) return;
+    const total = data.total > 0 ? data.total : '?';
+    posEl.textContent = `${(data.frame ?? 0) + 1}/${total}`;
+    posEl.title = data.playing ? 'Playing' : 'Paused / stopped';
 }
 
 export function updateImageViewer(nodeId, frameData) {

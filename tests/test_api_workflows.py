@@ -71,12 +71,14 @@ class TestWorkflowCrud:
         items = resp.get_json()
         assert len(items) == 1
         entry = items[0]
-        assert set(entry) == {'id', 'name', 'enabled', 'nodeCount', 'active'}
+        assert set(entry) == {'id', 'name', 'enabled', 'nodeCount', 'active',
+                              'running'}
         assert entry['id'] == wid
         assert entry['name'] == 'list wf'
         assert entry['enabled'] is True
         assert entry['nodeCount'] == 1
         assert entry['active'] is True  # first workflow becomes active
+        assert entry['running'] is True  # deployed engine started on create
 
     def test_rename_via_put(self, api_client):
         wid = _create_wf(api_client, 'old name')
@@ -419,6 +421,110 @@ class TestDeployChanges:
         resp = api_client.post('/api/workflow/deploy-changes',
                                json={'workflowId': 'nope', 'addedNodes': []})
         assert resp.status_code == 404
+
+
+# ------------------------------------------------------------------
+# POST /api/workflow/stop (transient stop of all deployed engines)
+# ------------------------------------------------------------------
+
+class TestWorkflowStop:
+
+    def test_stop_halts_all_deployed_engines_without_persisting(
+            self, api_client, monkeypatch):
+        wid1 = _create_wf(api_client, 'stop wf 1')
+        wid2 = _create_wf(api_client, 'stop wf 2')
+        manager = api_client.manager
+        assert manager.deployed_engines[wid1].running is True
+        assert manager.deployed_engines[wid2].running is True
+
+        # Spy on disk persistence: a transient stop must never save.
+        save_calls = []
+        monkeypatch.setattr(manager, 'save_workflow_to_disk',
+                            lambda *a, **k: save_calls.append(1))
+
+        resp = api_client.post('/api/workflow/stop')
+        assert resp.status_code == 200
+        assert resp.get_json() == {'success': True, 'stopped': 2}
+
+        # Engines stopped, but 'enabled' flags untouched and nothing saved
+        assert manager.deployed_engines[wid1].running is False
+        assert manager.deployed_engines[wid2].running is False
+        assert manager.workflows[wid1]['enabled'] is True
+        assert manager.workflows[wid2]['enabled'] is True
+        assert save_calls == []
+
+        # The workflows list now reports running=False for both
+        running = {w['id']: w['running'] for w in
+                   api_client.get('/api/workflows').get_json()}
+        assert running == {wid1: False, wid2: False}
+
+    def test_full_deploy_after_stop_restarts_engines(self, api_client):
+        wid = _create_wf(api_client, 'stop then save wf')
+        api_client.post('/api/workflow/stop')
+        assert api_client.manager.deployed_engines[wid].running is False
+
+        resp = api_client.post('/api/workflow/save')
+        assert resp.status_code == 200
+        assert api_client.manager.deployed_engines[wid].running is True
+
+    def test_deploy_changes_after_stop_restarts_engine(self, api_client):
+        wid = _create_wf(api_client, 'stop then deploy wf')
+        api_client.post('/api/workflow/stop')
+        deployed = api_client.manager.deployed_engines[wid]
+        assert deployed.running is False
+
+        # Incremental deploy (even with a change set) must resume processing
+        resp = api_client.post('/api/workflow/deploy-changes', json={
+            'workflowId': wid,
+            'addedNodes': [{'id': 'post-stop-1', 'type': 'DebugNode',
+                            'name': 'added', 'config': {}, 'enabled': True}],
+        })
+        assert resp.status_code == 200
+        assert deployed.running is True
+        assert deployed.get_node('post-stop-1') is not None
+
+        # Empty incremental deploy also resumes after another stop
+        api_client.post('/api/workflow/stop')
+        assert deployed.running is False
+        resp = api_client.post('/api/workflow/deploy-changes',
+                               json={'workflowId': wid})
+        assert resp.status_code == 200
+        assert deployed.running is True
+
+    def test_deploy_changes_does_not_start_disabled_workflow(self, api_client):
+        wid = _create_wf(api_client, 'disabled deploy wf')
+        api_client.put(f'/api/workflows/{wid}', json={'enabled': False})
+        deployed = api_client.manager.deployed_engines[wid]
+        assert deployed.running is False
+
+        resp = api_client.post('/api/workflow/deploy-changes',
+                               json={'workflowId': wid})
+        assert resp.status_code == 200
+        assert deployed.running is False
+
+    def test_stop_leaves_disabled_workflow_untouched(self, api_client):
+        wid_on = _create_wf(api_client, 'enabled wf')
+        wid_off = _create_wf(api_client, 'disabled wf')
+        api_client.put(f'/api/workflows/{wid_off}', json={'enabled': False})
+        manager = api_client.manager
+        assert manager.deployed_engines[wid_off].running is False
+
+        resp = api_client.post('/api/workflow/stop')
+        assert resp.status_code == 200
+        assert resp.get_json() == {'success': True, 'stopped': 1}
+        assert manager.deployed_engines[wid_on].running is False
+        assert manager.deployed_engines[wid_off].running is False
+        assert manager.workflows[wid_off]['enabled'] is False
+
+    def test_stop_twice_is_idempotent(self, api_client):
+        _create_wf(api_client, 'idempotent stop wf')
+        resp1 = api_client.post('/api/workflow/stop')
+        assert resp1.status_code == 200
+        assert resp1.get_json() == {'success': True, 'stopped': 1}
+
+        resp2 = api_client.post('/api/workflow/stop')
+        assert resp2.status_code == 200
+        assert resp2.get_json() == {'success': True, 'stopped': 0}
 
 
 # ------------------------------------------------------------------

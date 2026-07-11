@@ -167,6 +167,87 @@ class TestResolveIntelDevice:
             assert device_detection.resolve_intel_device(dev) == dev
 
 
+class TestUltralyticsNodeDevices:
+    """UltralyticsNode dropdown option-building and device normalization.
+
+    The node module imports torch at module level, so these tests skip when
+    torch is absent. No model is ever loaded (instantiation is lazy).
+    """
+
+    def _node_class(self):
+        pytest.importorskip('torch')
+        from pynode.nodes.UltralyticsNode.ultralytics_node import UltralyticsNode
+        return UltralyticsNode
+
+    def test_dropdown_includes_detected_intel_gpus(self, monkeypatch):
+        UltralyticsNode = self._node_class()
+        _install_fake_openvino(monkeypatch, ['CPU', 'GPU.0', 'GPU.1'])
+
+        values = [o['value'] for o in UltralyticsNode._get_device_options()]
+        assert 'cpu' in values
+        assert 'intel:cpu' in values
+        assert 'intel:gpu.0' in values
+        assert 'intel:gpu.1' in values
+        assert 'intel:npu' not in values
+
+        # And the same options flow through the property schema
+        props = UltralyticsNode.get_properties()
+        device_prop = next(p for p in props if p['name'] == 'device')
+        prop_values = [o['value'] for o in device_prop['options']]
+        assert 'intel:gpu.0' in prop_values and 'intel:gpu.1' in prop_values
+
+    def test_dropdown_fallback_without_openvino(self, monkeypatch):
+        UltralyticsNode = self._node_class()
+        _remove_openvino(monkeypatch)
+
+        values = [o['value'] for o in UltralyticsNode._get_device_options()]
+        assert 'cpu' in values
+        assert 'intel:cpu' in values
+        assert 'intel:gpu' in values
+        assert 'intel:npu' in values
+
+    def test_node_resolves_configured_device(self, monkeypatch):
+        UltralyticsNode = self._node_class()
+        _install_fake_openvino(monkeypatch, ['CPU', 'GPU.0', 'GPU.1'])
+
+        node = UltralyticsNode(node_id='y1', name='yolo')
+        node.config['device'] = 'intel:gpu'
+        assert node._resolve_configured_device() == 'intel:gpu.0'
+
+        node.config['device'] = 'intel:gpu.1'
+        assert node._resolve_configured_device() == 'intel:gpu.1'
+
+        node.config['device'] = 'cpu'
+        assert node._resolve_configured_device() == 'cpu'
+
+    def test_node_resolution_unchanged_without_detection(self, monkeypatch):
+        UltralyticsNode = self._node_class()
+        _remove_openvino(monkeypatch)
+
+        node = UltralyticsNode(node_id='y1', name='yolo')
+        node.config['device'] = 'intel:gpu'
+        assert node._resolve_configured_device() == 'intel:gpu'
+
+    def test_model_or_device_change_marks_for_reload(self, monkeypatch):
+        UltralyticsNode = self._node_class()
+        _install_fake_openvino(monkeypatch, ['CPU', 'GPU.0', 'GPU.1'])
+
+        node = UltralyticsNode(node_id='y1', name='yolo')
+        node._model_loaded = True  # simulate a loaded model
+
+        node.configure({'device': 'intel:gpu.1'})
+        assert node._model_loaded is False
+
+        node._model_loaded = True
+        node.configure({'model': 'yolo11n.pt'})
+        assert node._model_loaded is False
+
+        # Unrelated config changes must NOT force a reload
+        node._model_loaded = True
+        node.configure({'confidence': '0.5'})
+        assert node._model_loaded is True
+
+
 class TestUltralyticsEngineDeviceNormalization:
     """End-to-end check of the engine's device normalization.
 

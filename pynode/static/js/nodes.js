@@ -344,6 +344,19 @@ function buildNodeContent(nodeData, icon, inputCount, outputCount) {
         // Drop zone indicator on the left (like ImageUploadNode)
         const tooltip = uiConfig.tooltip || 'Drop an image here';
         contentParts.left = `<div class="image-drop-zone" id="drop-${nodeData.id}" title="${tooltip}">📂</div>`;
+    } else if (uiComponent === 'transport-controls') {
+        // Generic transport/button strip (like VideoReaderNode).
+        // Buttons come from uiComponentConfig.buttons: [{icon, action, title}]
+        // and each POSTs its action to /api/nodes/<id>/<action>.
+        const buttons = (uiConfig.buttons || []).map(btn =>
+            `<button class="transport-btn" onclick="window.nodeAction('${nodeData.id}', '${btn.action}')" title="${btn.title || btn.action}">${btn.icon}</button>`
+        ).join('');
+        contentParts.right = `
+            <div class="transport-controls">
+                ${buttons}
+                <span class="transport-pos" id="transport-pos-${nodeData.id}">-/-</span>
+            </div>
+        `;
     }
     
     // Combine parts based on input/output configuration
