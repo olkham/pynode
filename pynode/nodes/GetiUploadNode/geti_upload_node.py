@@ -3,12 +3,15 @@ Geti Upload Node - uploads images to an Intel Geti platform project for annotati
 """
 
 import base64
+import logging
 import threading
 from typing import Any, Dict, Optional
 import numpy as np
 import cv2
 
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
+
+logger = logging.getLogger(__name__)
 
 _info = Info()
 _info.add_text("Uploads images to an Intel Geti platform project for annotation and training.")
@@ -211,7 +214,7 @@ class GetiUploadNode(BaseNode):
                     self.report_error(f"Dataset '{dataset_name}' not found, using training dataset: {e}")
 
             proj_label = getattr(self._project, 'name', None) or project_id
-            print(f"[GetiUploadNode] Connected to {host} -> {proj_label}")
+            logger.info(f"[GetiUploadNode] Connected to {host} -> {proj_label}")
 
         except Exception as e:
             self.report_error(f"Geti connection failed: {e}")

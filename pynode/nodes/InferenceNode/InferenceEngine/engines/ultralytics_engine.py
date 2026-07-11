@@ -33,6 +33,11 @@ except ImportError:
 
 from ultralytics import YOLO
 
+import logging
+
+logger = logging.getLogger(__name__)
+
+
 class UltralyticsEngine(BaseInferenceEngine):
     """Inference engine for Ultralytics YOLO models"""
     
@@ -129,11 +134,11 @@ class UltralyticsEngine(BaseInferenceEngine):
                 try:
                     import torch
                     if not torch.cuda.is_available():
-                        print(f"WARNING: CUDA device '{device}' requested but CUDA is not available. Falling back to CPU.")
+                        logger.warning(f"CUDA device '{device}' requested but CUDA is not available. Falling back to CPU.")
                         device = 'cpu'
                         self.device = device
                 except ImportError:
-                    print(f"WARNING: PyTorch not available to check CUDA. Falling back to CPU for device '{device}'.")
+                    logger.warning(f"PyTorch not available to check CUDA. Falling back to CPU for device '{device}'.")
                     device = 'cpu'
                     self.device = device
 
@@ -144,28 +149,28 @@ class UltralyticsEngine(BaseInferenceEngine):
             if self.task == 'detect':
                 detected_task = self._detect_model_task(model_file)
                 if detected_task != 'detect':
-                    print(f"Auto-detected model task: {detected_task}")
+                    logger.info(f"Auto-detected model task: {detected_task}")
                     self.task = detected_task
 
-            print(f"Loading model with task: {self.task}")
+            logger.info(f"Loading model with task: {self.task}")
             
             # Check model compatibility before attempting to load
             is_compatible, compatibility_reason = self._check_model_compatibility(model_file)
             if not is_compatible:
-                print(f"⚠️  COMPATIBILITY WARNING: {compatibility_reason}")
+                logger.warning(f"Compatibility warning: {compatibility_reason}")
                 if "YOLOv5" in compatibility_reason:
-                    print("🔄 Will attempt to load anyway with fallback handling...")
+                    logger.warning("Will attempt to load anyway with fallback handling...")
                 elif "does not exist" in compatibility_reason or "not readable" in compatibility_reason:
                     raise FileNotFoundError(f"Model file issue: {compatibility_reason}")
                 else:
-                    print("🔄 Will attempt to load anyway...")
+                    logger.warning("Will attempt to load anyway...")
             
             # First, try to load the model directly
             model_to_load = model_file
             try:
                 # Check if we should use OpenVINO optimization
                 if self.use_openvino or device.startswith('intel:'):
-                    print(f"Using Intel OpenVINO optimization for device: {device}")
+                    logger.info(f"Using Intel OpenVINO optimization for device: {device}")
                     
                     # Load original model first with explicit task
                     self.model = YOLO(model_file, task=self.task)
@@ -177,30 +182,30 @@ class UltralyticsEngine(BaseInferenceEngine):
                     
                     # Export to OpenVINO format if not already exists
                     if not os.path.exists(self.openvino_model_path):
-                        print(f"Exporting model to OpenVINO format: {self.openvino_model_path}")
+                        logger.info(f"Exporting model to OpenVINO format: {self.openvino_model_path}")
                         self.model.export(format="openvino", name=model_name)
                     
                     # Load the OpenVINO model with explicit task
                     self.model = YOLO(self.openvino_model_path, task=self.task)
-                    print(f"Loaded OpenVINO model from: {self.openvino_model_path}")
+                    logger.info(f"Loaded OpenVINO model from: {self.openvino_model_path}")
                 else:
                     # Load regular PyTorch model with explicit task
                     self.model = YOLO(model_file, task=self.task)
-                    print(f"Loaded PyTorch model: {model_file}")
+                    logger.info(f"Loaded PyTorch model: {model_file}")
                     
             except Exception as yolo_error:
                 # Check if this is a YOLOv5 compatibility issue
                 if "models.yolo" in str(yolo_error) or "ModuleNotFoundError" in str(yolo_error):
-                    print(f"Detected YOLOv5 compatibility issue: {yolo_error}")
-                    print("Attempting to convert YOLOv5 model to compatible format...")
+                    logger.warning(f"Detected YOLOv5 compatibility issue: {yolo_error}")
+                    logger.warning("Attempting to convert YOLOv5 model to compatible format...")
                     
                     # Try to convert to ONNX format as a workaround
                     model_to_load = self._handle_yolov5_model(model_file)
                     if model_to_load and model_to_load != model_file:
-                        print(f"Using converted model: {model_to_load}")
+                        logger.info(f"Using converted model: {model_to_load}")
                         # Try loading the converted model
                         self.model = YOLO(model_to_load, task=self.task)
-                        print(f"Successfully loaded converted model: {model_to_load}")
+                        logger.info(f"Successfully loaded converted model: {model_to_load}")
                     else:
                         # If conversion failed, re-raise the original error
                         raise yolo_error
@@ -214,51 +219,42 @@ class UltralyticsEngine(BaseInferenceEngine):
             return True
             
         except Exception as e:
-            print(f"Failed to load model: {e}")
-            
+            logger.error(f"Failed to load model: {e}", exc_info=True)
+
             # Provide specific guidance for YOLOv5 compatibility issues
             if "models.yolo" in str(e) or "ModuleNotFoundError" in str(e):
                 self._show_yolov5_guidance(model_file)
-            
-            import traceback
-            traceback.print_exc()
+
             return False
 
     def _show_yolov5_guidance(self, model_file: str):
-        """Show helpful guidance for YOLOv5 compatibility issues"""
-        print("\n" + "=" * 70)
-        print("🚨 YOLOv5 COMPATIBILITY ISSUE DETECTED")
-        print("=" * 70)
-        print(f"The model '{os.path.basename(model_file)}' appears to be a YOLOv5 model")
-        print("that is incompatible with the current Ultralytics package.")
-        print()
-        print("📋 RECOMMENDED SOLUTIONS (in order of preference):")
-        print()
-        print("1. 🎯 USE YOLOv8/YOLOv11 MODELS (BEST OPTION)")
-        print("   • Download from: https://github.com/ultralytics/ultralytics")
-        print("   • Models: yolov8n.pt, yolov8s.pt, yolov8m.pt, yolov8l.pt, yolov8x.pt")
-        print("   • Or: yolo11n.pt, yolo11s.pt, yolo11m.pt, yolo11l.pt, yolo11x.pt")
-        print()
-        print("2. 🔄 CONVERT YOLOv5 TO ONNX FORMAT")
-        print("   • Install YOLOv5: git clone https://github.com/ultralytics/yolov5")
-        print("   • Navigate to YOLOv5 directory")
-        print(f"   • Run: python export.py --weights '{model_file}' --include onnx")
-        print("   • Use the generated .onnx file in InferNode")
-        print()
-        print("3. 🏋️ RETRAIN WITH ULTRALYTICS")
-        print("   • Train a new model using the Ultralytics package")
-        print("   • This ensures full compatibility")
-        print()
-        print("💡 QUICK FIXES:")
-        print("   • Try downloading yolov8n.pt: it's small and compatible")
-        print("   • Place it in your model repository folder")
-        print("   • Create a new pipeline with the YOLOv8 model")
-        print()
-        print("📖 DETAILED GUIDE:")
-        print("   See: docs/YOLOv5_COMPATIBILITY_GUIDE.md for complete instructions")
-        print()
-        print("ℹ️  For more help, visit: https://docs.ultralytics.com/")
-        print("=" * 70)
+        """Log helpful guidance for YOLOv5 compatibility issues"""
+        logger.warning(
+            "YOLOv5 COMPATIBILITY ISSUE DETECTED\n"
+            f"The model '{os.path.basename(model_file)}' appears to be a YOLOv5 model\n"
+            "that is incompatible with the current Ultralytics package.\n"
+            "\n"
+            "RECOMMENDED SOLUTIONS (in order of preference):\n"
+            "1. USE YOLOv8/YOLOv11 MODELS (BEST OPTION)\n"
+            "   - Download from: https://github.com/ultralytics/ultralytics\n"
+            "   - Models: yolov8n.pt, yolov8s.pt, yolov8m.pt, yolov8l.pt, yolov8x.pt\n"
+            "   - Or: yolo11n.pt, yolo11s.pt, yolo11m.pt, yolo11l.pt, yolo11x.pt\n"
+            "2. CONVERT YOLOv5 TO ONNX FORMAT\n"
+            "   - Install YOLOv5: git clone https://github.com/ultralytics/yolov5\n"
+            "   - Navigate to YOLOv5 directory\n"
+            f"   - Run: python export.py --weights '{model_file}' --include onnx\n"
+            "   - Use the generated .onnx file in InferNode\n"
+            "3. RETRAIN WITH ULTRALYTICS\n"
+            "   - Train a new model using the Ultralytics package\n"
+            "\n"
+            "QUICK FIXES:\n"
+            "   - Try downloading yolov8n.pt: it's small and compatible\n"
+            "   - Place it in your model repository folder\n"
+            "   - Create a new pipeline with the YOLOv8 model\n"
+            "\n"
+            "DETAILED GUIDE: docs/YOLOv5_COMPATIBILITY_GUIDE.md\n"
+            "For more help, visit: https://docs.ultralytics.com/"
+        )
 
     def _suggest_compatible_model(self, model_folder: str) -> str | None:
         """
@@ -271,19 +267,20 @@ class UltralyticsEngine(BaseInferenceEngine):
             for model_name in suggested_models:
                 model_path = os.path.join(model_folder, model_name)
                 if os.path.exists(model_path):
-                    print(f"✅ Found compatible model: {model_path}")
+                    logger.info(f"Found compatible model: {model_path}")
                     return model_path
             
             # If no compatible model found, suggest downloading one
-            print("📥 Consider downloading a compatible model:")
-            print("   Run this in Python:")
-            print("   from ultralytics import YOLO")
-            print("   model = YOLO('yolov8n.pt')  # This will auto-download")
-            
+            logger.info(
+                "Consider downloading a compatible model. Run this in Python:\n"
+                "   from ultralytics import YOLO\n"
+                "   model = YOLO('yolov8n.pt')  # This will auto-download"
+            )
+
             return None
             
         except Exception as e:
-            print(f"Error suggesting compatible model: {e}")
+            logger.error(f"Error suggesting compatible model: {e}")
             return None
 
     def _is_yolov5_model(self, model_file: str) -> bool:
@@ -332,10 +329,10 @@ class UltralyticsEngine(BaseInferenceEngine):
             
             # Check if ONNX version already exists
             if os.path.exists(onnx_model_path):
-                print(f"Found existing converted ONNX model: {onnx_model_path}")
+                logger.info(f"Found existing converted ONNX model: {onnx_model_path}")
                 return onnx_model_path
             
-            print(f"Converting YOLOv5 model to ONNX format...")
+            logger.info("Converting YOLOv5 model to ONNX format...")
             
             # Try to use ultralytics export functionality with error handling
             try:
@@ -347,7 +344,7 @@ class UltralyticsEngine(BaseInferenceEngine):
                 
                 # Check if this looks like a YOLOv5 model
                 if 'model' in checkpoint and hasattr(checkpoint.get('model'), 'yaml'):
-                    print("Detected YOLOv5 model structure")
+                    logger.info("Detected YOLOv5 model structure")
                     
                     # Try to create a temporary script to convert using YOLOv5 export
                     yolov5_export_script = f"""
@@ -407,16 +404,16 @@ except Exception as e:
                         ], capture_output=True, text=True, timeout=300)  # 5 minute timeout
                         
                         if result.returncode == 0:
-                            print("Model conversion completed successfully")
+                            logger.info("Model conversion completed successfully")
                             if os.path.exists(onnx_model_path):
                                 return onnx_model_path
                         else:
-                            print(f"Conversion script failed: {result.stderr}")
+                            logger.error(f"Conversion script failed: {result.stderr}")
                             
                     except subprocess.TimeoutExpired:
-                        print("Model conversion timed out")
+                        logger.error("Model conversion timed out")
                     except Exception as script_error:
-                        print(f"Error running conversion script: {script_error}")
+                        logger.error(f"Error running conversion script: {script_error}")
                     finally:
                         # Clean up temporary script
                         try:
@@ -425,28 +422,27 @@ except Exception as e:
                             pass
                             
             except Exception as torch_error:
-                print(f"Could not analyze model with torch: {torch_error}")
+                logger.warning(f"Could not analyze model with torch: {torch_error}")
             
             # If all conversion methods failed, provide helpful error message
-            print("=" * 60)
-            print("YOLOv5 MODEL COMPATIBILITY ISSUE DETECTED")
-            print("=" * 60)
-            print(f"The model '{model_file}' appears to be a YOLOv5 model that is")
-            print("incompatible with the Ultralytics package.")
-            print("")
-            print("SOLUTIONS:")
-            print("1. Use a YOLOv8/YOLOv11 model instead (recommended)")
-            print("2. Convert your YOLOv5 model to ONNX format manually:")
-            print("   - Clone YOLOv5 repo: git clone https://github.com/ultralytics/yolov5")
-            print(f"   - Run: python export.py --weights {model_file} --include onnx")
-            print("   - Use the generated .onnx file instead")
-            print("3. Train a new model using the Ultralytics package")
-            print("=" * 60)
-            
+            logger.error(
+                "YOLOv5 MODEL COMPATIBILITY ISSUE DETECTED\n"
+                f"The model '{model_file}' appears to be a YOLOv5 model that is\n"
+                "incompatible with the Ultralytics package.\n"
+                "\n"
+                "SOLUTIONS:\n"
+                "1. Use a YOLOv8/YOLOv11 model instead (recommended)\n"
+                "2. Convert your YOLOv5 model to ONNX format manually:\n"
+                "   - Clone YOLOv5 repo: git clone https://github.com/ultralytics/yolov5\n"
+                f"   - Run: python export.py --weights {model_file} --include onnx\n"
+                "   - Use the generated .onnx file instead\n"
+                "3. Train a new model using the Ultralytics package"
+            )
+
             return None
             
         except Exception as e:
-            print(f"Error in YOLOv5 model handling: {e}")
+            logger.error(f"Error in YOLOv5 model handling: {e}")
             return None
 
     def _preprocess(self, image: np.ndarray) -> np.ndarray:
@@ -467,10 +463,10 @@ except Exception as e:
             try:
                 import torch
                 if not torch.cuda.is_available():
-                    print(f"WARNING: CUDA device '{inference_device}' not available during inference. Using CPU.")
+                    logger.warning(f"CUDA device '{inference_device}' not available during inference. Using CPU.")
                     inference_device = 'cpu'
             except ImportError:
-                print(f"WARNING: PyTorch not available during inference. Using CPU instead of '{inference_device}'.")
+                logger.warning(f"PyTorch not available during inference. Using CPU instead of '{inference_device}'.")
                 inference_device = 'cpu'
         
         # Use the device parameter in inference for Intel OpenVINO

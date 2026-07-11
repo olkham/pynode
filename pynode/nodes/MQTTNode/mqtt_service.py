@@ -3,11 +3,14 @@ MQTT Service Manager - handles shared MQTT connections across nodes.
 Similar to Node-RED's configuration nodes concept.
 """
 
+import logging
 import os
 import threading
 import json
 from typing import Any, Dict, Callable, Optional, Set
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 try:
     import paho.mqtt.client as mqtt
@@ -80,7 +83,7 @@ class MQTTService:
             try:
                 callback(topic, message.payload)
             except Exception as e:
-                print(f"Error in MQTT message callback: {e}")
+                logger.error(f"Error in MQTT message callback: {e}")
     
     def _topic_matches(self, pattern: str, topic: str) -> bool:
         """Check if a topic matches a subscription pattern (with wildcards)."""
@@ -106,7 +109,7 @@ class MQTTService:
             try:
                 callback(error_msg)
             except Exception as e:
-                print(f"Error in error callback: {e}")
+                logger.error(f"Error in error callback: {e}")
     
     def connect(self) -> bool:
         """Connect to the MQTT broker."""
@@ -269,7 +272,7 @@ class MQTTServiceManager:
                         if service_id:
                             self._services[service_id] = MQTTService(service_id, service_config)
             except Exception as e:
-                print(f"Error loading MQTT services: {e}")
+                logger.error(f"Error loading MQTT services: {e}")
     
     def _save_services(self):
         """Save service configurations to file."""
@@ -280,7 +283,7 @@ class MQTTServiceManager:
             with open(self._config_file, 'w') as f:
                 json.dump(data, f, indent=2)
         except Exception as e:
-            print(f"Error saving MQTT services: {e}")
+            logger.error(f"Error saving MQTT services: {e}")
     
     def get_service(self, service_id: str) -> Optional[MQTTService]:
         """Get a service by ID."""

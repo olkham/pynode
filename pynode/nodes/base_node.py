@@ -933,7 +933,8 @@ class BaseNode:
             'id': self.id,
             'type': self.type,
             'name': self.name,
-            'config': self.config,
+            # Shallow copy so callers can't mutate the node's config in place
+            'config': dict(self.config),
             'enabled': self.enabled,
             'inputCount': self.input_count,
             'outputCount': self.output_count,

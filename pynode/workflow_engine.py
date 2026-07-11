@@ -2,10 +2,13 @@
 Workflow Engine for managing nodes and executing workflows.
 """
 
+import logging
 import threading
 from typing import Dict, List, Any, Type, Optional
 
 from pynode.nodes.base_node import BaseNode
+
+logger = logging.getLogger(__name__)
 
 
 class WorkflowEngine:
@@ -149,7 +152,7 @@ class WorkflowEngine:
                 try:
                     node.on_start()
                 except Exception as e:
-                    print(f"Error starting node {node.id}: {e}")
+                    logger.error(f"Error starting node {node.id}: {e}")
     
     def stop(self):
         """
@@ -165,7 +168,7 @@ class WorkflowEngine:
                 try:
                     node.on_stop()
                 except Exception as e:
-                    print(f"Error stopping node {node.id}: {e}")
+                    logger.error(f"Error stopping node {node.id}: {e}")
     
     def get_debug_messages(self, node_id: str) -> List[Dict[str, Any]]:
         """
@@ -212,7 +215,7 @@ class WorkflowEngine:
                     try:
                         node.handle_error(source_node_id, source_node_name, error_msg)
                     except Exception as e:
-                        print(f"Error broadcasting to ErrorNode {node.id}: {e}")
+                        logger.error(f"Error broadcasting to ErrorNode {node.id}: {e}")
     
     def _ensure_system_error_node(self):
         """
@@ -233,7 +236,7 @@ class WorkflowEngine:
                     if hasattr(self._system_error_node, 'is_system_node'):
                         self._system_error_node.is_system_node = True
                 except Exception as e:
-                    print(f"Failed to create system error node: {e}")
+                    logger.error(f"Failed to create system error node: {e}")
     
     def get_system_errors(self) -> List[Dict[str, Any]]:
         """
@@ -374,7 +377,7 @@ class WorkflowEngine:
                 else:
                     # Unknown node type - create placeholder
                     node = self._create_unknown_node(node_data)
-                    print(f"Warning: Unknown node type '{node_type}' - created placeholder for node '{node_data['id']}'")
+                    logger.warning(f"Unknown node type '{node_type}' - created placeholder for node '{node_data['id']}'")
                 
                 # Store position if provided
                 node.x = node_data.get('x', 0)
@@ -391,7 +394,7 @@ class WorkflowEngine:
                     )
                 except ValueError as e:
                     # Skip connections if source or target doesn't exist
-                    print(f"Warning: Could not create connection: {e}")
+                    logger.warning(f"Could not create connection: {e}")
             
             # Recreate system error node if the workflow is running
             if self.running:
