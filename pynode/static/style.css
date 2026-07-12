@@ -513,6 +513,7 @@ body {
     flex-direction: column;
     overflow: hidden;
     min-width: 0;
+    position: relative; /* anchor for .canvas-controls overlay */
 }
 
 /* Workflow Tabs */
@@ -663,6 +664,19 @@ body {
     background: #1e1e1e;
 }
 
+/* Zoom root: viewport.js sets transform: scale(k) here. Both canvas layers
+   (connections SVG + HTML nodes) scale together; the scrollable overflow of
+   .canvas-container follows the transformed size, so native scroll panning
+   keeps working at every zoom level. */
+#canvas-viewport {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 5000px;
+    height: 5000px;
+    transform-origin: 0 0;
+}
+
 #canvas {
     position: absolute;
     top: 0;
@@ -687,6 +701,78 @@ body {
     width: 5000px;
     height: 5000px;
     z-index: 1;
+}
+
+/* Canvas overlay controls: minimap + zoom (lower-right of canvas area) */
+.canvas-controls {
+    position: absolute;
+    right: 18px;
+    bottom: 18px;
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+    pointer-events: none; /* let clicks pass except on the widgets */
+}
+
+.canvas-controls > * {
+    pointer-events: auto;
+}
+
+.minimap-panel {
+    background: #252526;
+    border: 1px solid #3e3e42;
+    border-radius: 6px;
+    padding: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.minimap-panel.hidden {
+    display: none;
+}
+
+#minimap-canvas {
+    display: block;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.canvas-controls-bar {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    background: #252526;
+    border: 1px solid #3e3e42;
+    border-radius: 6px;
+    padding: 2px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.canvas-ctrl-btn {
+    background: transparent;
+    border: none;
+    color: #d4d4d4;
+    min-width: 26px;
+    height: 24px;
+    padding: 0 6px;
+    border-radius: 4px;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.canvas-ctrl-btn:hover {
+    background: #3e3e42;
+}
+
+.canvas-ctrl-btn.active {
+    color: #0098ff;
+}
+
+.canvas-ctrl-btn.zoom-readout {
+    font-size: 11px;
+    min-width: 42px;
 }
 
 /* Nodes */

@@ -313,12 +313,17 @@ export function clearWorkflow() {
     document.getElementById('connections').innerHTML = '';
     
     deselectAllNodes();
-    
+
     // Clear history when clearing workflow
     import('./history.js').then(({ clearHistory }) => {
         clearHistory();
     });
-    
+
+    // Empty canvas -> redraw the minimap
+    import('./minimap.js').then(({ refreshMinimap }) => {
+        refreshMinimap();
+    });
+
     setModified(true);
 }
 

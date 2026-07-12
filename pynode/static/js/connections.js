@@ -1,8 +1,19 @@
 // Connection management
 import { state, markNodeModified, markConnectionAdded, markConnectionDeleted, setModified, isConnectionSelected } from './state.js';
+import { clientToCanvas } from './viewport.js';
+import { refreshMinimap } from './minimap.js';
+import { categoryLabel } from './ui-utils.js';
 
 // Track the currently hovered connection for insertion
 let hoveredConnectionForInsert = null;
+
+/**
+ * Center of a port element in canvas coordinates (zoom-aware).
+ */
+function portCenterCanvas(portEl) {
+    const rect = portEl.getBoundingClientRect();
+    return clientToCanvas(rect.left + rect.width / 2, rect.top + rect.height / 2);
+}
 
 // Check if a node has any connections
 export function nodeHasConnections(nodeId) {
@@ -158,14 +169,14 @@ export function renderConnection(connection) {
     
     if (!sourcePort || !targetPort) return;
     
-    const sourceRect = sourcePort.getBoundingClientRect();
-    const targetRect = targetPort.getBoundingClientRect();
-    const canvasRect = document.getElementById('canvas').getBoundingClientRect();
-    
-    const x1 = sourceRect.left + sourceRect.width / 2 - canvasRect.left;
-    const y1 = sourceRect.top + sourceRect.height / 2 - canvasRect.top;
-    const x2 = targetRect.left + targetRect.width / 2 - canvasRect.left;
-    const y2 = targetRect.top + targetRect.height / 2 - canvasRect.top;
+    // Port centers in canvas coordinates (zoom-aware)
+    const sourceCenter = portCenterCanvas(sourcePort);
+    const targetCenter = portCenterCanvas(targetPort);
+
+    const x1 = sourceCenter.x;
+    const y1 = sourceCenter.y;
+    const x2 = targetCenter.x;
+    const y2 = targetCenter.y;
     
     // Arrowhead always ends at the target port
     // For near-vertical connections, adjust control points for a visible curve
@@ -244,6 +255,9 @@ export function updateConnections() {
     // Remove only connection paths, not defs/marker
     Array.from(connectionsSvg.querySelectorAll('path.connection, path[stroke="transparent"]')).forEach(el => el.remove());
     state.connections.forEach(conn => renderConnection(conn));
+
+    // Node moves/deletes and tab switches all funnel through here
+    refreshMinimap();
 }
 
 export function deleteConnection(sourceId, targetId, sourceOutput = null) {
@@ -269,17 +283,16 @@ export function startConnection(sourceId, e, outputIndex = 0) {
     const sourceNode = document.getElementById(`node-${sourceId}`);
     const outputPorts = sourceNode.querySelectorAll('.port.output');
     const port = outputPorts[outputIndex] || sourceNode.querySelector('.port.output');
-    
+
     if (!port) return;
-    
-    const rect = port.getBoundingClientRect();
-    const canvasRect = document.getElementById('canvas').getBoundingClientRect();
-    
+
+    const portCenter = portCenterCanvas(port);
+
     state.drawingConnection = {
         sourceId: sourceId,
         outputIndex: outputIndex,
-        startX: rect.left + rect.width / 2 - canvasRect.left,
-        startY: rect.top + rect.height / 2 - canvasRect.top
+        startX: portCenter.x,
+        startY: portCenter.y
     };
     
     document.addEventListener('mousemove', drawTempConnection);
@@ -293,15 +306,14 @@ export function startBackwardConnection(targetId, e, inputIndex = 0) {
     const port = inputPorts[inputIndex] || targetNode.querySelector('.port.input');
     
     if (!port) return;
-    
-    const rect = port.getBoundingClientRect();
-    const canvasRect = document.getElementById('canvas').getBoundingClientRect();
-    
+
+    const portCenter = portCenterCanvas(port);
+
     state.drawingConnection = {
         targetId: targetId,
         inputIndex: inputIndex,
-        startX: rect.left + rect.width / 2 - canvasRect.left,
-        startY: rect.top + rect.height / 2 - canvasRect.top,
+        startX: portCenter.x,
+        startY: portCenter.y,
         backward: true  // Flag to indicate backward connection
     };
     
@@ -311,10 +323,10 @@ export function startBackwardConnection(targetId, e, inputIndex = 0) {
 
 export function drawTempConnection(e) {
     if (!state.drawingConnection) return;
-    
-    const canvasRect = document.getElementById('canvas').getBoundingClientRect();
-    const endX = e.clientX - canvasRect.left;
-    const endY = e.clientY - canvasRect.top;
+
+    const endPoint = clientToCanvas(e.clientX, e.clientY);
+    const endX = endPoint.x;
+    const endY = endPoint.y;
     
     const dx = endX - state.drawingConnection.startX;
     const controlDistance = Math.abs(dx) * 0.5;
@@ -385,9 +397,11 @@ export function cancelConnection(e) {
     
     if (hadConnection && mousePos) {
         // Draw the temp line to the final position before showing mini palette
-        const canvasRect = document.getElementById('canvas').getBoundingClientRect();
-        const endX = mousePos.x - canvasRect.left;
-        const endY = mousePos.y - canvasRect.top;
+        // (temp line lives in the SVG -> canvas coords; the mini palette is an
+        // HTML overlay on document.body -> keeps client coords)
+        const endPoint = clientToCanvas(mousePos.x, mousePos.y);
+        const endX = endPoint.x;
+        const endY = endPoint.y;
         const dx = endX - state.drawingConnection.startX;
         const controlDistance = Math.abs(dx) * 0.5;
         
@@ -548,11 +562,11 @@ function showMiniPalette(x, y, sourceId, outputIndex) {
     state.nodeTypes.forEach(nodeType => {
         // Only show nodes that have at least one input
         if (nodeType.inputCount === 0) return;
-        
-        const category = nodeType.category || 'custom';
+
+        const category = String(nodeType.category || 'custom').toLowerCase();
         if (!categories[category]) {
             categories[category] = {
-                title: category.charAt(0).toUpperCase() + category.slice(1),
+                title: categoryLabel(category),
                 nodes: []
             };
             categoryOrder.push(category);
@@ -648,13 +662,11 @@ function handleMiniPaletteKeydown(e) {
 
 function createNodeAndConnect(nodeType, x, y, sourceId, outputIndex, targetInputIndex = 0) {
     import('./nodes.js').then(({ createNode, snapNodeToGrid }) => {
-        // Convert screen coordinates to canvas coordinates
-        // Use nodes-container rect (same as handleCanvasDrop in events.js)
-        const nodesContainer = document.getElementById('nodes-container');
-        const containerRect = nodesContainer.getBoundingClientRect();
-        const canvasX = x - containerRect.left;
-        const canvasY = y - containerRect.top;
-        
+        // Convert client (mouse) coordinates to canvas coordinates (zoom-aware)
+        const canvasPoint = clientToCanvas(x, y);
+        const canvasX = canvasPoint.x;
+        const canvasY = canvasPoint.y;
+
         // Create the new node
         const newNodeId = createNode(nodeType, canvasX, canvasY);
         
@@ -750,11 +762,11 @@ function showMiniPaletteBackward(x, y, targetId, inputIndex) {
     state.nodeTypes.forEach(nodeType => {
         // Only show nodes that have at least one output
         if (nodeType.outputCount === 0) return;
-        
-        const category = nodeType.category || 'custom';
+
+        const category = String(nodeType.category || 'custom').toLowerCase();
         if (!categories[category]) {
             categories[category] = {
-                title: category.charAt(0).toUpperCase() + category.slice(1),
+                title: categoryLabel(category),
                 nodes: []
             };
             categoryOrder.push(category);
@@ -814,12 +826,11 @@ function showMiniPaletteBackward(x, y, targetId, inputIndex) {
 // Create a node and connect its output to an existing target node's input
 function createNodeAndConnectBackward(nodeType, x, y, targetId, targetInputIndex = 0) {
     import('./nodes.js').then(({ createNode, snapNodeToGrid }) => {
-        // Convert screen coordinates to canvas coordinates
-        const nodesContainer = document.getElementById('nodes-container');
-        const containerRect = nodesContainer.getBoundingClientRect();
-        const canvasX = x - containerRect.left;
-        const canvasY = y - containerRect.top;
-        
+        // Convert client (mouse) coordinates to canvas coordinates (zoom-aware)
+        const canvasPoint = clientToCanvas(x, y);
+        const canvasX = canvasPoint.x;
+        const canvasY = canvasPoint.y;
+
         // Create the new node
         const newNodeId = createNode(nodeType, canvasX, canvasY);
         

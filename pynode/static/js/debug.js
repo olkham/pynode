@@ -385,22 +385,28 @@ function jumpToNode(nodeId) {
     import('./selection.js').then(({ deselectAllNodes, selectNode }) => {
         deselectAllNodes();
         selectNode(nodeId);
-        
-        // Scroll node into view
+
+        // Scroll node into view. offsetLeft/offsetWidth are canvas
+        // (untransformed) px; scroll offsets are in zoomed px, so scale.
         const canvasContainer = document.querySelector('.canvas-container');
-        const nodeRect = nodeEl.getBoundingClientRect();
         const containerRect = canvasContainer.getBoundingClientRect();
-        
-        // Calculate scroll position to center the node
-        const scrollX = nodeEl.offsetLeft - (containerRect.width / 2) + (nodeRect.width / 2);
-        const scrollY = nodeEl.offsetTop - (containerRect.height / 2) + (nodeRect.height / 2);
-        
-        canvasContainer.scrollTo({
-            left: scrollX,
-            top: scrollY,
-            behavior: 'smooth'
+
+        import('./viewport.js').then(({ getZoom }) => {
+            const zoom = getZoom();
+            const nodeCenterX = nodeEl.offsetLeft + nodeEl.offsetWidth / 2;
+            const nodeCenterY = nodeEl.offsetTop + nodeEl.offsetHeight / 2;
+
+            // Calculate scroll position to center the node
+            const scrollX = nodeCenterX * zoom - containerRect.width / 2;
+            const scrollY = nodeCenterY * zoom - containerRect.height / 2;
+
+            canvasContainer.scrollTo({
+                left: scrollX,
+                top: scrollY,
+                behavior: 'smooth'
+            });
         });
-        
+
         // Flash effect
         nodeEl.style.animation = 'none';
         setTimeout(() => {

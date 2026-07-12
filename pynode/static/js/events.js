@@ -5,6 +5,7 @@ import { deselectNode, deselectAllNodes, selectNode } from './selection.js';
 import { deployWorkflow, deployWorkflowFull, restartWorkflow, stopWorkflow, clearWorkflow, exportWorkflow, importWorkflow } from './workflow.js';
 import { clearDebug } from './debug.js';
 import { getConnectionAtPoint, highlightConnectionForInsert, clearConnectionHighlight, getHoveredConnection, insertNodeIntoConnection } from './connections.js';
+import { clientToCanvas, getZoom } from './viewport.js';
 
 // Track deploy mode: 'modified' or 'full'
 let deployMode = 'modified';
@@ -209,14 +210,11 @@ export function setupEventListeners() {
         if (e.target === nodesContainer && !state.justSelectedConnection) {
             // Check if clicking near a connection
             import('./connections.js').then(({ getConnectionAtPoint, selectConnection, deselectConnection }) => {
-                // Get click coordinates in SVG space
-                const svg = document.getElementById('canvas');
-                const pt = svg.createSVGPoint();
-                pt.x = e.clientX;
-                pt.y = e.clientY;
-                const svgP = pt.matrixTransform(svg.getScreenCTM().inverse());
-                
-                const clickedConnection = getConnectionAtPoint(svgP.x, svgP.y, 20);
+                // Get click coordinates in canvas (SVG) space, zoom-aware.
+                // Threshold scales with 1/zoom so the click slop stays ~20 screen px.
+                const canvasPoint = clientToCanvas(e.clientX, e.clientY);
+
+                const clickedConnection = getConnectionAtPoint(canvasPoint.x, canvasPoint.y, 20 / getZoom());
                 if (clickedConnection) {
                     // Select the connection
                     selectConnection(clickedConnection.source, clickedConnection.target, clickedConnection.sourceOutput);
@@ -480,12 +478,10 @@ function handleCanvasDragOver(e) {
     }
     lastDragOverTime = now;
     
-    // Check if dragging over a connection and highlight it
-    const canvasRect = document.getElementById('canvas').getBoundingClientRect();
-    const x = e.clientX - canvasRect.left;
-    const y = e.clientY - canvasRect.top;
-    
-    const hoveredConnection = getConnectionAtPoint(x, y);
+    // Check if dragging over a connection and highlight it (canvas coords, zoom-aware)
+    const canvasPoint = clientToCanvas(e.clientX, e.clientY);
+
+    const hoveredConnection = getConnectionAtPoint(canvasPoint.x, canvasPoint.y, 15 / getZoom());
     if (hoveredConnection) {
         highlightConnectionForInsert(hoveredConnection);
     } else {
@@ -514,10 +510,13 @@ function handleCanvasDrop(e) {
     const offsetX = parseFloat(e.dataTransfer.getData('dragOffsetX')) || 0;
     const offsetY = parseFloat(e.dataTransfer.getData('dragOffsetY')) || 0;
     
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left - offsetX;
-    const y = e.clientY - rect.top - offsetY;
-    
+    // Drop position in canvas coordinates (zoom-aware). The drag offset is the
+    // grab point within the palette item in client px, so subtract it in
+    // client space before converting.
+    const canvasPoint = clientToCanvas(e.clientX - offsetX, e.clientY - offsetY);
+    const x = canvasPoint.x;
+    const y = canvasPoint.y;
+
     const newNodeId = createNode(nodeType, x, y);
 
     if (newNodeId) {
@@ -546,9 +545,13 @@ function handleCanvasDrop(e) {
     }
 }
 
+// The selection box is an HTML overlay on document.body and works entirely in
+// CLIENT coordinates: the box rect and each node's getBoundingClientRect()
+// are compared in the same (zoomed) client space, so hit-testing stays
+// correct at every zoom level without conversion.
 function setupSelectionBox() {
     const canvasContainer = document.querySelector('.canvas-container');
-    
+
     canvasContainer.addEventListener('mousedown', (e) => {
         // Only start selection box with left mouse button (button === 0)
         if (e.button !== 0) return;
@@ -634,15 +637,11 @@ function setupSelectionBox() {
                 const centerX = boxRect.left + boxRect.width / 2;
                 const centerY = boxRect.top + boxRect.height / 2;
                 
-                // Transform to SVG coordinates
-                const svg = document.getElementById('canvas');
-                const pt = svg.createSVGPoint();
-                pt.x = centerX;
-                pt.y = centerY;
-                const svgP = pt.matrixTransform(svg.getScreenCTM().inverse());
-                
+                // Transform to canvas (SVG) coordinates, zoom-aware
+                const canvasPoint = clientToCanvas(centerX, centerY);
+
                 import('./connections.js').then(({ getConnectionAtPoint, selectConnection }) => {
-                    const foundConnection = getConnectionAtPoint(svgP.x, svgP.y, 20);
+                    const foundConnection = getConnectionAtPoint(canvasPoint.x, canvasPoint.y, 20 / getZoom());
                     
                     if (foundConnection) {
                         console.log('Found connection via distance check:', foundConnection);
@@ -664,6 +663,8 @@ function setupSelectionBox() {
     });
 }
 
+// Middle-mouse panning works in scroll/client px (1 scroll px == 1 client px
+// regardless of zoom), so no canvas-coordinate conversion is needed here.
 function setupCanvasPanning(canvasContainer) {
     let isPanning = false;
     let startScrollLeft = 0;

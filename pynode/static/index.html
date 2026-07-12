@@ -102,18 +102,36 @@
 
                 <!-- Canvas -->
                 <main class="canvas-container">
-                <svg id="canvas" width="100%" height="100%">
-                    <!-- <defs>
-                        <marker id="arrowhead" markerWidth="10" markerHeight="7" 
-                                refX="0" refY="3.5" orient="auto" markerUnits="strokeWidth">
-                            <polygon points="0 0, 10 3.5, 0 7" fill="#999" />
-                        </marker>
-                    </defs> -->
-                    <g id="connections"></g>
-                    <g id="temp-line"></g>
-                </svg>
-                <div id="nodes-container"></div>
+                <!-- canvas-viewport is the zoom root: viewport.js applies
+                     transform: scale(k) here so the connections SVG and the
+                     HTML nodes layer zoom together -->
+                <div id="canvas-viewport">
+                    <svg id="canvas" width="100%" height="100%">
+                        <!-- <defs>
+                            <marker id="arrowhead" markerWidth="10" markerHeight="7"
+                                    refX="0" refY="3.5" orient="auto" markerUnits="strokeWidth">
+                                <polygon points="0 0, 10 3.5, 0 7" fill="#999" />
+                            </marker>
+                        </defs> -->
+                        <g id="connections"></g>
+                        <g id="temp-line"></g>
+                    </svg>
+                    <div id="nodes-container"></div>
+                </div>
             </main>
+
+                <!-- Canvas overlay controls: minimap + zoom -->
+                <div class="canvas-controls" id="canvas-controls">
+                    <div id="minimap-panel" class="minimap-panel hidden">
+                        <canvas id="minimap-canvas" width="220" height="150"></canvas>
+                    </div>
+                    <div class="canvas-controls-bar">
+                        <button id="zoom-out-btn" class="canvas-ctrl-btn" title="Zoom out (Ctrl+wheel)">−</button>
+                        <button id="zoom-reset-btn" class="canvas-ctrl-btn zoom-readout" title="Reset zoom">100%</button>
+                        <button id="zoom-in-btn" class="canvas-ctrl-btn" title="Zoom in (Ctrl+wheel)">+</button>
+                        <button id="minimap-toggle-btn" class="canvas-ctrl-btn" title="Toggle minimap">▦</button>
+                    </div>
+                </div>
             </div>
 
             <!-- Properties Panel -->

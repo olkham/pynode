@@ -37,19 +37,21 @@ def build_node_types_cache():
     from pynode.nodes.base_node import BaseNode
     base_properties = getattr(BaseNode, 'properties', [])
 
-    # Define category ordering
+    # Define category ordering (compared case-insensitively; display casing is
+    # applied by the frontend, e.g. 'opencv' renders as 'OpenCV').
     category_order = [
         'common',
-        'node probes',
-        'logic',
-        'function',
         'input',
         'output',
+        'function',
+        'logic',
+        'network',
         'vision',
         'analysis',
-        'network',
-        'OpenCV'
+        'node probes',
+        'opencv'
     ]
+    category_rank = {c.lower(): i for i, c in enumerate(category_order)}
 
     node_types = []
     for name, node_class in reference_engine.node_types.items():
@@ -104,16 +106,14 @@ def build_node_types_cache():
             'info': info
         })
 
-    # Sort node types by category order, then by name within each category
+    # Sort node types by category order, then alphabetically by name within
+    # each category. Category comparison is case-insensitive so e.g. nodes
+    # declaring 'opencv' or 'OpenCV' land in the same bucket.
     def get_category_sort_key(node_type):
-        category = node_type['category']
-        try:
-            # Categories in the order list get their index
-            order_index = category_order.index(category)
-        except ValueError:
-            # Categories not in the list go to the end (third party)
-            order_index = len(category_order)
-        return (order_index, node_type['name'])
+        category = str(node_type['category']).lower()
+        # Categories not in the list go to the end (custom/system/third party)
+        order_index = category_rank.get(category, len(category_order))
+        return (order_index, node_type['name'].lower(), node_type['name'])
 
     node_types.sort(key=get_category_sort_key)
 

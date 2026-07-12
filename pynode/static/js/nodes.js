@@ -3,6 +3,8 @@ import { API_BASE } from './config.js';
 import { state, generateNodeId, markNodeModified, markNodeAdded, markNodeDeleted, markConnectionDeleted, setModified, getNodeType } from './state.js';
 import { updateConnections, nodeHasConnections, getConnectionAtPoint, highlightConnectionForInsert, clearConnectionHighlight, getHoveredConnection, insertNodeIntoConnection } from './connections.js';
 import { selectNode, selectPathBetweenNodes } from './selection.js';
+import { clientToCanvas, getZoom } from './viewport.js';
+import { refreshMinimap } from './minimap.js';
 
 const GRID_SIZE = 20;
 
@@ -36,13 +38,12 @@ function getSnapAnchorPortCenter(nodeEl) {
     
     if (!portEl) return null;
 
+    // Port center in canvas coordinates (zoom-aware)
     const portRect = portEl.getBoundingClientRect();
-    const containerRect = nodesContainer.getBoundingClientRect();
-
-    return {
-        x: portRect.left + portRect.width / 2 - containerRect.left,
-        y: portRect.top + portRect.height / 2 - containerRect.top
-    };
+    return clientToCanvas(
+        portRect.left + portRect.width / 2,
+        portRect.top + portRect.height / 2
+    );
 }
 
 export function snapNodeToGrid(nodeId, gridSize = GRID_SIZE) {
@@ -289,6 +290,9 @@ export function renderNode(nodeData) {
     
     attachNodeEventHandlers(nodeEl, nodeData);
     document.getElementById('nodes-container').appendChild(nodeEl);
+
+    // Covers node create, paste, import and tab-switch re-render paths
+    refreshMinimap();
 }
 
 function buildNodeContent(nodeData, icon, inputCount, outputCount) {
@@ -401,8 +405,11 @@ function attachNodeEventHandlers(nodeEl, nodeData) {
         
         isDragging = true;
         hasMoved = false;
-        startX = e.clientX - nodeData.x;
-        startY = e.clientY - nodeData.y;
+        // Pointer offset from the node origin, in CANVAS coordinates so
+        // dragging tracks the cursor 1:1 at every zoom level.
+        const pointerCanvas = clientToCanvas(e.clientX, e.clientY);
+        startX = pointerCanvas.x - nodeData.x;
+        startY = pointerCanvas.y - nodeData.y;
 
         // Cache the offset from node top-left to snap anchor port center (in canvas/container coords).
         // For nodes with inputs: uses input port 0
@@ -465,9 +472,10 @@ function attachNodeEventHandlers(nodeEl, nodeData) {
             });
         }
         
-        // Desired anchor node position from pointer
-        let nextAnchorX = e.clientX - startX;
-        let nextAnchorY = e.clientY - startY;
+        // Desired anchor node position from pointer (canvas coordinates)
+        const pointerCanvas = clientToCanvas(e.clientX, e.clientY);
+        let nextAnchorX = pointerCanvas.x - startX;
+        let nextAnchorY = pointerCanvas.y - startY;
 
         // Snap so the anchor port center lands on the nearest grid intersection.
         if (snapAnchorPortOffset) {
@@ -513,13 +521,14 @@ function attachNodeEventHandlers(nodeEl, nodeData) {
         // Check for connection hover if this is an unconnected node
         // Must happen after updateConnections() to ensure highlight persists
         if (isUnconnectedNode && state.selectedNodes.size === 1) {
-            // Get node center position in canvas coordinates
+            // Get node center position in canvas coordinates (zoom-aware)
             const nodeRect = nodeEl.getBoundingClientRect();
-            const canvasRect = document.getElementById('canvas').getBoundingClientRect();
-            const nodeCenterX = nodeRect.left + nodeRect.width / 2 - canvasRect.left;
-            const nodeCenterY = nodeRect.top + nodeRect.height / 2 - canvasRect.top;
+            const nodeCenter = clientToCanvas(
+                nodeRect.left + nodeRect.width / 2,
+                nodeRect.top + nodeRect.height / 2
+            );
 
-            const hoveredConnection = getConnectionAtPoint(nodeCenterX, nodeCenterY);
+            const hoveredConnection = getConnectionAtPoint(nodeCenter.x, nodeCenter.y, 15 / getZoom());
             if (hoveredConnection) {
                 highlightConnectionForInsert(hoveredConnection);
             } else {
@@ -698,10 +707,13 @@ function attachNodeEventHandlers(nodeEl, nodeData) {
             
             const handleResize = (e) => {
                 if (!isResizing) return;
-                
-                const deltaX = e.clientX - startX;
-                const deltaY = e.clientY - startY;
-                
+
+                // Viewer size is in canvas px; convert the client-px mouse
+                // delta so resizing tracks the cursor at every zoom level.
+                const zoom = getZoom();
+                const deltaX = (e.clientX - startX) / zoom;
+                const deltaY = (e.clientY - startY) / zoom;
+
                 const newWidth = Math.max(160, startWidth + deltaX);
                 const newHeight = Math.max(120, startHeight + deltaY);
                 

@@ -87,8 +87,10 @@ export function pasteNodes() {
     
     // Map old IDs to new IDs
     const idMap = new Map();
-    
-    // Calculate paste offset (20px down and right from original position)
+
+    // Calculate paste offset (20px down and right from original position).
+    // Node x/y and this offset are all CANVAS coordinates, so pasting is
+    // zoom-independent by construction - no client->canvas conversion needed.
     const pasteOffset = clipboard.isCut ? 0 : 20;
     
     // Create new nodes

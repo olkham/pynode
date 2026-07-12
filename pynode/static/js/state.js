@@ -1,4 +1,6 @@
 // State management module
+import { captureView, restoreView } from './viewport.js';
+
 export const state = {
     nodes: new Map(),
     connections: [],
@@ -180,7 +182,9 @@ export function saveActiveWorkflowToCache() {
         addedConnections: [...state.addedConnections],
         deletedConnections: [...state.deletedConnections],
         isModified: state.isModified,
-        nextNodeId: state.nextNodeId
+        nextNodeId: state.nextNodeId,
+        // Per-tab canvas view: zoom + scroll, restored on tab switch
+        view: captureView()
     });
 }
 
@@ -201,5 +205,7 @@ export function restoreWorkflowFromCache(workflowId) {
     state.deletedConnections = [...cached.deletedConnections];
     state.isModified = cached.isModified;
     state.nextNodeId = cached.nextNodeId;
+    // Restore this tab's zoom + scroll (no-op if the cache predates views)
+    restoreView(cached.view);
     return true;
 }
