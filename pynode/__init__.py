@@ -10,5 +10,5 @@ configure_inference_threads()
 
 from pynode.workflow_engine import WorkflowEngine
 
-__version__ = '0.1.0'
+__version__ = '0.2.0'
 __all__ = ['WorkflowEngine']

@@ -21,6 +21,13 @@ logger = logging.getLogger(__name__)
 workflows_bp = Blueprint('workflows', __name__)
 
 
+@workflows_bp.route('/api/version', methods=['GET'])
+def get_version():
+    """Return the running PyNode version (for display in the UI)."""
+    from pynode import __version__
+    return jsonify({'success': True, 'version': __version__})
+
+
 @workflows_bp.route('/api/workflows', methods=['GET'])
 def list_workflows():
     """List all workflows with metadata."""

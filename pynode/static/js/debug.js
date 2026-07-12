@@ -9,7 +9,8 @@ const debugState = {
     messageMap: new Map(), // For collapsing similar messages
     showInfo: true,
     showErrors: true,
-    collapseSimilar: false
+    collapseSimilar: false,
+    paused: false // When true, new debug/error messages are not added to the list
 };
 
 export function startDebugPolling() {
@@ -95,8 +96,15 @@ export function updateImageViewer(nodeId, frameData) {
 }
 
 export function displayDebugMessages(messages) {
+    // While paused, drop incoming messages so the user can inspect the list
+    // without it scrolling. Node UI displays (frames, rates, counters) keep
+    // updating - only the debug message list is frozen.
+    if (debugState.paused) {
+        return;
+    }
+
     const container = document.getElementById('debug-messages');
-    
+
     messages.forEach(msg => {
         const messageKey = `${msg.node}:${JSON.stringify(msg.output)}`;
 
@@ -136,8 +144,13 @@ export function displayDebugMessages(messages) {
 }
 
 export function displayErrorMessages(errors) {
+    // While paused, freeze the list (see displayDebugMessages).
+    if (debugState.paused) {
+        return;
+    }
+
     const container = document.getElementById('debug-messages');
-    
+
     // Don't process or scroll if errors are hidden
     if (!debugState.showErrors) {
         return;
@@ -440,6 +453,20 @@ export function toggleInfoMessages(show) {
 export function toggleErrorMessages(show) {
     debugState.showErrors = show;
     applyAllFilters();
+}
+
+/**
+ * Toggle the paused state of the debug list. When paused, new debug/error
+ * messages are dropped (not rendered) so the current view stays put.
+ * Returns the new paused state.
+ */
+export function toggleDebugPaused() {
+    debugState.paused = !debugState.paused;
+    return debugState.paused;
+}
+
+export function isDebugPaused() {
+    return debugState.paused;
 }
 
 export function toggleCollapseSimilar(collapse) {

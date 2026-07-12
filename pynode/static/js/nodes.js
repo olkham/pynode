@@ -446,8 +446,14 @@ function attachNodeEventHandlers(nodeEl, nodeData) {
     // Double-click to open properties
     nodeEl.addEventListener('dblclick', (e) => {
         if (e.target.classList.contains('port')) return;
-        if (e.target.classList.contains('inject-btn')) return;
-        
+        // Don't open the config panel when double-clicking an interactive
+        // control on the node (buttons, toggles, inputs, drop zones, resize
+        // handle) - only the non-interactive node body should open it.
+        if (e.target.closest(
+            'button, input, select, textarea, label, a, ' +
+            '.image-drop-zone, .image-viewer-resize-handle'
+        )) return;
+
         // Select the node if not already selected
         if (!state.selectedNodes.has(nodeData.id)) {
             selectNode(nodeData.id, false);

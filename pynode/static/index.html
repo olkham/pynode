@@ -14,7 +14,7 @@
 
         <!-- Header -->
         <header class="header">
-            <h1><img src="images/favicon4.png" alt="PyNode" class="header-logo">PyNode Editor</h1>
+            <h1><img src="images/favicon4.png" alt="PyNode" class="header-logo">PyNode Editor<span id="app-version" class="app-version"></span></h1>
             <div class="header-actions">
                 <div class="deploy-container">
                     <button id="deploy-btn" class="btn btn-primary deploy-main" disabled>
@@ -158,6 +158,7 @@
                         <div class="debug-header">
                             <h3>Debug Messages</h3>
                             <div class="debug-controls">
+                                <button id="pause-debug-btn" class="btn btn-secondary btn-small icon-btn" title="Pause updates"></button>
                                 <button id="clear-debug-btn" class="btn btn-secondary btn-small" title="Clear">🗑️</button>
                             </div>
                         </div>

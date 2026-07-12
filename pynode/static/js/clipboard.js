@@ -2,7 +2,7 @@
 import { state, generateNodeId, setModified, markNodeAdded } from './state.js';
 import { renderNode, generateUniqueName } from './nodes.js';
 import { createConnection } from './connections.js';
-import { selectNode } from './selection.js';
+import { selectNode, deselectAllNodes } from './selection.js';
 
 // Clipboard state
 const clipboard = {
@@ -24,14 +24,15 @@ export function copySelectedNodes() {
     clipboard.connections = [];
     clipboard.isCut = false;
     
-    // Copy node data
+    // Copy node data. Deep-clone so the clipboard is an independent snapshot -
+    // a shallow copy shares the nested `config` object with the live node, so
+    // later edits to either would mutate both (and every paste of it).
     state.selectedNodes.forEach(nodeId => {
         const node = state.nodes.get(nodeId);
         if (node) {
-            clipboard.nodes.push({
-                ...node,
-                originalId: node.id
-            });
+            const snapshot = structuredClone(node);
+            snapshot.originalId = node.id;
+            clipboard.nodes.push(snapshot);
         }
     });
     
@@ -80,11 +81,11 @@ export function pasteNodes() {
         return;
     }
     
-    // Clear current selection
-    import('./selection.js').then(({ deselectAllNodes }) => {
-        deselectAllNodes();
-    });
-    
+    // Clear current selection synchronously. (A dynamic import().then() runs as
+    // a microtask AFTER the paste loop below has already selected the new
+    // nodes, so it would wipe out that fresh selection.)
+    deselectAllNodes();
+
     // Map old IDs to new IDs
     const idMap = new Map();
 
@@ -101,14 +102,17 @@ export function pasteNodes() {
         // Generate unique name for pasted node
         const uniqueName = generateUniqueName(nodeData.name, nodeData.type);
         
+        // Deep-clone so each pasted node gets its own `config` object rather
+        // than sharing the clipboard snapshot's (which repeated pastes would
+        // otherwise alias, leaking edits between the copies).
         const newNode = {
-            ...nodeData,
+            ...structuredClone(nodeData),
             id: newId,
             name: uniqueName,
             x: nodeData.x + pasteOffset,
             y: nodeData.y + pasteOffset
         };
-        
+
         delete newNode.originalId;
         
         state.nodes.set(newId, newNode);

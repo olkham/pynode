@@ -3,7 +3,7 @@ import { state } from './state.js';
 import { createNode, deleteNode, deleteNodeAndReconnect, snapNodeToGrid } from './nodes.js';
 import { deselectNode, deselectAllNodes, selectNode } from './selection.js';
 import { deployWorkflow, deployWorkflowFull, restartWorkflow, stopWorkflow, clearWorkflow, exportWorkflow, importWorkflow } from './workflow.js';
-import { clearDebug } from './debug.js';
+import { clearDebug, toggleDebugPaused } from './debug.js';
 import { getConnectionAtPoint, highlightConnectionForInsert, clearConnectionHighlight, getHoveredConnection, insertNodeIntoConnection } from './connections.js';
 import { clientToCanvas, getZoom } from './viewport.js';
 
@@ -60,6 +60,23 @@ export function setupEventListeners() {
 
     document.getElementById('import-btn').addEventListener('click', importWorkflow);
     document.getElementById('clear-debug-btn').addEventListener('click', clearDebug);
+
+    // Pause/resume debug list updates. While paused the button pulses and
+    // shows a play icon as a reminder that new messages are being withheld.
+    // Plain SVG (currentColor) instead of emoji glyphs for a crisp, theme-
+    // consistent icon instead of the platform's (often colored) emoji font.
+    const PAUSE_ICON = `<svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><rect x="3" y="2" width="4" height="12" rx="1"></rect><rect x="9" y="2" width="4" height="12" rx="1"></rect></svg>`;
+    const PLAY_ICON = `<svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><path d="M4 2.5v11l10-5.5z"></path></svg>`;
+    const pauseDebugBtn = document.getElementById('pause-debug-btn');
+    if (pauseDebugBtn) {
+        pauseDebugBtn.innerHTML = PAUSE_ICON;
+        pauseDebugBtn.addEventListener('click', () => {
+            const paused = toggleDebugPaused();
+            pauseDebugBtn.classList.toggle('debug-paused-active', paused);
+            pauseDebugBtn.innerHTML = paused ? PLAY_ICON : PAUSE_ICON;
+            pauseDebugBtn.title = paused ? 'Resume updates (paused)' : 'Pause updates';
+        });
+    }
     
     // Add workflow button
     const addWorkflowBtn = document.getElementById('add-workflow-btn');
