@@ -80,10 +80,18 @@ export function updateCounterDisplay(nodeId, displayText) {
 
 export function updateVideoPosition(nodeId, data) {
     const posEl = document.getElementById(`transport-pos-${nodeId}`);
-    if (!posEl) return;
-    const total = data.total > 0 ? data.total : '?';
-    posEl.textContent = `${(data.frame ?? 0) + 1}/${total}`;
-    posEl.title = data.playing ? 'Playing' : 'Paused / stopped';
+    const sliderEl = document.getElementById(`transport-progress-${nodeId}`);
+    const total = data.total > 0 ? data.total : 0;
+    const frame = data.frame ?? 0;
+    if (posEl) {
+        posEl.textContent = `${frame + 1}/${total > 0 ? total : '?'}`;
+        posEl.title = data.playing ? 'Playing' : 'Paused / stopped';
+    }
+    // Keep the scrub slider in sync unless the user is currently dragging it.
+    if (sliderEl && sliderEl.dataset.seeking !== 'true') {
+        sliderEl.max = total > 0 ? total - 1 : 0;
+        sliderEl.value = frame;
+    }
 }
 
 export function updateImageViewer(nodeId, frameData) {

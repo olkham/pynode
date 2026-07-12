@@ -3,6 +3,7 @@ connections, declared button actions, and the dynamic per-node-type routes
 that node classes declare via ``api_routes``.
 """
 
+import inspect
 import os
 
 from flask import Blueprint, Response, jsonify, request, stream_with_context
@@ -258,12 +259,29 @@ def _get_declared_actions(node):
     return declared
 
 
+def _action_accepts_arg(method):
+    """Return True if `method` accepts at least one positional argument."""
+    try:
+        sig = inspect.signature(method)
+    except (TypeError, ValueError):
+        return False
+    for param in sig.parameters.values():
+        if param.kind in (param.POSITIONAL_ONLY, param.POSITIONAL_OR_KEYWORD,
+                          param.VAR_POSITIONAL):
+            return True
+    return False
+
+
 @nodes_bp.route('/api/nodes/<node_id>/<action>', methods=['POST'])
 def trigger_node_action(node_id, action):
     """Trigger a button action on a node in deployed workflow.
 
     Only actions explicitly declared in the node class's `actions` list may be
     invoked; anything else (including private/underscore names) returns 404.
+
+    Actions may optionally accept a single value supplied via a JSON body
+    ``{"value": ...}`` (e.g. VideoReaderNode.seek(target)); zero-argument
+    actions are called with no arguments.
     """
     try:
         node, _ = _find_deployed_node(node_id)
@@ -278,7 +296,12 @@ def trigger_node_action(node_id, action):
         if not callable(method):
             return jsonify({'success': False, 'error': f'{action} is not a callable method'}), 400
 
-        method()
+        data = request.get_json(silent=True)
+        if (isinstance(data, dict) and 'value' in data
+                and _action_accepts_arg(method)):
+            method(data['value'])
+        else:
+            method()
         return jsonify({'success': True, 'status': 'success', 'action': action})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500

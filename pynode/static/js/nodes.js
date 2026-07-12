@@ -304,7 +304,8 @@ function buildNodeContent(nodeData, icon, inputCount, outputCount) {
     let contentParts = {
         left: '',
         center: '',
-        right: ''
+        right: '',
+        below: ''
     };
     
     // Icon always in center-left
@@ -361,18 +362,29 @@ function buildNodeContent(nodeData, icon, inputCount, outputCount) {
                 <span class="transport-pos" id="transport-pos-${nodeData.id}">-/-</span>
             </div>
         `;
+        // Full-width progress/scrub slider along the bottom of the node.
+        // `oninput` previews the position while dragging; `onchange` (on
+        // release) issues the seek. The node-drag handler ignores this
+        // element so grabbing the thumb doesn't move the node.
+        contentParts.below = `
+            <input type="range" class="transport-progress"
+                   id="transport-progress-${nodeData.id}"
+                   min="0" max="0" value="0" step="1" title="Seek"
+                   oninput="window.videoSeekPreview('${nodeData.id}', this.value)"
+                   onchange="window.videoSeek('${nodeData.id}', this.value)" />
+        `;
     }
     
     // Combine parts based on input/output configuration
     if (inputCount === 0 && outputCount > 0) {
         // Input node - button/icon on left
-        return `<div class="node-content">${contentParts.left}${contentParts.center}${contentParts.right}</div>`;
+        return `<div class="node-content">${contentParts.left}${contentParts.center}${contentParts.right}</div>${contentParts.below}`;
     } else if (inputCount > 0 && outputCount === 0) {
         // Output node - title first, then icon, then controls
-        return `<div class="node-content">${contentParts.center}${contentParts.right}</div>`;
+        return `<div class="node-content">${contentParts.center}${contentParts.right}</div>${contentParts.below}`;
     } else {
         // Processing node - standard layout
-        return `<div class="node-content">${contentParts.left}${contentParts.center}${contentParts.right}</div>`;
+        return `<div class="node-content">${contentParts.left}${contentParts.center}${contentParts.right}</div>${contentParts.below}`;
     }
 }
 
@@ -385,6 +397,9 @@ function attachNodeEventHandlers(nodeEl, nodeData) {
     
     nodeEl.addEventListener('mousedown', (e) => {
         if (e.target.classList.contains('port')) return;
+        // Don't start a node drag when the user grabs the progress slider -
+        // let the range input handle the scrub gesture.
+        if (e.target.classList.contains('transport-progress')) return;
         
         // Only handle left mouse button (button === 0) for node selection and dragging
         if (e.button !== 0) return;
@@ -860,12 +875,40 @@ window.nodeAction = async function(nodeId, action, value) {
         } else if (action === 'toggle_drawing') {
             await window.toggleDrawPredictions(nodeId, value);
         } else {
-            // Generic action - call the action endpoint
-            await fetch(`${API_BASE}/nodes/${nodeId}/${action}`, { method: 'POST' });
+            // Generic action - call the action endpoint. When a value is
+            // supplied (e.g. a seek target), send it as a JSON body so the
+            // backend action can receive it.
+            const options = { method: 'POST' };
+            if (value !== undefined) {
+                options.headers = { 'Content-Type': 'application/json' };
+                options.body = JSON.stringify({ value });
+            }
+            await fetch(`${API_BASE}/nodes/${nodeId}/${action}`, options);
         }
     } catch (error) {
         console.error(`Failed to execute action ${action} on node ${nodeId}:`, error);
     }
+};
+
+// Preview the video position label while dragging the progress slider.
+// Marks the slider as being scrubbed so incoming SSE position updates don't
+// fight the user's drag (see updateVideoPosition in debug.js).
+window.videoSeekPreview = function(nodeId, value) {
+    const sliderEl = document.getElementById(`transport-progress-${nodeId}`);
+    if (sliderEl) sliderEl.dataset.seeking = 'true';
+    const posEl = document.getElementById(`transport-pos-${nodeId}`);
+    if (posEl) {
+        const frame = parseInt(value, 10) || 0;
+        const max = sliderEl ? (parseInt(sliderEl.max, 10) || 0) : 0;
+        posEl.textContent = `${frame + 1}/${max > 0 ? max + 1 : '?'}`;
+    }
+};
+
+// Commit a seek when the user releases the progress slider.
+window.videoSeek = async function(nodeId, value) {
+    const sliderEl = document.getElementById(`transport-progress-${nodeId}`);
+    if (sliderEl) sliderEl.dataset.seeking = 'false';
+    await window.nodeAction(nodeId, 'seek', parseInt(value, 10) || 0);
 };
 
 // Toggle draw predictions enabled state

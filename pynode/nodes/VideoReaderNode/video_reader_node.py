@@ -28,6 +28,8 @@ _info.add_bullets(
     ("⏯ Play/Pause:", "Toggle playback from the current position."),
     ("⏹ Stop:", "Halt playback and seek back to the first frame."),
     ("⏭ Step forward:", "Show the next frame (while paused/stopped)."),
+    ("Progress bar:", "Drag the slider along the bottom of the node to scrub "
+                      "to any point in the video."),
 )
 _info.add_header("Properties")
 _info.add_bullets(
@@ -78,7 +80,7 @@ class VideoReaderNode(BaseNode):
     }
 
     # UI-triggerable actions (see BaseNode.actions)
-    actions = ['play_pause', 'stop', 'step_prev', 'step_next']
+    actions = ['play_pause', 'stop', 'step_prev', 'step_next', 'seek']
 
     # get_position_sse does its own change-detection (returns None when the
     # position/playing state is unchanged), so the throttle just bounds the
@@ -254,6 +256,29 @@ class VideoReaderNode(BaseNode):
             displayed = self._frame_index - 1
             target = max(0, displayed - 1)
             self._emit_frame_at(target)
+
+    def seek(self, target):
+        """Seek to a specific frame index (driven by the progress slider)."""
+        with self._transport_lock:
+            if not self._ensure_capture():
+                return
+            try:
+                index = int(target)
+            except (TypeError, ValueError):
+                return
+            with self._cap_lock:
+                if self._total_frames:
+                    index = max(0, min(index, self._total_frames - 1))
+                else:
+                    index = max(0, index)
+                if self._playing:
+                    # The playback loop reads _frame_index each iteration and
+                    # re-seeks the capture when it differs; just reposition and
+                    # let the loop emit from the new spot.
+                    self._frame_index = index
+                    return
+            # Paused/stopped: show the requested frame immediately.
+            self._emit_frame_at(index)
 
     # ------------------------------------------------------------------
     # SSE position reporting
