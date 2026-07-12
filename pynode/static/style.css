@@ -1017,6 +1017,8 @@ body {
 .transport-pos {
     font-size: 10px;
     font-weight: 600;
+    font-family: 'Consolas', 'SF Mono', 'Menlo', 'Courier New', monospace;
+    font-variant-numeric: tabular-nums;
     color: #000;
     background: rgba(255, 255, 255, 0.3);
     padding: 2px 4px;

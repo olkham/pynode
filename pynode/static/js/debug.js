@@ -84,7 +84,14 @@ export function updateVideoPosition(nodeId, data) {
     const total = data.total > 0 ? data.total : 0;
     const frame = data.frame ?? 0;
     if (posEl) {
-        posEl.textContent = `${frame + 1}/${total > 0 ? total : '?'}`;
+        // Zero-pad the current frame to the total's digit count so the label
+        // width (and therefore the node width) stays constant as the frame
+        // number gains digits (e.g. 003/600 -> 010/600 -> 100/600).
+        const current = frame + 1;
+        const currentText = total > 0
+            ? String(current).padStart(String(total).length, '0')
+            : String(current);
+        posEl.textContent = `${currentText}/${total > 0 ? total : '?'}`;
         posEl.title = data.playing ? 'Playing' : 'Paused / stopped';
     }
     // Keep the scrub slider in sync unless the user is currently dragging it.

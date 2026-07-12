@@ -900,7 +900,13 @@ window.videoSeekPreview = function(nodeId, value) {
     if (posEl) {
         const frame = parseInt(value, 10) || 0;
         const max = sliderEl ? (parseInt(sliderEl.max, 10) || 0) : 0;
-        posEl.textContent = `${frame + 1}/${max > 0 ? max + 1 : '?'}`;
+        const total = max > 0 ? max + 1 : 0;
+        // Zero-pad to the total's digit count so the node width stays constant.
+        const current = frame + 1;
+        const currentText = total > 0
+            ? String(current).padStart(String(total).length, '0')
+            : String(current);
+        posEl.textContent = `${currentText}/${total > 0 ? total : '?'}`;
     }
 };
 
