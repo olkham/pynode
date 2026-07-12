@@ -302,20 +302,24 @@ class UltralyticsNode(BaseNode):
                 verbose=False
             )
             
-            # Extract detection information
+            # Extract detection information. Pull the whole batch off the device
+            # once (each per-box .cpu() call is a separate sync + thread-pool
+            # wake-up) and iterate the resulting numpy arrays.
             detections = []
             if len(results) > 0:
                 result = results[0]
                 boxes = result.boxes
-                
+
                 if boxes is not None and len(boxes) > 0:
-                    for i in range(len(boxes)):
-                        box = boxes[i]
+                    xyxy = boxes.xyxy.cpu().numpy()
+                    cls = boxes.cls.cpu().numpy().astype(int)
+                    conf = boxes.conf.cpu().numpy()
+                    for bbox, class_id, confidence_score in zip(xyxy, cls, conf):
                         detection = {
-                            'class_id': int(box.cls[0]),
-                            'class_name': result.names[int(box.cls[0])],
-                            'confidence': float(box.conf[0]),
-                            'bbox': box.xyxy[0].cpu().numpy().tolist(),  # [x1, y1, x2, y2]
+                            'class_id': int(class_id),
+                            'class_name': result.names[int(class_id)],
+                            'confidence': float(confidence_score),
+                            'bbox': bbox.tolist(),  # [x1, y1, x2, y2]
                             'bbox_format': 'xyxy'
                         }
                         detections.append(detection)
