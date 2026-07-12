@@ -74,7 +74,11 @@ The scripts will:
 If you prefer manual installation or have specific requirements:
 
 ```bash
+# Core install (extras optional — see pyproject.toml)
 pip install -e .
+
+# With optional extras: ML vision nodes and/or MQTT nodes
+pip install -e .[vision,mqtt]
 ```
 
 ### Run the Server
@@ -88,6 +92,25 @@ python -m pynode
 ### Open Your Browser
 
 Navigate to `http://localhost:5000`
+
+### Data Directory
+
+PyNode persists workflows under `<data dir>/workflows/` (`workflow.json` plus timestamped backups in `_backups/`). The data directory is resolved in this order:
+
+1. `pynode --data-dir <path>` CLI flag,
+2. `PYNODE_DATA_DIR` environment variable,
+3. the source checkout root when running from a git clone / editable install (i.e. `pyproject.toml` sits next to the `pynode` package — this keeps the familiar `workflows/` folder in the repo),
+4. `~/.pynode` otherwise (e.g. a regular `pip install`).
+
+The resolved location is logged at startup (`Workflow data directory: ...`).
+
+## Securing PyNode
+
+**PyNode executes arbitrary Python by design** (e.g. FunctionNode runs whatever code is in the workflow), so anyone who can reach the API can run code on the host. Authentication is the trust boundary — secure the server before exposing it beyond your own machine:
+
+- **API key**: start with `pynode --api-key <secret>` (or set the `PYNODE_API_KEY` env var). All `/api/` requests then require the key via the `X-API-Key` header or an `api_key` query parameter; the web UI prompts for it on first load and remembers it in the browser. Unset/empty = no authentication (the default).
+- **CORS**: restrict allowed browser origins with `pynode --cors-origins http://localhost:5000,https://myhost` (or the `PYNODE_CORS_ORIGINS` env var). Default is `*` (all origins).
+- **Bind locally**: when you don't need network access, run `pynode --host 127.0.0.1` so the server is only reachable from the local machine.
 
 ## Docker Setup
 
@@ -190,8 +213,8 @@ pynode/                     # Project root
 ├── _backup/                # Workflow backups
 ├── setup.py                # Package installation
 ├── setup.bat / setup.sh    # Setup scripts
-├── requirements.txt        # Core dependencies
-├── pyproject.toml          # Build configuration
+├── requirements.txt        # Convenience installer (deps live in pyproject.toml)
+├── pyproject.toml          # Package metadata, dependencies and build config
 ├── INSTALL.md              # Installation guide
 ├── DOCKER.md               # Docker setup
 ├── docker-compose.yml      # Docker compose config

@@ -25,8 +25,7 @@ Usage Example:
 
 import argparse
 import logging
-
-from pynode.server import app, load_workflow_from_disk
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -35,14 +34,29 @@ def main():
     """Main entry point for PyNode application."""
     # Parse command line arguments
     parser = argparse.ArgumentParser(description='PyNode Visual Workflow System')
-    parser.add_argument('--production', action='store_true', 
+    parser.add_argument('--production', action='store_true',
                         help='Run in production mode using Waitress server')
-    parser.add_argument('--host', default='0.0.0.0', 
+    parser.add_argument('--host', default='0.0.0.0',
                         help='Host address to bind to (default: 0.0.0.0)')
-    parser.add_argument('--port', type=int, default=5000, 
+    parser.add_argument('--port', type=int, default=5000,
                         help='Port to bind to (default: 5000)')
     parser.add_argument('--log-level', default='INFO',
                         help='Logging level (DEBUG, INFO, WARNING, ERROR). Default: INFO')
+    parser.add_argument('--cors-origins', default=None,
+                        help='Comma-separated list of allowed CORS origins '
+                             '(default: * i.e. all origins). '
+                             'Also settable via the PYNODE_CORS_ORIGINS env var.')
+    parser.add_argument('--api-key', default=None,
+                        help='Require this API key on all /api/ requests '
+                             '(X-API-Key header or api_key query parameter). '
+                             'Also settable via the PYNODE_API_KEY env var. '
+                             'Default: no authentication.')
+    parser.add_argument('--data-dir', default=None,
+                        help='Directory for PyNode data; workflows are '
+                             'persisted under <data-dir>/workflows/. '
+                             'Also settable via the PYNODE_DATA_DIR env var. '
+                             'Default: the source checkout root when running '
+                             'from a checkout, otherwise ~/.pynode.')
     args = parser.parse_args()
 
     # Configure application-wide logging
@@ -50,6 +64,30 @@ def main():
         level=getattr(logging, args.log_level.upper(), logging.INFO),
         format='%(asctime)s [%(levelname)s] %(name)s: %(message)s'
     )
+
+    # CORS and the data directory are configured when pynode.server is first
+    # imported (it builds the module-level default app), so the CLI flags
+    # must be exported to the environment BEFORE the import below.
+    # (This is why the server import lives inside main() rather than at
+    # module top.) The env var names live in pynode.config.
+    if args.cors_origins is not None:
+        os.environ['PYNODE_CORS_ORIGINS'] = args.cors_origins
+    if args.data_dir is not None:
+        os.environ['PYNODE_DATA_DIR'] = args.data_dir
+
+    from pynode.server import app, load_workflow_from_disk
+
+    # The API key is read dynamically from app.config on every request, so
+    # it can simply be set after import. CLI flag wins over the env var
+    # (which server.py already applied as the app.config default).
+    if args.api_key is not None:
+        app.config['PYNODE_API_KEY'] = args.api_key
+
+    if app.config.get('PYNODE_API_KEY'):
+        logger.info("API key authentication ENABLED: /api/ requests require "
+                    "the X-API-Key header or api_key query parameter")
+    if args.cors_origins is not None:
+        logger.info(f"CORS allowed origins: {args.cors_origins}")
 
     # Load workflow from disk on startup
     logger.info("Loading workflow from disk...")

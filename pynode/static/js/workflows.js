@@ -1,6 +1,6 @@
 // Multi-workflow tab management
 import { API_BASE } from './config.js';
-import { state, setModified, clearChangeTracking, saveActiveWorkflowToCache, restoreWorkflowFromCache } from './state.js';
+import { state, setModified, setWorkflowStopped, clearChangeTracking, saveActiveWorkflowToCache, restoreWorkflowFromCache } from './state.js';
 import { renderNode } from './nodes.js';
 import { updateConnections } from './connections.js';
 import { showToast } from './ui-utils.js';
@@ -26,7 +26,14 @@ export async function initWorkflowTabs() {
             });
             if (wf.active) activeId = wf.id;
         });
-        
+
+        // Restore the transient "stopped" indicator across page reloads:
+        // if every enabled workflow's deployed engine is not running, the
+        // flows were stopped via the deploy menu.
+        const enabledWfs = workflows.filter(wf => wf.enabled);
+        setWorkflowStopped(enabledWfs.length > 0 &&
+            enabledWfs.every(wf => wf.running === false));
+
         if (!activeId && state.workflows.size > 0) {
             activeId = state.workflows.keys().next().value;
         }

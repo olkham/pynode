@@ -52,12 +52,10 @@ else
     pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
 fi
 
-# Install remaining requirements (excluding torch/torchvision as they're already installed)
-echo "Installing remaining requirements..."
-pip install -r requirements.txt
-
-echo "Installing the application in editable mode..."
-pip install -e .
+# Install PyNode in editable mode with all extras (dependencies are declared
+# in pyproject.toml; torch/torchvision installed above are reused as-is)
+echo "Installing the application and its dependencies..."
+pip install -e ".[vision,mqtt]"
 
 echo ""
 echo "Setup complete! Virtual environment is activated."

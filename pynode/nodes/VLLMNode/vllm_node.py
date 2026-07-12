@@ -77,7 +77,7 @@ class VLLMNode(BaseNode):
     display_name = 'vLLM'
     info = str(_info)
     icon = '🤖'
-    category = 'AI'
+    category = 'vision'
     color = '#7C3AED'
     border_color = '#5B21B6'
     text_color = '#FFFFFF'

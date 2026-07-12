@@ -45,6 +45,51 @@ class _SinkNode(BaseNode):
 
 
 @pytest.fixture
+def api_app(tmp_path):
+    """A fresh, fully sandboxed Flask app built via ``create_app``.
+
+    - Every persistence/upload path points into tmp_path, so the real
+      workflows/ dir is never touched.
+    - The app has its own WorkflowManager (empty workflow state) and its own
+      SSE broadcast state - nothing is shared with other tests or with the
+      module-level default app.
+    - Teardown calls ``manager.shutdown()`` so every deployed engine (and its
+      worker threads) plus the SSE broadcast thread is stopped/joined before
+      the test's tmp_path fixtures are torn down.
+    """
+    from pynode.server import create_app
+
+    upload_base = tmp_path / 'upload_base'
+    upload_base.mkdir()
+    application = create_app({
+        'WORKFLOWS_DIR': str(tmp_path / 'workflows'),
+        'WORKFLOW_FILE': str(tmp_path / 'workflows' / 'workflow.json'),
+        'UPLOAD_BASE_DIR': str(upload_base),
+        'TESTING': True,
+    })
+    yield application
+    application.extensions['workflow_manager'].shutdown()
+
+
+@pytest.fixture
+def manager(api_app):
+    """The WorkflowManager owned by the app under test."""
+    return api_app.extensions['workflow_manager']
+
+
+@pytest.fixture
+def api_client(api_app, manager):
+    """Flask test client for the sandboxed per-test app.
+
+    The client also exposes ``api_client.manager`` (the app's
+    WorkflowManager) so tests can assert on engine/workflow state directly.
+    """
+    with api_app.test_client() as c:
+        c.manager = manager
+        yield c
+
+
+@pytest.fixture
 def engine():
     """A WorkflowEngine pre-registered with the lightweight test nodes."""
     eng = WorkflowEngine()

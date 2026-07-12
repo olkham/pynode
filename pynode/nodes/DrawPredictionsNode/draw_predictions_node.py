@@ -51,7 +51,10 @@ class DrawPredictionsNode(BaseNode):
         'action': 'toggle_drawing',
         'label': 'Draw'
     }
-    
+
+    # UI-triggerable actions (see BaseNode.actions)
+    actions = ['toggle_drawing']
+
     DEFAULT_CONFIG = {
         'detections_path': 'payload.detections',
         'line_width': '2',

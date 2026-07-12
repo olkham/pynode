@@ -42,7 +42,10 @@ class MDNSBroadcastNode(BaseNode):
     text_color = '#FFFFFF'
     input_count = 1  # Receives broadcast information
     output_count = 1  # Passes through messages
-    
+
+    # UI-triggerable actions (see BaseNode.actions)
+    actions = ['start_broadcast', 'stop_broadcast']
+
     DEFAULT_CONFIG = {
         'node_id': '',
         'service_port': '5000',

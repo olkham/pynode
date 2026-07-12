@@ -3,6 +3,7 @@ Roboflow Upload Node - uploads images to a Roboflow project for annotation.
 """
 
 import base64
+import logging
 import os
 import tempfile
 import threading
@@ -12,6 +13,8 @@ import numpy as np
 import cv2
 
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
+
+logger = logging.getLogger(__name__)
 
 _info = Info()
 _info.add_text("Uploads images to a Roboflow project for annotation and training.")
@@ -160,7 +163,7 @@ class RoboflowUploadNode(BaseNode):
             rf = Roboflow(api_key=api_key)
             workspace = rf.workspace(workspace_id)
             self._rf_project = workspace.project(project_id)
-            print(f"[RoboflowUploadNode] Connected to {workspace_id}/{project_id}")
+            logger.info(f"[RoboflowUploadNode] Connected to {workspace_id}/{project_id}")
         except Exception as e:
             self.report_error(f"Roboflow connection failed: {e}")
             self._rf_project = None

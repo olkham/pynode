@@ -8,11 +8,19 @@ Install PyNode in development mode (recommended for development):
 # Clone or navigate to the project directory
 cd pynode
 
-# Install in editable mode
+# Install in editable mode (core dependencies only)
 pip install -e .
+
+# Optional extras (declared in pyproject.toml):
+pip install -e .[vision]      # ML vision nodes (torch, ultralytics, supervision)
+pip install -e .[mqtt]        # MQTT nodes (paho-mqtt)
+pip install -e .[dev]         # Development tools (pytest, type stubs)
+pip install -e .[vision,mqtt] # Everything
 ```
 
 This installs PyNode as a package while keeping your source files editable.
+Nodes whose optional dependencies are missing are simply skipped at startup,
+so a core-only install still runs fine.
 
 ## Running PyNode
 

@@ -2,10 +2,13 @@
 Workflow Engine for managing nodes and executing workflows.
 """
 
+import logging
 import threading
 from typing import Dict, List, Any, Type, Optional
 
 from pynode.nodes.base_node import BaseNode
+
+logger = logging.getLogger(__name__)
 
 
 class WorkflowEngine:
@@ -149,7 +152,7 @@ class WorkflowEngine:
                 try:
                     node.on_start()
                 except Exception as e:
-                    print(f"Error starting node {node.id}: {e}")
+                    logger.error(f"Error starting node {node.id}: {e}")
     
     def stop(self):
         """
@@ -165,7 +168,7 @@ class WorkflowEngine:
                 try:
                     node.on_stop()
                 except Exception as e:
-                    print(f"Error stopping node {node.id}: {e}")
+                    logger.error(f"Error stopping node {node.id}: {e}")
     
     def get_debug_messages(self, node_id: str) -> List[Dict[str, Any]]:
         """
@@ -212,7 +215,7 @@ class WorkflowEngine:
                     try:
                         node.handle_error(source_node_id, source_node_name, error_msg)
                     except Exception as e:
-                        print(f"Error broadcasting to ErrorNode {node.id}: {e}")
+                        logger.error(f"Error broadcasting to ErrorNode {node.id}: {e}")
     
     def _ensure_system_error_node(self):
         """
@@ -233,7 +236,7 @@ class WorkflowEngine:
                     if hasattr(self._system_error_node, 'is_system_node'):
                         self._system_error_node.is_system_node = True
                 except Exception as e:
-                    print(f"Failed to create system error node: {e}")
+                    logger.error(f"Failed to create system error node: {e}")
     
     def get_system_errors(self) -> List[Dict[str, Any]]:
         """
@@ -374,7 +377,7 @@ class WorkflowEngine:
                 else:
                     # Unknown node type - create placeholder
                     node = self._create_unknown_node(node_data)
-                    print(f"Warning: Unknown node type '{node_type}' - created placeholder for node '{node_data['id']}'")
+                    logger.warning(f"Unknown node type '{node_type}' - created placeholder for node '{node_data['id']}'")
                 
                 # Store position if provided
                 node.x = node_data.get('x', 0)
@@ -391,7 +394,7 @@ class WorkflowEngine:
                     )
                 except ValueError as e:
                     # Skip connections if source or target doesn't exist
-                    print(f"Warning: Could not create connection: {e}")
+                    logger.warning(f"Could not create connection: {e}")
             
             # Recreate system error node if the workflow is running
             if self.running:
@@ -411,16 +414,21 @@ class WorkflowEngine:
         
         original_type = node_data['type']
         original_config = node_data.get('config', {})
-        
+
         # Try to preserve input/output counts from connections in the workflow
         # Default to 1 each if we can't determine
         input_count = node_data.get('inputCount', 1)
         output_count = node_data.get('outputCount', 1)
-        
+
+        # Preserve the user-given node name in the placeholder's display name;
+        # fall back to the original type when no name was given. Export strips
+        # the ' (missing)' suffix again, so the original name round-trips.
+        original_name = node_data.get('name') or original_type
+
         # Create the unknown node with original type info
         node = UnknownNode(
             node_id=node_data['id'],
-            name=f"{original_type} (missing)",
+            name=f"{original_name} (missing)",
             original_type=original_type,
             original_config=original_config,
             input_count=input_count,
@@ -442,18 +450,30 @@ class WorkflowEngine:
         Returns:
             Dictionary with workflow statistics
         """
+        def _is_system(node):
+            return (node.id == '__system_error__'
+                    or getattr(node, 'is_system_node', False))
+
         node_types_count = {}
+        total_nodes = 0
         total_connections = 0
-        
+
+        # System nodes (e.g. the hidden __system_error__ ErrorNode) are an
+        # implementation detail: exclude them and any connections to them,
+        # mirroring export_workflow().
         for node in self.nodes.values():
+            if _is_system(node):
+                continue
+            total_nodes += 1
             node_type = node.type
             node_types_count[node_type] = node_types_count.get(node_type, 0) + 1
-            
+
             for connections in node.outputs.values():
-                total_connections += len(connections)
-        
+                total_connections += sum(
+                    1 for target, _ in connections if not _is_system(target))
+
         return {
-            'total_nodes': len(self.nodes),
+            'total_nodes': total_nodes,
             'total_connections': total_connections,
             'node_types': node_types_count,
             'running': self.running

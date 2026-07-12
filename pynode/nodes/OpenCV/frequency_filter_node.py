@@ -2,10 +2,14 @@
 OpenCV Frequency Filter Node - filters frequencies and performs inverse FFT.
 """
 
+import logging
+
 import cv2
 import numpy as np
 from typing import Any, Dict
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
+
+logger = logging.getLogger(__name__)
 
 _info = Info()
 _info.add_text("Modifies frequency components (filtering) and reconstructs the image via Inverse FFT.")
@@ -180,7 +184,7 @@ class FrequencyFilterNode(BaseNode):
                             
             except Exception as e:
                 # Log error but continue with what we have
-                print(f"Error parsing notch filters: {e}")
+                logger.error(f"Error parsing notch filters: {e}")
             
         # Apply mask
         fshift = dft_shift * mask

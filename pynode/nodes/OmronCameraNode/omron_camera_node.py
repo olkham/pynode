@@ -8,6 +8,7 @@ Message output format matches CameraNode / FrameSourceNode for drop-in compatibi
 """
 
 import base64
+import logging
 import threading
 import time
 import queue
@@ -17,6 +18,8 @@ from typing import Any, Dict, Optional
 import numpy as np
 
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # STAPI lazy import
@@ -264,7 +267,7 @@ class OmronCameraNode(BaseNode):
                 self._connect_by_index(st, idx)
 
             dev_name = self._st_device.info.display_name
-            print(f"[OmronCamera] Connected to {dev_name}")
+            logger.info(f"[OmronCamera] Connected to {dev_name}")
 
             # 3. Configure GenICam nodes
             nodemap = self._st_device.remote_port.nodemap
@@ -283,12 +286,12 @@ class OmronCameraNode(BaseNode):
                     node = nodemap.get_node("TriggerSoftware")
                     self._trigger_software_cmd = st.PyICommand(node)
                 except Exception as exc:
-                    print(f"[OmronCamera] Could not get TriggerSoftware node: {exc}")
+                    logger.warning(f"[OmronCamera] Could not get TriggerSoftware node: {exc}")
 
             # 6. Start acquisition
             self._st_datastream.start_acquisition()
             self._st_device.acquisition_start()
-            print(f"[OmronCamera] Acquisition started ({working_mode})")
+            logger.info(f"[OmronCamera] Acquisition started ({working_mode})")
 
             # 7. Launch capture thread
             self.running = True
@@ -388,7 +391,7 @@ class OmronCameraNode(BaseNode):
                 obj = st.PyIInteger(node)
                 obj.value = int(exp_us)
         except Exception as exc:
-            print(f"[OmronCamera] Warning: could not set ExposureTime: {exc}")
+            logger.warning(f"[OmronCamera] Could not set ExposureTime: {exc}")
 
         # --- AcquisitionFrameRate ---
         try:
@@ -405,12 +408,12 @@ class OmronCameraNode(BaseNode):
             w = st.PyIInteger(nodemap.get_node("Width"))
             w.value = w_val
         except Exception:
-            print(f"[OmronCamera] Warning: Width {w_val} not supported, using default.")
+            logger.warning(f"[OmronCamera] Width {w_val} not supported, using default.")
         try:
             h = st.PyIInteger(nodemap.get_node("Height"))
             h.value = h_val
         except Exception:
-            print(f"[OmronCamera] Warning: Height {h_val} not supported, using default.")
+            logger.warning(f"[OmronCamera] Height {h_val} not supported, using default.")
 
         # --- Trigger configuration ---
         if mode == "SoftwareTrigger":
@@ -422,21 +425,21 @@ class OmronCameraNode(BaseNode):
                 try:
                     ts.set_symbolic_value("ExposureStart")
                 except Exception as exc:
-                    print(f"[OmronCamera] Warning: could not set TriggerSelector: {exc}")
+                    logger.warning(f"[OmronCamera] Could not set TriggerSelector: {exc}")
 
             # TriggerMode → On
             try:
                 tm = st.PyIEnumeration(nodemap.get_node("TriggerMode"))
                 tm.set_symbolic_value("On")
             except Exception as exc:
-                print(f"[OmronCamera] Warning: could not set TriggerMode: {exc}")
+                logger.warning(f"[OmronCamera] Could not set TriggerMode: {exc}")
 
             # TriggerSource → Software
             try:
                 src = st.PyIEnumeration(nodemap.get_node("TriggerSource"))
                 src.set_symbolic_value("Software")
             except Exception as exc:
-                print(f"[OmronCamera] Warning: could not set TriggerSource: {exc}")
+                logger.warning(f"[OmronCamera] Could not set TriggerSource: {exc}")
         else:
             # Continuous → TriggerMode Off
             try:
@@ -485,7 +488,7 @@ class OmronCameraNode(BaseNode):
         except Exception as exc:
             # Silently swallow transient STAPI errors in callback
             if self.running:
-                print(f"[OmronCamera] Callback error: {exc}")
+                logger.error(f"[OmronCamera] Callback error: {exc}")
 
     # ------------------------------------------------------------------
     # Image conversion
@@ -537,7 +540,7 @@ class OmronCameraNode(BaseNode):
                     gray = arr.reshape(h, w)
                     return cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
                 except Exception as exc:
-                    print(f"[OmronCamera] Cannot convert image: {exc}")
+                    logger.error(f"[OmronCamera] Cannot convert image: {exc}")
                     return None
 
     # ------------------------------------------------------------------

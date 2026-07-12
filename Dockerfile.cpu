@@ -22,11 +22,12 @@ COPY . /app/
 # Create virtual environment
 RUN python3 -m venv appenv
 
-# Activate venv and install dependencies
+# Activate venv and install dependencies (declared in pyproject.toml;
+# CPU-only torch is installed first so the vision extra reuses it)
 RUN . appenv/bin/activate && \
     pip install --upgrade pip && \
     pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu && \
-    pip install -r requirements.txt
+    pip install -e ".[vision,mqtt]"
 
 # Install node dependencies
 RUN . appenv/bin/activate && \

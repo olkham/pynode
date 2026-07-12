@@ -5,6 +5,7 @@ Receives image data from camera nodes and outputs inference results.
 """
 
 import logging
+import os
 from typing import Any, Dict, List
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 import torch
@@ -28,7 +29,7 @@ _info.add_bullets(
 _info.add_header("Configuration")
 _info.add_bullets(
     ("Model:", "YOLO variant (YOLO26, YOLO11, YOLOv8 - nano to extra large)"),
-    ("Device:", "CPU or CUDA GPU for inference"),
+    ("Device:", "CPU, CUDA GPU, or Intel OpenVINO device for inference"),
     ("Confidence:", "Detection confidence threshold"),
     ("IoU:", "Intersection over Union threshold for NMS"),
 )
@@ -64,9 +65,9 @@ class UltralyticsNode(BaseNode):
     
     @staticmethod
     def _get_device_options() -> List[Dict[str, str]]:
-        """Get available CUDA devices for the dropdown."""
+        """Get available hardware devices (CPU, CUDA, Intel OpenVINO) for the dropdown."""
         devices = [{'value': 'cpu', 'label': 'CPU'}]
-        
+
         try:
             if torch.cuda.is_available():
                 for i in range(torch.cuda.device_count()):
@@ -76,8 +77,36 @@ class UltralyticsNode(BaseNode):
                     devices.append({'value': f'cuda:{i}', 'label': label})
         except Exception as e:
             logger.warning(f"Error detecting CUDA devices: {e}")
-        
+
+        # Add Intel OpenVINO devices (enumerated via openvino when available;
+        # falls back to the static CPU/GPU/NPU list otherwise)
+        try:
+            from pynode.nodes.InferenceNode.InferenceEngine.device_detection import (
+                get_intel_device_options,
+            )
+            devices.extend(get_intel_device_options())
+        except Exception as e:
+            logger.warning(f"Error detecting Intel OpenVINO devices: {e}")
+            devices.extend([
+                {'value': 'intel:cpu', 'label': 'Intel CPU (OpenVINO)'},
+                {'value': 'intel:gpu', 'label': 'Intel GPU (OpenVINO)'},
+                {'value': 'intel:npu', 'label': 'Intel NPU (OpenVINO)'},
+            ])
+
         return devices
+
+    def _resolve_configured_device(self) -> str:
+        """Return the configured device with plain 'intel:gpu' resolved to the
+        first detected GPU (e.g. 'intel:gpu.0') so OpenVINO targets a real
+        device instead of falling back to AUTO on multi-GPU systems."""
+        device = self.config.get('device', 'cpu')
+        try:
+            from pynode.nodes.InferenceNode.InferenceEngine.device_detection import (
+                resolve_intel_device,
+            )
+            return resolve_intel_device(device)
+        except Exception:
+            return device
     
     # Property schema for the properties panel
     @classmethod
@@ -177,10 +206,30 @@ class UltralyticsNode(BaseNode):
         try:
             from ultralytics import YOLO # type: ignore
             model_name = self.config.get('model', 'yolov8n.pt')
-            device = self.config.get('device', 'cpu')
-            self.model = YOLO(model_name)
-            # Move model to specified device
-            self.model.to(device)
+            device = self._resolve_configured_device()
+
+            if isinstance(device, str) and device.lower().startswith('intel:'):
+                # Intel OpenVINO path: torch's model.to() does not understand
+                # 'intel:*' device strings, so export the model to OpenVINO
+                # format once and load the exported model instead. The
+                # resolved 'intel:gpu.N' string is passed to predict() at
+                # inference time; ultralytics maps it to the OpenVINO device
+                # name (e.g. intel:gpu.0 -> GPU.0).
+                base_model = YOLO(model_name)
+                source_path = str(getattr(base_model, 'ckpt_path', None) or model_name)
+                openvino_model_path = os.path.splitext(source_path)[0] + '_openvino_model'
+                if not os.path.isdir(openvino_model_path):
+                    logger.info(f"Exporting {model_name} to OpenVINO format: {openvino_model_path}")
+                    openvino_model_path = base_model.export(format='openvino')
+                self.model = YOLO(openvino_model_path, task=base_model.task)
+                logger.info(
+                    f"Loaded OpenVINO model from {openvino_model_path} "
+                    f"targeting device: {device}"
+                )
+            else:
+                self.model = YOLO(model_name)
+                # Move model to specified device
+                self.model.to(device)
             self._model_loaded = True
         except ImportError:
             error_msg = "ultralytics package not installed. Run: pip install ultralytics"
@@ -192,14 +241,19 @@ class UltralyticsNode(BaseNode):
             self.model = None
     
     def configure(self, config: Dict[str, Any]):
-        """Override configure to reload model when model changes."""
+        """Override configure to reload the model when model or device changes."""
         old_model = self.config.get('model') if hasattr(self, 'config') else None
+        old_device = self.config.get('device') if hasattr(self, 'config') else None
         super().configure(config)
-        new_model = self.config.get('model')
-        
-        # Reload model if it changed
-        if old_model != new_model and old_model is not None:
-            self._load_model()
+
+        # Mark for lazy reload on next inference if model or device changed.
+        # (The previous code called _load_model() directly, which no-ops while
+        # _model_loaded is True - so model changes never actually reloaded.)
+        if old_model is not None and (
+            old_model != self.config.get('model') or
+            old_device != self.config.get('device')
+        ):
+            self._model_loaded = False
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """
@@ -236,8 +290,9 @@ class UltralyticsNode(BaseNode):
             max_det = self.get_config_int('max_det', 300)
             draw_results = self.get_config_bool('draw_results', True)
             
-            # Perform inference on specified device
-            device = self.config.get('device', 'cpu')
+            # Perform inference on specified device ('intel:gpu' resolved to
+            # the first detected GPU, e.g. 'intel:gpu.0')
+            device = self._resolve_configured_device()
             results = self.model.predict(
                 image,
                 conf=confidence,
@@ -247,20 +302,24 @@ class UltralyticsNode(BaseNode):
                 verbose=False
             )
             
-            # Extract detection information
+            # Extract detection information. Pull the whole batch off the device
+            # once (each per-box .cpu() call is a separate sync + thread-pool
+            # wake-up) and iterate the resulting numpy arrays.
             detections = []
             if len(results) > 0:
                 result = results[0]
                 boxes = result.boxes
-                
+
                 if boxes is not None and len(boxes) > 0:
-                    for i in range(len(boxes)):
-                        box = boxes[i]
+                    xyxy = boxes.xyxy.cpu().numpy()
+                    cls = boxes.cls.cpu().numpy().astype(int)
+                    conf = boxes.conf.cpu().numpy()
+                    for bbox, class_id, confidence_score in zip(xyxy, cls, conf):
                         detection = {
-                            'class_id': int(box.cls[0]),
-                            'class_name': result.names[int(box.cls[0])],
-                            'confidence': float(box.conf[0]),
-                            'bbox': box.xyxy[0].cpu().numpy().tolist(),  # [x1, y1, x2, y2]
+                            'class_id': int(class_id),
+                            'class_name': result.names[int(class_id)],
+                            'confidence': float(confidence_score),
+                            'bbox': bbox.tolist(),  # [x1, y1, x2, y2]
                             'bbox_format': 'xyxy'
                         }
                         detections.append(detection)
