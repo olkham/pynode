@@ -1,5 +1,7 @@
 include README.md
-include requirements.txt
 include LICENSE
+include requirements.txt
 recursive-include pynode/static *
-recursive-include pynode/nodes *.py
+recursive-include pynode/nodes *
+global-exclude __pycache__/*
+global-exclude *.py[cod]

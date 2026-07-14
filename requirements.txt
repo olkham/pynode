@@ -1,9 +1,13 @@
 # Dependencies are declared in pyproject.toml (single source of truth).
 # This file is kept so existing docs, scripts and Docker builds keep working:
-# it installs PyNode in editable mode with the optional heavy extras.
+# it installs PyNode in editable mode with the common optional extras.
 #
 #   Core install only:            pip install -e .
-#   With vision (torch/YOLO):     pip install -e .[vision]
-#   With MQTT nodes:              pip install -e .[mqtt]
-#   Development (tests, stubs):   pip install -e .[dev]
+#   With vision (torch/YOLO):     pip install -e ".[vision]"
+#   With MQTT node:               pip install -e ".[mqtt]"
+#   Everything PyPI-installable:  pip install -e ".[full]"
+#   Development (tests, stubs):   pip install -e ".[dev]"
+#
+# See INSTALL.md for the full list of extras and for per-node dependencies
+# (pynode-install-nodes).
 -e .[vision,mqtt]

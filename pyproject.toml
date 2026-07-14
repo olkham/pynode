@@ -1,13 +1,39 @@
 [build-system]
-requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
+requires = ["setuptools>=77", "setuptools_scm[toml]>=8"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "pynode"
+name = "pynode-flow"
 dynamic = ["version"]
 description = "Python based Node-RED-like visual workflow system"
 readme = "README.md"
 requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    { name = "olkham" },
+]
+keywords = [
+    "node-red",
+    "workflow",
+    "visual-programming",
+    "flask",
+    "computer-vision",
+    "yolo",
+    "no-code",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Framework :: Flask",
+    "Topic :: Scientific/Engineering :: Image Recognition",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Operating System :: OS Independent",
+]
 dependencies = [
     "flask>=3.0",
     "flask-cors>=4.0",
@@ -16,22 +42,68 @@ dependencies = [
     "opencv-python",
 ]
 
+[project.urls]
+Homepage = "https://github.com/olkham/pynode"
+Repository = "https://github.com/olkham/pynode"
+Issues = "https://github.com/olkham/pynode/issues"
+
 [project.scripts]
 pynode = "pynode.main:main"
+pynode-install-nodes = "pynode.install_nodes:main"
 
 [project.optional-dependencies]
+# Heavy ML vision stack (UltralyticsNode, TrackerNode, DrawPredictionsNode, ...)
 vision = [
     "ultralytics",
     "torch",
     "torchvision",
     "supervision",
 ]
+# MQTTNode
 mqtt = [
     "paho-mqtt",
 ]
+# FrameSourceNode (multi-backend camera / stream source)
+camera = [
+    "framesource[full]",
+]
+# InferenceNode extra backends (ONNX + Intel Geti); torch/ultralytics via [vision]
+inference = [
+    "pynode-flow[vision]",
+    "onnxruntime",
+    "geti-sdk>=2.0.0",
+]
+# Qwen3VLMNode / vision-language models
+vlm = [
+    "pynode-flow[vision]",
+    "transformers>=4.50.0",
+    "qwen-vl-utils>=0.0.8",
+    "Pillow>=9.0.0",
+]
+# Dataset upload nodes (RoboflowUploadNode, GetiUploadNode)
+upload = [
+    "roboflow>=1.0.0",
+    "geti-sdk>=2.0.0",
+]
+# mDNSNode service discovery
+discovery = [
+    "zeroconf>=0.38.0",
+]
+# Everything that is PyPI-installable. Excludes proprietary camera SDKs such as
+# the Omron/Sentech `stapipy` (OmronCameraNode), which must be installed
+# manually from the vendor. Use: pip install "pynode-flow[full]"
+full = [
+    "pynode-flow[vision]",
+    "pynode-flow[mqtt]",
+    "pynode-flow[camera]",
+    "pynode-flow[inference]",
+    "pynode-flow[vlm]",
+    "pynode-flow[upload]",
+    "pynode-flow[discovery]",
+]
+# Backwards-compatible alias for [full]
 all = [
-    "pynode[vision]",
-    "pynode[mqtt]",
+    "pynode-flow[full]",
 ]
 dev = [
     "opencv-stubs",
@@ -96,8 +168,11 @@ include = ["pynode*"]
 [tool.setuptools.package-data]
 pynode = ["static/**/*", "nodes/**/*"]
 
-[tool.setuptools.dynamic]
-version = {attr = "pynode._version.__version__"}
+[tool.setuptools_scm]
+# Version is derived from the latest `vX.Y.Z` git tag and written here at build
+# time. Without a tag setuptools_scm produces a dev version, which PyPI rejects
+# -- tag a release commit (e.g. `git tag v0.2.0`) before publishing.
+version_file = "pynode/_version.py"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -1,1 +1,1 @@
-FrameSource[full] @ git+https://github.com/olkham/FrameSource.git
+framesource[full]

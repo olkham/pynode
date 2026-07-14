@@ -29,13 +29,9 @@ RUN . appenv/bin/activate && \
     pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu && \
     pip install -e ".[vision,mqtt]"
 
-# Install node dependencies
-RUN . appenv/bin/activate && \
-    for node_dir in nodes/*/; do \
-        if [ -f "$node_dir/requirements.txt" ]; then \
-            pip install -r "$node_dir/requirements.txt"; \
-        fi \
-    done
+# Install per-node dependencies (best-effort: a node whose vendor SDK is not
+# on PyPI, e.g. OmronCameraNode's stapipy, is skipped without failing the build)
+RUN . appenv/bin/activate && pynode-install-nodes || true
 
 # Create a non-root user and give it ownership of the app directory
 RUN useradd --create-home --uid 1000 appuser \

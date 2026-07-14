@@ -112,6 +112,6 @@ All examples follow this pattern:
 - Reduce camera FPS to match processing speed
 
 **YOLO errors:**
-- Install ultralytics: `pip install ultralytics`
+- Install the vision extra: `pip install "pynode-flow[vision]"` (or `pip install ultralytics`)
 - Model will auto-download on first run
 - Check internet connection for model download

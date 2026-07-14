@@ -126,7 +126,7 @@ class MyNewNode(BaseNode):
 
 ### 4. Create `requirements.txt` (if the node uses third-party packages)
 
-If your node imports any packages that are **not** part of the Python standard library and are **not** already declared as project dependencies in the root `pyproject.toml`, create a `requirements.txt` in your node folder. The install script will automatically `pip install` these when the node is installed.
+If your node imports any packages that are **not** part of the Python standard library and are **not** already declared as project dependencies in the root `pyproject.toml`, create a `requirements.txt` in your node folder. These are installed by the `pynode-install-nodes` command (or the `install_nodes.sh`/`.bat` scripts in a source checkout). If the dependency is PyPI-installable and you want it available via `pip install "pynode-flow[...]"`, also add it to the appropriate extra in `pyproject.toml`.
 
 ```
 # pynode/nodes/MyNewNode/requirements.txt
