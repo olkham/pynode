@@ -5,7 +5,6 @@ flask
 
 # Inference backends
 ultralytics
-geti-sdk
 onnxruntime
 
 # Optional GPU support (uncomment if using CUDA)

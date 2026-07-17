@@ -210,7 +210,6 @@ The Docker image includes:
 - Flask web framework
 - OpenCV for image processing
 - Ultralytics YOLO
-- Geti SDK
 - ONNX Runtime
 - And all node-specific requirements
 

@@ -67,11 +67,10 @@ mqtt = [
 camera = [
     "framesource[full]",
 ]
-# InferenceNode extra backends (ONNX + Intel Geti); torch/ultralytics via [vision]
+# InferenceNode extra backends (ONNX Runtime); torch/ultralytics via [vision]
 inference = [
     "pynode-flow[vision]",
     "onnxruntime",
-    "geti-sdk>=2.0.0",
 ]
 # Qwen3VLMNode / vision-language models
 vlm = [
@@ -80,10 +79,9 @@ vlm = [
     "qwen-vl-utils>=0.0.8",
     "Pillow>=9.0.0",
 ]
-# Dataset upload nodes (RoboflowUploadNode, GetiUploadNode)
+# Dataset upload nodes (RoboflowUploadNode)
 upload = [
     "roboflow>=1.0.0",
-    "geti-sdk>=2.0.0",
 ]
 # mDNSNode service discovery
 discovery = [

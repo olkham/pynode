@@ -151,7 +151,6 @@ class InferenceEngineFactory:
         
         Examples:
         - UltralyticsEngine -> ultralytics
-        - GetiEngine -> geti
         - CustomObjectDetectionEngine -> custom_object_detection
         - MyAIEngine -> my_ai
         """
@@ -191,7 +190,7 @@ class InferenceEngineFactory:
         Create an inference engine instance.
         
         Args:
-            engine_type: Type of engine ('ultralytics', 'geti', etc.)
+            engine_type: Type of engine ('ultralytics', etc.)
             **kwargs: Additional parameters for the specific engine type
             
         Returns:
@@ -305,12 +304,6 @@ class InferenceEngineFactory:
                 'description': 'YOLO object detection and segmentation models',
                 'primary': True,
                 'dependencies': ['ultralytics', 'torch', 'torchvision']
-            },
-            'geti': {
-                'icon': 'fas fa-microchip', 
-                'description': 'Geti computer vision platform',
-                'primary': True,
-                'dependencies': ['geti-sdk']
             },
             'pass': {
                 'icon': 'fas fa-forward',
@@ -518,7 +511,6 @@ if __name__ == "__main__":
     # Test class name to key conversion
     test_names = [
         "UltralyticsEngine",
-        "GetiEngine", 
         "CustomObjectDetectionEngine",
         "MyAIEngine",
         "SimpleEngine",

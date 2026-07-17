@@ -432,7 +432,7 @@ Nodes can:
 
 ### Example Flow Documentation Needed
 - ⬜ Bird seed level monitor
-- ⬜ Capture data and send to Roboflow / Geti
+- ⬜ Capture data and send to Roboflow
 - ⬜ Track objects time in zone
 - ⬜ Live VLMs
 - ⬜ ANPR (Detect, Crop, OCR, MQTT)

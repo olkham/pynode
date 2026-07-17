@@ -25,9 +25,9 @@ Install only the node groups you need:
 | `vision` | ultralytics, torch, torchvision, supervision | UltralyticsNode, TrackerNode, DrawPredictionsNode, … |
 | `mqtt` | paho-mqtt | MQTTNode |
 | `camera` | framesource[full] | FrameSourceNode |
-| `inference` | onnxruntime, geti-sdk (+ `vision`) | InferenceNode |
+| `inference` | onnxruntime (+ `vision`) | InferenceNode |
 | `vlm` | transformers, qwen-vl-utils, Pillow (+ `vision`) | Qwen3VLMNode |
-| `upload` | roboflow, geti-sdk | RoboflowUploadNode, GetiUploadNode |
+| `upload` | roboflow | RoboflowUploadNode |
 | `discovery` | zeroconf | mDNSNode |
 | `full` | all of the above | every PyPI-installable node |
 | `dev` | pytest, type stubs | (development only) |

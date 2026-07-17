@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """
-Utilities for converting between different inference engine result formats.
-Uses official Geti SDK data models for proper format compliance.
-Supports conversion between Ultralytics and Geti inference result formats.
+Utilities for summarising and converting inference engine result formats.
 """
 
 from typing import Dict, List, Any, Optional
@@ -10,24 +8,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Import Geti SDK data models
-try:
-    from geti_sdk.data_models.shapes import Rectangle as GetiRectangle, ShapeType as GetiShapeType
-    from geti_sdk.data_models.predictions import Prediction
-    from geti_sdk.data_models.label import ScoredLabel
-    from geti_sdk.data_models.annotations import Annotation
-    from geti_sdk.data_models.annotation_scene import AnnotationScene
 
-    GETI_SDK_AVAILABLE = True
-    
-except ImportError as e:
-    logger.warning(f"Geti SDK not available: {e}. Using fallback Rectangle class.")
-    GETI_SDK_AVAILABLE = False
-    GetiRectangle = None
-    GetiShapeType = None
-
-
-# Fallback classes that work whether SDK is available or not
 class ShapeType:
     RECTANGLE = "RECTANGLE"
 
@@ -39,41 +20,38 @@ class Rectangle:
         self.width = width
         self.height = height
         self.type = type
-    
+
     def __repr__(self):
         return f"Rectangle(x={self.x}, y={self.y}, width={self.width}, height={self.height}, type=<ShapeType.{self.type}: '{self.type}'>)"
 
 
 def create_rectangle(x: float, y: float, width: float, height: float):
-    """Create a Rectangle using Geti SDK if available, otherwise use fallback."""
-    if GETI_SDK_AVAILABLE and GetiRectangle is not None and GetiShapeType is not None:
-        return GetiRectangle(x=int(x), y=int(y), width=int(width), height=int(height))
-    else:
-        return Rectangle(x=x, y=y, width=width, height=height, type=ShapeType.RECTANGLE)
+    """Create a Rectangle."""
+    return Rectangle(x=x, y=y, width=width, height=height, type=ShapeType.RECTANGLE)
 
 
 def extract_detections_summary(result: Dict[str, Any]) -> Dict[str, Any]:
     """
     Extract a simplified summary of detections from any result format.
-    
+
     Args:
         result: Inference result from any supported engine
-    
+
     Returns:
         Dict with simplified detection summary
     """
     if not result.get('success', False):
         return {
-            'engine': 'unknown', 
-            'detection_count': 0, 
-            'classes_detected': [], 
-            'confidence_range': (0.0, 0.0), 
+            'engine': 'unknown',
+            'detection_count': 0,
+            'classes_detected': [],
+            'confidence_range': (0.0, 0.0),
             'detections': []
         }
-    
+
     engine = result.get('results', {}).get('engine', 'unknown')
     detections = []
-    
+
     if engine == 'ultralytics':
         ultra_results = result.get('results', {}).get('results', [])
         for result_item in ultra_results:
@@ -83,25 +61,11 @@ def extract_detections_summary(result: Dict[str, Any]) -> Dict[str, Any]:
                     'confidence': detection.get('confidence', 0.0),
                     'bbox': detection.get('bbox', [])
                 })
-    
-    elif engine == 'geti':
-        predictions = result.get('results', {}).get('results', {}).get('predictions', [])
-        for prediction in predictions:
-            shape = prediction.get('shape')
-            bbox = []
-            if shape and hasattr(shape, 'x'):
-                bbox = [shape.x, shape.y, shape.x + shape.width, shape.y + shape.height]
-            
-            detections.append({
-                'class_name': prediction.get('label', 'unknown'),
-                'confidence': prediction.get('confidence', 0.0),
-                'bbox': bbox
-            })
-    
+
     classes_detected = list(set(d['class_name'] for d in detections))
     confidences = [d['confidence'] for d in detections]
     confidence_range = (min(confidences, default=0.0), max(confidences, default=0.0))
-    
+
     return {
         'engine': engine,
         'detection_count': len(detections),
@@ -114,8 +78,7 @@ def extract_detections_summary(result: Dict[str, Any]) -> Dict[str, Any]:
 # Export all functions
 __all__ = [
     'Rectangle',
-    'ShapeType', 
+    'ShapeType',
     'create_rectangle',
     'extract_detections_summary',
-    'GETI_SDK_AVAILABLE'
 ]

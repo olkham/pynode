@@ -1,5 +1,5 @@
 """
-Inference Node - Performs inference using multiple backends (Ultralytics, Geti, ONNX, etc.)
+Inference Node - Performs inference using multiple backends (Ultralytics, ONNX, etc.)
 Supports engine selection, model file upload, target hardware selection, and inference.
 """
 
@@ -14,7 +14,7 @@ from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 logger = logging.getLogger(__name__)
 
 _info = Info()
-_info.add_text("Performs object detection and inference using multiple backends including Ultralytics YOLO, Intel Geti, and ONNX Runtime.")
+_info.add_text("Performs object detection and inference using multiple backends including Ultralytics YOLO and ONNX Runtime.")
 _info.add_header("Inputs")
 _info.add_bullets(("Input 0:", "Image message with 'image' field (base64 or numpy array)"))
 _info.add_header("Outputs")
@@ -23,7 +23,7 @@ _info.add_bullets(
 )
 _info.add_header("Configuration")
 _info.add_bullets(
-    ("Engine Type:", "Select inference backend (Ultralytics, Geti, ONNX, etc.)"),
+    ("Engine Type:", "Select inference backend (Ultralytics, ONNX, etc.)"),
     ("Model File:", "Path to model file (.pt, .onnx, .xml, .zip)"),
     ("Target Hardware:", "CPU, CUDA GPU, or Intel OpenVINO devices"),
     ("Confidence:", "Minimum confidence threshold (0.0-1.0)"),
@@ -43,7 +43,7 @@ except ImportError:
 class InferenceNode(BaseNode):
     """
     Inference Node - performs inference using multiple backends.
-    Supports Ultralytics YOLO, Geti, ONNX, and other inference engines.
+    Supports Ultralytics YOLO, ONNX, and other inference engines.
     """
     # Visual properties
     display_name = 'Inference'
@@ -83,7 +83,6 @@ class InferenceNode(BaseNode):
             # Fallback to common engines
             return [
                 {'value': 'ultralytics', 'label': 'Ultralytics YOLO'},
-                {'value': 'geti', 'label': 'Geti'},
                 {'value': 'onnx', 'label': 'ONNX Runtime'},
                 {'value': 'pass', 'label': 'Pass-through (Testing)'}
             ]

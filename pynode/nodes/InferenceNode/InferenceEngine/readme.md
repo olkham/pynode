@@ -18,7 +18,7 @@ from InferenceEngine.inference_engine_factory import InferenceEngineFactory
 
 # Create built-in engines
 engine = InferenceEngineFactory('ultralytics')
-geti_engine = InferenceEngineFactory('geti')
+onnx_engine = InferenceEngineFactory('onnx')
 ```
 
 ### Runtime Registration

@@ -57,7 +57,7 @@ class UltralyticsEngine(BaseInferenceEngine):
         super().__init__(**kwargs)
         self.model_path = kwargs.get('model_path', None)
         self.device = kwargs.get('device', "CPU")  # Default device
-        self.output_format = kwargs.get('output_format', "geti")  # Default output format
+        self.output_format = kwargs.get('output_format', "dict")  # Default output format
         self.task = kwargs.get('task', 'detect')  # Default task for YOLO models
         self.deployment = None
         self.use_openvino = False
@@ -809,7 +809,7 @@ except Exception as e:
         result_types = list(set([r.get("type", "unknown") for r in json_results]))
         primary_type = result_types[0] if len(result_types) == 1 else self.task
 
-        # TODO: fix inconsistency with image and original_image between ultralytics and geti engines
+        # TODO: fix inconsistency with image and original_image between engines
         final_results = {
             "task_type": primary_type,
             "num_detections": len(json_results),
