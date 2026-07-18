@@ -2,6 +2,38 @@
 Base Node class for the Python Node-RED-like system.
 All custom nodes should inherit from this class.
 
+Message ownership contract (READ THIS BEFORE CHANGING A NODE)
+------------------------------------------------------------
+``BaseNode.send()`` has a **single-recipient fast path**: when a ``send()`` call
+delivers to exactly one recipient, that recipient receives a *shallow* copy of
+``msg`` (a fresh top-level dict that shares the payload and every nested object
+with the sender's message - no ``deepcopy``). This makes forwarding a raw video
+frame (a ~6 MB numpy array) essentially free instead of copying it per hop.
+
+The rule that makes this safe:
+
+    **After calling ``self.send(msg)`` a node MUST NOT read or mutate ``msg`` or
+    anything reachable from it (its ``payload``, numpy arrays, nested dicts,
+    ...). Prepare/mutate the message BEFORE ``send()``; treat it as handed off
+    afterwards.**
+
+Consequences a node author must respect:
+
+* Don't do ``for x in xs: msg['payload'] = x; self.send(msg)`` - the first
+  recipient sees the payload you overwrite on the next iteration. Build a fresh
+  message per iteration (``self.create_message(...)`` or ``dict(msg)`` with a
+  fresh payload).
+* Don't send the *same* dict object to more than one output
+  (``self.send(msg, 0); self.send(msg, 1)``) - both recipients would alias one
+  payload. Copy for the second and later sends.
+* Source nodes must not reuse a numpy buffer they already sent (e.g. an SDK
+  buffer pool, or ``cap.read(preallocated)``). ``cap.read()`` with no argument
+  allocates a fresh array each call, which is fine.
+
+Fan-out is still safe automatically: when a single ``send()`` call has **more
+than one** actual recipient, every recipient gets a full ``deepcopy`` (branches
+never alias). Only the exactly-one-recipient case shares.
+
 ``Info``, ``MessageKeys``/``sort_msg_keys`` and the image helpers
 (``process_image``, plus the functions behind ``BaseNode.decode_image`` /
 ``BaseNode.encode_image``) live in ``pynode.nodes.info``,
@@ -138,6 +170,38 @@ class BaseNode:
         """Set reference to the workflow engine for error reporting."""
         self._workflow_engine = engine
 
+    def get_storage_dir(self, subdir: Optional[str] = None) -> str:
+        """Return this node type's managed storage directory, creating it.
+
+        Project rule: nodes must write any downloaded or generated binaries
+        ONLY inside this per-node-type storage directory (or, for shared model
+        weights, the shared models dir from ``pynode.config.resolve_models_dir``).
+        Never scatter files into the process CWD — a pip-installed PyNode may be
+        launched from a read-only or arbitrary directory.
+
+        The path is ``<data_dir>/node_storage/<NodeType>/`` (``NodeType`` being
+        ``self.type``), with ``subdir`` appended when given. The data dir is
+        resolved via :func:`pynode.config.resolve_data_dir` at call time (not
+        cached at import), so it honors the ``--data-dir`` flag / env var. The
+        directory is created lazily on each call (``os.makedirs`` with
+        ``exist_ok=True``).
+
+        Args:
+            subdir: Optional subdirectory to append (created too).
+
+        Returns:
+            Absolute path to the (now existing) storage directory.
+        """
+        import os
+        from pynode import config
+
+        storage_dir = os.path.join(config.resolve_data_dir(), 'node_storage',
+                                   self.type)
+        if subdir:
+            storage_dir = os.path.join(storage_dir, subdir)
+        os.makedirs(storage_dir, exist_ok=True)
+        return storage_dir
+
     def report_error(self, error_msg: str):
         """
         Report an error to all ErrorNodes in the workflow.
@@ -207,12 +271,58 @@ class BaseNode:
         msg.update(kwargs)
         return msg
 
+    def _prepare_outgoing(self, msg: Dict[str, Any], deep: bool,
+                          with_drop_count: bool) -> Dict[str, Any]:
+        """Build the per-recipient outgoing message and stamp its metadata.
+
+        Args:
+            msg: The source message.
+            deep: ``True`` -> full ``deepcopy`` (fan-out: isolate every
+                recipient). ``False`` -> shallow copy: a NEW top-level dict
+                (``dict(msg)``) that shares the payload and every nested object
+                with ``msg``. The shallow form is only used for the
+                single-recipient fast path, and is safe only because callers of
+                ``send()`` promise not to touch ``msg`` afterwards (see the
+                module docstring). Stamping metadata on the new top-level dict
+                keeps the sender's own ``msg`` free of emit metadata; only the
+                nested objects are shared.
+            with_drop_count: Whether to stamp ``drop_count`` (queued path does,
+                the direct-sink path historically does not).
+
+        Metadata is stamped and then ``sort_msg_keys`` rebuilds the dict
+        (underscore keys first), matching the historical ordering exactly.
+        """
+        out = copy.deepcopy(msg) if deep else dict(msg)
+        emit = time()
+        out[MessageKeys.TIMESTAMP_EMIT] = emit
+        out[MessageKeys.AGE] = emit - out.get(MessageKeys.TIMESTAMP_ORIG, emit)
+        if with_drop_count:
+            # How many messages THIS node dropped before sending this one.
+            out[MessageKeys.DROP_COUNT] = self.drop_count
+        out[MessageKeys.QUEUE_LENGTH] = self._message_queue.qsize()
+        return sort_msg_keys(out)
+
     def send(self, msg: Dict[str, Any], output_index: int = 0):
         """
         Send a message to connected nodes (non-blocking).
         Messages are queued and processed asynchronously.
-        Each recipient gets a deep copy to prevent cross-talk between branches
-        and to prevent downstream modifications from affecting the sender.
+
+        Copy semantics (hot path):
+
+        * When exactly ONE recipient will actually receive this call, that
+          recipient gets a SHALLOW copy - a fresh top-level dict that shares the
+          payload and nested objects with ``msg`` (no ``deepcopy``). This avoids
+          copying large payloads (e.g. raw video frames) on every hop.
+        * When more than one recipient will receive, every recipient gets a full
+          ``deepcopy`` so branches never alias each other.
+
+        Recipient count is computed per call: disabled targets, and queued
+        targets dropped by ``drop_while_busy``, do not count.
+
+        CONTRACT: after calling ``send(msg)`` the sending node MUST NOT read or
+        mutate ``msg`` or anything reachable from it (payload, arrays, nested
+        dicts). Mutate the message BEFORE ``send()``. See the module docstring
+        for the full rationale and the patterns to avoid.
 
         Args:
             msg: Message dictionary (must have 'payload' and 'topic')
@@ -221,56 +331,54 @@ class BaseNode:
         if not self.enabled:
             return
 
-        if output_index in self.outputs:
-            connections = self.outputs[output_index]
+        connections = self.outputs.get(output_index)
+        if not connections:
+            return
 
-            for target_node, target_input in connections:
-                if target_node.enabled:
-                    # Check if target node prefers direct processing (no outputs = sink node)
-                    if target_node.output_count == 0 and hasattr(target_node, 'on_input_direct'):
-                        # Deep copy for direct processing to prevent cross-talk
-                        msg_to_send = copy.deepcopy(msg)
-                        msg_to_send[MessageKeys.TIMESTAMP_EMIT] = time()
-                        msg_to_send[MessageKeys.AGE] = (
-                            msg_to_send[MessageKeys.TIMESTAMP_EMIT]
-                            - msg_to_send.get(MessageKeys.TIMESTAMP_ORIG, msg_to_send[MessageKeys.TIMESTAMP_EMIT])
-                        )
-                        msg_to_send[MessageKeys.QUEUE_LENGTH] = self._message_queue.qsize()
-                        msg_to_send = sort_msg_keys(msg_to_send)
+        # Pass 1: determine which targets will ACTUALLY receive. A disabled
+        # target, or a queued target dropped by drop_while_busy, does not count
+        # towards the recipient total that decides shallow-vs-deep.
+        # Entries are (target_node, target_input, is_direct).
+        recipients: List[Tuple['BaseNode', int, bool]] = []
+        for target_node, target_input in connections:
+            if not target_node.enabled:
+                continue
 
-                        try:
-                            target_node.on_input_direct(msg_to_send, target_input)
-                        except Exception as e:
-                            target_node.report_error(f"Error in direct processing: {e}")
-                    else:
-                        # Check if target wants to drop messages when busy (before expensive copy)
-                        # Drop if node is processing OR has queued messages
-                        if target_node.drop_while_busy and (target_node._processing or not target_node._message_queue.empty()):
-                            # Drop message instead of queuing
-                            target_node.drop_count += 1
-                            continue
+            # Sink nodes (no outputs) with on_input_direct are delivered
+            # synchronously and never dropped.
+            if target_node.output_count == 0 and hasattr(target_node, 'on_input_direct'):
+                recipients.append((target_node, target_input, True))
+                continue
 
-                        # Deep copy message for each recipient to prevent cross-talk
-                        msg_to_send = copy.deepcopy(msg)
-                        msg_to_send[MessageKeys.TIMESTAMP_EMIT] = time()
-                        msg_to_send[MessageKeys.AGE] = (
-                            msg_to_send[MessageKeys.TIMESTAMP_EMIT]
-                            - msg_to_send.get(MessageKeys.TIMESTAMP_ORIG, msg_to_send[MessageKeys.TIMESTAMP_EMIT])
-                        )
+            # Queued path: drop if the target is busy or has a backlog
+            # (checked before any expensive copy).
+            if target_node.drop_while_busy and (
+                    target_node._processing or not target_node._message_queue.empty()):
+                target_node.drop_count += 1
+                continue
 
-                        # Add this node's drop count to message for monitoring
-                        # (how many messages THIS node dropped before sending this one)
-                        msg_to_send[MessageKeys.DROP_COUNT] = self.drop_count
-                        msg_to_send[MessageKeys.QUEUE_LENGTH] = self._message_queue.qsize()
+            recipients.append((target_node, target_input, False))
 
-                        msg_to_send = sort_msg_keys(msg_to_send)
+        if not recipients:
+            return
 
-                        # Queue message for target node (non-blocking)
-                        try:
-                            target_node._message_queue.put_nowait((msg_to_send, target_input))
-                        except queue.Full:
-                            # Queue full - drop message or handle overflow
-                            target_node.report_error("Message queue full, dropping message")
+        # Fast path iff a single recipient will receive; any fan-out deep-copies.
+        deep = len(recipients) > 1
+
+        for target_node, target_input, is_direct in recipients:
+            if is_direct:
+                msg_to_send = self._prepare_outgoing(msg, deep, with_drop_count=False)
+                try:
+                    target_node.on_input_direct(msg_to_send, target_input)
+                except Exception as e:
+                    target_node.report_error(f"Error in direct processing: {e}")
+            else:
+                msg_to_send = self._prepare_outgoing(msg, deep, with_drop_count=True)
+                try:
+                    target_node._message_queue.put_nowait((msg_to_send, target_input))
+                except queue.Full:
+                    # Queue full - drop message or handle overflow
+                    target_node.report_error("Message queue full, dropping message")
 
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """

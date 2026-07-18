@@ -364,7 +364,6 @@ class WorkflowEngine:
         """
         with self._lock:
             # Clear existing workflow (but preserve system error node)
-            system_error_node = self._system_error_node
             self.nodes.clear()
             self._system_error_node = None
             

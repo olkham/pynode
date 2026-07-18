@@ -67,14 +67,39 @@ class MDNSServiceListener(ServiceListenerBase):  # type: ignore
                 self.discovery_manager.discovered_nodes[node_id].mark_offline()
                 self.logger.info(f"mDNS service removed: {node_name} ({node_id})")
     
+    @staticmethod
+    def _format_addresses(raw_addresses):
+        """Format raw address bytes into strings, handling both IPv4 (4-byte)
+        and IPv6 (16-byte) addresses. socket.inet_ntoa only understands
+        IPv4 and raises on anything else, so this is used when zeroconf's
+        own parsed_addresses() helper isn't available."""
+        formatted = []
+        for addr in raw_addresses:
+            try:
+                if len(addr) == 4:
+                    formatted.append(socket.inet_ntoa(addr))
+                elif len(addr) == 16:
+                    formatted.append(socket.inet_ntop(socket.AF_INET6, addr))
+                # else: unknown address length, skip it
+            except (OSError, ValueError):
+                continue
+        return formatted
+
     def _display_service_info(self, name: str, info, status: str):
         """Display service information in standalone mode"""
         self.logger.info(f"\n[{status}] Service: {name}")
-        
+
         # Display addresses
         if info.addresses:
-            addresses = [socket.inet_ntoa(addr) for addr in info.addresses]
-            self.logger.info(f"  Address: {', '.join(addresses)}")
+            if hasattr(info, 'parsed_addresses'):
+                try:
+                    addresses = info.parsed_addresses()
+                except Exception:
+                    addresses = self._format_addresses(info.addresses)
+            else:
+                addresses = self._format_addresses(info.addresses)
+            if addresses:
+                self.logger.info(f"  Address: {', '.join(addresses)}")
         
         # Display port
         self.logger.info(f"  Port: {info.port}")

@@ -4,6 +4,7 @@ Similar to Node-RED's switch node.
 Supports dynamic rules with multiple outputs.
 """
 
+import copy
 import re
 from typing import Any, Dict, List
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
@@ -248,9 +249,14 @@ class SwitchNode(BaseNode):
         matched_any = False
         for idx, rule in enumerate(rules):
             if self._evaluate_rule(msg_value, rule):
-                self.send(msg, idx)
+                # With check_all, the same msg can match several rules and go to
+                # multiple outputs. send()'s single-recipient fast path shares
+                # the payload, so the first output may share msg but every later
+                # output needs an isolated copy (otherwise the branches alias
+                # one payload). The common single-match case still shares.
+                self.send(msg if not matched_any else copy.deepcopy(msg), idx)
                 matched_any = True
-                
+
                 # If not checking all rules, stop at first match
                 if not check_all:
                     break

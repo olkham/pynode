@@ -23,6 +23,7 @@ Design notes
   inventing a parallel notion of "alive".
 """
 
+import copy
 import threading
 
 
@@ -68,8 +69,13 @@ class LinkBus:
         with self._lock:
             subs = self._subscribers.get(channel)
             targets = list(subs) if subs else []
+        # Each subscriber's LinkInNode.send() may take the single-recipient fast
+        # path (which shares the payload), so when more than one subscriber
+        # receives we hand each its own deepcopy - otherwise every receiving
+        # flow would alias one payload. A single subscriber shares (cheap).
+        isolate = len(targets) > 1
         for node in targets:
-            _deliver(node, msg)
+            _deliver(node, copy.deepcopy(msg) if isolate else msg)
 
     def subscriber_count(self, channel):
         """Number of registered subscribers on ``channel`` (for tests/introspection)."""

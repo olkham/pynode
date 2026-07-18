@@ -64,11 +64,12 @@ def _try_import_python_files(folder_path, folder_name):
         try:
             module = importlib.import_module(f'.{folder_name}.{module_name}', package='pynode.nodes')
             found_classes.extend(_discover_node_classes_in_module(module, folder_name))
-        except ImportError:
-            # Suppress missing dependency errors silently
-            continue
-        except Exception:
-            continue
+        except ImportError as e:
+            # Suppress missing dependency errors silently for cleaner output
+            if "No module named" not in str(e):
+                logger.warning(f"Error importing {folder_name}.{module_name}: {e}")
+        except Exception as e:
+            logger.warning(f"Error importing {folder_name}.{module_name}: {e}")
     
     return found_classes
 

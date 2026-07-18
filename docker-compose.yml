@@ -5,7 +5,12 @@ services:
       dockerfile: Dockerfile
     container_name: pynode
     ports:
-      - "500:5000"
+      - "5000:5000"
+    # Uncomment for mDNS support on Linux hosts (see DOCKER.md > mDNS /
+    # Service Discovery). Not effective on Docker Desktop for Windows/macOS.
+    # Remove the `ports:` mapping above when enabling this - it is ignored
+    # in host networking mode.
+    # network_mode: host
     volumes:
       # Mount persistent data
       - ./workflows:/app/workflows

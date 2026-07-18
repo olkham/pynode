@@ -149,6 +149,25 @@ PyNode persists workflows under `<data dir>/workflows/` (`workflow.json` plus ti
 
 The resolved location is logged at startup (`Workflow data directory: ...`).
 
+### Models Directory
+
+Nodes that download or generate model weights (e.g. the YOLO node's `.pt`
+files and exported OpenVINO models) write them into a shared **models
+directory** instead of the process working directory. It is resolved in this
+order:
+
+1. `pynode --models-dir <path>` CLI flag,
+2. `PYNODE_MODELS_DIR` environment variable,
+3. `<data dir>/models` otherwise — so `<repo>/models` for a source checkout and
+   `~/.pynode/models` for a regular `pip install`.
+
+> **Upgrading:** older PyNode versions downloaded model files into whatever the
+> working directory happened to be, so stray `.pt` files and
+> `*_openvino_model/` folders may exist in the repo root, `pynode/models/` or
+> `pynode/nodes/`. PyNode still reads models from those legacy locations, but
+> nothing is migrated automatically — you can move them into the models
+> directory manually when convenient.
+
 ## Securing PyNode
 
 **PyNode executes arbitrary Python by design** (e.g. FunctionNode runs whatever code is in the workflow), so anyone who can reach the API can run code on the host. Authentication is the trust boundary — secure the server before exposing it beyond your own machine:

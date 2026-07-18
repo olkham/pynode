@@ -88,7 +88,8 @@ class ImageViewerNode(BaseNode):
         super().__init__(node_id, name)
         self.current_frame = None
         self.frame_timestamp = 0
-        self.last_sent_timestamp = 0
+        self.last_sent_timestamp = 0  # dedupe state for the polled GET 'frame' route
+        self._sse_last_sent = 0  # dedupe state for the SSE 'frame' broadcaster
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """
@@ -126,8 +127,10 @@ class ImageViewerNode(BaseNode):
     
     def get_current_frame(self):
         """
-        Get the current frame for display in the UI.
-        Only returns frames that haven't been sent yet.
+        Get the current frame for display in the UI via the polled GET 'frame' route.
+        Only returns frames that haven't been sent yet via this route. Tracks its
+        own dedupe state (last_sent_timestamp) so it doesn't steal frames from the
+        SSE broadcaster (get_current_frame_sse), which polls independently.
         """
         if self.current_frame and self.frame_timestamp > self.last_sent_timestamp:
             self.last_sent_timestamp = self.frame_timestamp
@@ -135,18 +138,22 @@ class ImageViewerNode(BaseNode):
         return None
 
     def get_current_frame_sse(self):
-        """SSE handler: return frame wrapped in 'data' key for client compatibility."""
-        frame = self.get_current_frame()
-        if frame:
-            return {'data': frame}
+        """SSE handler: return frame wrapped in 'data' key for client compatibility.
+        Tracks its own dedupe state (_sse_last_sent) so it doesn't steal frames
+        from the polled GET 'frame' route (get_current_frame)."""
+        if self.current_frame and self.frame_timestamp > self._sse_last_sent:
+            self._sse_last_sent = self.frame_timestamp
+            return {'data': self.current_frame}
         return None
 
     def get_mjpeg_stream(self):
-        """Generator for MJPEG streaming. Yields (content_type, image_bytes) tuples."""
+        """Generator for MJPEG streaming. Yields (content_type, image_bytes) tuples.
+        Exits once the node is stopped so the stream doesn't keep a server
+        thread alive forever."""
         import time
         import base64
         last_timestamp = 0
-        while True:
+        while not self._stop_worker_flag:
             try:
                 if self.frame_timestamp > last_timestamp and self.current_frame:
                     last_timestamp = self.frame_timestamp

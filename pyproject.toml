@@ -166,6 +166,13 @@ include = ["pynode*"]
 [tool.setuptools.package-data]
 pynode = ["static/**/*", "nodes/**/*"]
 
+# Never bake downloaded model weights or OpenVINO export dirs into a wheel,
+# even though nodes/** is otherwise included as package data. Older versions
+# scattered .pt files under pynode/nodes/ and pynode/models/; this guard keeps
+# a locally built wheel from shipping them.
+[tool.setuptools.exclude-package-data]
+pynode = ["**/*.pt", "**/*_openvino_model/**"]
+
 [tool.setuptools_scm]
 # Version is derived from the latest `vX.Y.Z` git tag and written here at build
 # time. Without a tag setuptools_scm produces a dev version, which PyPI rejects

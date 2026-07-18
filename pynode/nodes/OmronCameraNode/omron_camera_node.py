@@ -494,7 +494,15 @@ class OmronCameraNode(BaseNode):
     # Image conversion
     # ------------------------------------------------------------------
     def _stapi_image_to_numpy(self, st, st_image) -> Optional[np.ndarray]:
-        """Convert a STAPI image to a BGR numpy array."""
+        """Convert a STAPI image to a BGR numpy array.
+
+        The returned array must NOT alias the STAPI acquisition buffer: this is
+        called inside the ``retrieve_buffer`` context, and that buffer is
+        requeued (and overwritten by future frames) as soon as the context
+        exits. ``cv2.cvtColor`` allocates fresh output arrays, but the plain
+        ``arr.reshape(...)`` paths return a view over ``raw`` - those are copied
+        explicitly so a frame handed to ``send()`` owns its pixels (see the
+        source-node buffer-reuse rule in base_node's module docstring)."""
         raw = st_image.get_image_data()
         arr = np.frombuffer(raw, dtype=np.uint8)
         h, w = st_image.height, st_image.width
@@ -521,7 +529,8 @@ class OmronCameraNode(BaseNode):
             return cv2.cvtColor(bayer, cv2.COLOR_BayerRG2BGR)
 
         elif pix_fmt == st.EStPixelFormatNamingConvention.BGR8:
-            return arr.reshape(h, w, 3)
+            # .copy() so we don't alias the STAPI buffer (requeued on ctx exit).
+            return arr.reshape(h, w, 3).copy()
 
         elif pix_fmt == st.EStPixelFormatNamingConvention.Mono8:
             gray = arr.reshape(h, w)
@@ -534,7 +543,8 @@ class OmronCameraNode(BaseNode):
         else:
             # Blind fallback: try 3-channel first, then 1-channel → gray2bgr
             try:
-                return arr.reshape(h, w, 3)
+                # .copy() so we don't alias the STAPI buffer (requeued on exit).
+                return arr.reshape(h, w, 3).copy()
             except Exception:
                 try:
                     gray = arr.reshape(h, w)

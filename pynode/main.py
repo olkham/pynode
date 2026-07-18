@@ -57,6 +57,11 @@ def main():
                              'Also settable via the PYNODE_DATA_DIR env var. '
                              'Default: the source checkout root when running '
                              'from a checkout, otherwise ~/.pynode.')
+    parser.add_argument('--models-dir', default=None,
+                        help='Directory for shared model weights (YOLO .pt '
+                             'files, exported OpenVINO models, etc.). '
+                             'Also settable via the PYNODE_MODELS_DIR env var. '
+                             'Default: <data-dir>/models.')
     args = parser.parse_args()
 
     # Configure application-wide logging
@@ -74,6 +79,10 @@ def main():
         os.environ['PYNODE_CORS_ORIGINS'] = args.cors_origins
     if args.data_dir is not None:
         os.environ['PYNODE_DATA_DIR'] = args.data_dir
+    # Node code (which has no Flask app context) resolves the models dir from
+    # the env var / defaults, so export the CLI flag before the server import.
+    if args.models_dir is not None:
+        os.environ['PYNODE_MODELS_DIR'] = args.models_dir
 
     from pynode.server import app, load_workflow_from_disk
 

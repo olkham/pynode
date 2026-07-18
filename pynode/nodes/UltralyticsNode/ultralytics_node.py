@@ -205,7 +205,12 @@ class UltralyticsNode(BaseNode):
             
         try:
             from ultralytics import YOLO # type: ignore
-            model_name = self.config.get('model', 'yolov8n.pt')
+            from pynode.nodes.UltralyticsNode import model_paths
+            # Resolve the configured model to an absolute path inside the shared
+            # models dir (or a legacy location if a copy already exists) so
+            # Ultralytics never downloads weights into the process CWD.
+            model_name = model_paths.resolve_model_path(
+                self.config.get('model', 'yolov8n.pt'))
             device = self._resolve_configured_device()
 
             if isinstance(device, str) and device.lower().startswith('intel:'):
@@ -216,8 +221,10 @@ class UltralyticsNode(BaseNode):
                 # inference time; ultralytics maps it to the OpenVINO device
                 # name (e.g. intel:gpu.0 -> GPU.0).
                 base_model = YOLO(model_name)
+                # ckpt_path is the absolute path YOLO loaded from; the OpenVINO
+                # export lands next to it (i.e. in the models dir) automatically.
                 source_path = str(getattr(base_model, 'ckpt_path', None) or model_name)
-                openvino_model_path = os.path.splitext(source_path)[0] + '_openvino_model'
+                openvino_model_path = model_paths.resolve_openvino_export_dir(source_path)
                 if not os.path.isdir(openvino_model_path):
                     logger.info(f"Exporting {model_name} to OpenVINO format: {openvino_model_path}")
                     openvino_model_path = base_model.export(format='openvino')
@@ -330,11 +337,11 @@ class UltralyticsNode(BaseNode):
                 output_image = results[0].plot()
             
             # Encode image back to same format as input
-            include_image = self.config.get('include_image', True)
-            include_predictions = self.config.get('include_predictions', True)
-            
+            include_image = self.get_config_bool('include_image', True)
+            include_predictions = self.get_config_bool('include_predictions', True)
+
             payload_out = {}
-            
+
             if include_image:
                 # Encode image back to same format as input using base node helper
                 encoded_image = self.encode_image(output_image, input_format)
@@ -343,9 +350,8 @@ class UltralyticsNode(BaseNode):
                 else:
                     self.report_error("Failed to encode output image")
                     return
-            
-            # Always include detections and detection_count if include_predictions is True (for backward compatibility)
-            if include_predictions or True:
+
+            if include_predictions:
                 payload_out['detections'] = detections
                 payload_out['detection_count'] = len(detections)
                 payload_out['bbox_format'] = 'xyxy'  # Document the bbox format at payload level

@@ -11,6 +11,11 @@ Environment variables
   are persisted under ``<data dir>/workflows/`` (``workflow.json`` plus the
   ``_backups/`` folder). Overridden by the ``--data-dir`` CLI flag. See
   :func:`resolve_data_dir` for the full precedence.
+- ``PYNODE_MODELS_DIR``: directory for shared model weights (e.g. YOLO
+  ``.pt`` files and exported OpenVINO models). Nodes must download/read model
+  binaries here instead of scattering them into the process CWD. Defaults to
+  ``<data dir>/models``. Overridden by the ``--models-dir`` CLI flag. See
+  :func:`resolve_models_dir` for the full precedence.
 - ``PYNODE_API_KEY``: API key required on all ``/api/`` requests
   (``X-API-Key`` header or ``api_key`` query parameter). Empty/unset = auth
   disabled. Overridden by the ``--api-key`` CLI flag.
@@ -23,6 +28,7 @@ import os
 
 # Environment variable names (single source of truth).
 ENV_DATA_DIR = 'PYNODE_DATA_DIR'
+ENV_MODELS_DIR = 'PYNODE_MODELS_DIR'
 ENV_API_KEY = 'PYNODE_API_KEY'
 ENV_CORS_ORIGINS = 'PYNODE_CORS_ORIGINS'
 
@@ -36,6 +42,9 @@ CHECKOUT_DIR = os.path.dirname(PKG_DIR)
 
 # Name of the workflows subdirectory inside the data dir.
 WORKFLOWS_SUBDIR = 'workflows'
+
+# Name of the models subdirectory inside the data dir (shared model weights).
+MODELS_SUBDIR = 'models'
 
 
 def _is_source_checkout(base_dir):
@@ -91,3 +100,36 @@ def resolve_workflows_dir(cli_data_dir=None, environ=None, checkout_dir=None):
         resolve_data_dir(cli_data_dir=cli_data_dir, environ=environ,
                          checkout_dir=checkout_dir),
         WORKFLOWS_SUBDIR)
+
+
+def resolve_models_dir(cli_models_dir=None, environ=None, checkout_dir=None):
+    """Resolve the shared models directory for downloaded model weights.
+
+    Nodes that download or generate model binaries (YOLO ``.pt`` files,
+    exported OpenVINO models, etc.) must place them here rather than in the
+    process CWD, so a pip-installed PyNode launched from a read-only or
+    arbitrary directory does not scatter files around.
+
+    Precedence:
+
+    1. ``cli_models_dir`` (the ``--models-dir`` CLI flag),
+    2. the ``PYNODE_MODELS_DIR`` environment variable,
+    3. ``<resolve_data_dir(...)>/models`` (the ``models`` subdirectory of the
+       resolved data dir — for a source checkout this is ``<repo>/models``,
+       for a pip install ``~/.pynode/models``).
+
+    Like :func:`resolve_data_dir`, the directory is only resolved here, never
+    created — creation happens lazily at the point of use.
+    """
+    environ = os.environ if environ is None else environ
+
+    if cli_models_dir:
+        return os.path.abspath(os.path.expanduser(cli_models_dir))
+
+    env_dir = environ.get(ENV_MODELS_DIR)
+    if env_dir:
+        return os.path.abspath(os.path.expanduser(env_dir))
+
+    return os.path.join(
+        resolve_data_dir(environ=environ, checkout_dir=checkout_dir),
+        MODELS_SUBDIR)
