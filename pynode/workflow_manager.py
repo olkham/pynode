@@ -139,6 +139,8 @@ class WorkflowManager:
             self.workflows[workflow_id] = {'name': name, 'enabled': enabled}
             self.working_engines[workflow_id] = self.create_workflow_engine()
             self.deployed_engines[workflow_id] = self.create_workflow_engine()
+            self.working_engines[workflow_id].workflow_id = workflow_id
+            self.deployed_engines[workflow_id].workflow_id = workflow_id
 
             if self.active_workflow_id is None:
                 self.active_workflow_id = workflow_id
@@ -254,6 +256,8 @@ class WorkflowManager:
                         }
                         self.working_engines[wid] = self.create_workflow_engine()
                         self.deployed_engines[wid] = self.create_workflow_engine()
+                        self.working_engines[wid].workflow_id = wid
+                        self.deployed_engines[wid].workflow_id = wid
 
                         wf_data = {
                             'nodes': wf.get('nodes', []),

@@ -345,6 +345,15 @@ function buildNodeContent(nodeData, icon, inputCount, outputCount) {
         const action = uiConfig.action || 'reset_counter';
         contentParts.left = `<button class="inject-btn" onclick="window.nodeAction('${nodeData.id}', '${action}')" title="${uiConfig.tooltip || 'Reset'}">↻</button>`;
         contentParts.right = `<div class="counter-display" id="counter-${nodeData.id}">0</div>`;
+    } else if (uiComponent === 'config-badge') {
+        // Static badge showing a config value on the right (like Link nodes'
+        // channel). Reads nodeData.config[key]; kept fresh by updateNodeConfig.
+        const key = uiConfig.key;
+        const prefix = uiConfig.prefix || '';
+        const placeholder = uiConfig.placeholder || '';
+        const raw = (nodeData.config && nodeData.config[key]) || '';
+        const text = raw ? `${prefix}${raw}` : placeholder;
+        contentParts.right = `<div class="node-config-badge" id="config-badge-${nodeData.id}" data-key="${key}" data-prefix="${prefix}" data-placeholder="${placeholder}">${text}</div>`;
     } else if (uiComponent === 'image-drop') {
         // Drop zone indicator on the left (like ImageUploadNode)
         const tooltip = uiConfig.tooltip || 'Drop an image here';

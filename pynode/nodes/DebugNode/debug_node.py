@@ -122,13 +122,21 @@ class DebugNode(BaseNode):
 
         display_output = truncate_values(output)
 
+        # Tag the message with the workflow (flow tab) it originated from, so
+        # the debug panel can scope/filter by flow. WorkflowManager sets
+        # `.workflow_id` on every engine it creates; nodes without a workflow
+        # engine (e.g. constructed directly in tests) yield None, which the
+        # frontend treats as "no specific flow" for backward compatibility.
+        workflow_id = getattr(self._workflow_engine, 'workflow_id', None)
+
         timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
         debug_entry = {
             'timestamp': timestamp,
             'node': self.name,
             'node_id': self.id,
             'display_key': display_key,
-            'output': display_output
+            'output': display_output,
+            'workflowId': workflow_id
         }
         
         self.messages.append(debug_entry)

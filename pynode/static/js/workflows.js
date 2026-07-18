@@ -6,6 +6,7 @@ import { updateConnections } from './connections.js';
 import { showToast } from './ui-utils.js';
 import { deselectAllNodes } from './selection.js';
 import { loadWorkflowData, enrichNodeWithTypeInfo } from './workflow.js';
+import { refilterDebugByWorkflow } from './debug.js';
 
 /**
  * Initialize workflow tabs from the server.
@@ -17,32 +18,75 @@ export async function initWorkflowTabs() {
         
         state.workflows.clear();
         let activeId = null;
-        
+
         workflows.forEach(wf => {
             state.workflows.set(wf.id, {
                 name: wf.name,
                 enabled: wf.enabled,
-                nodeCount: wf.nodeCount
+                nodeCount: wf.nodeCount,
+                // Live run state of this flow's deployed engine, straight
+                // from the backend (authoritative - see list_workflows).
+                // Drives both the tab's run-state dot and, for the active
+                // flow, the Deploy button's red "stopped" styling.
+                running: !!wf.running
             });
             if (wf.active) activeId = wf.id;
         });
 
-        // Restore the transient "stopped" indicator across page reloads:
-        // if every enabled workflow's deployed engine is not running, the
-        // flows were stopped via the deploy menu.
-        const enabledWfs = workflows.filter(wf => wf.enabled);
-        setWorkflowStopped(enabledWfs.length > 0 &&
-            enabledWfs.every(wf => wf.running === false));
-
         if (!activeId && state.workflows.size > 0) {
             activeId = state.workflows.keys().next().value;
         }
-        
+
         state.activeWorkflowId = activeId;
         renderTabs();
+        // Restore the transient "stopped" indicator across page reloads,
+        // scoped to whichever flow is actually active.
+        syncDeployButtonToActiveWorkflow();
     } catch (error) {
         console.error('Failed to load workflows:', error);
     }
+}
+
+/**
+ * Sync the Deploy button's red "stopped" styling to the CURRENTLY ACTIVE
+ * workflow's own run state, instead of a stale global flag left over from
+ * whichever flow was active when it was last set. Call this any time the
+ * active workflow changes (tab switch, initial load) or its meta.running
+ * may have changed (workflow enabled/disabled toggle).
+ *
+ * A disabled flow is intentionally NOT shown as "stopped": that's a
+ * distinct, deliberate state already conveyed by the tab's dimmed/italic
+ * "disabled" styling and its own dot color, not an unexpected halt.
+ */
+export function syncDeployButtonToActiveWorkflow() {
+    const meta = state.workflows.get(state.activeWorkflowId);
+    setWorkflowStopped(!!meta && meta.enabled && meta.running === false);
+}
+
+/**
+ * Record that the ACTIVE flow's deployed engine now matches its 'enabled'
+ * flag - true after a successful deploy (modified or full) or restart,
+ * which all start an enabled flow's engine (and leave a disabled one
+ * alone). Call after those actions succeed; refreshes the tab dot and the
+ * Deploy button to match.
+ */
+export function refreshActiveWorkflowRunState() {
+    const meta = state.workflows.get(state.activeWorkflowId);
+    if (meta) meta.running = meta.enabled;
+    syncDeployButtonToActiveWorkflow();
+    renderTabs();
+}
+
+/**
+ * Record that the ACTIVE flow's deployed engine is no longer running -
+ * true after a successful scoped Stop, regardless of the flow's enabled
+ * flag. Refreshes the tab dot and the Deploy button to match.
+ */
+export function markActiveWorkflowStopped() {
+    const meta = state.workflows.get(state.activeWorkflowId);
+    if (meta) meta.running = false;
+    syncDeployButtonToActiveWorkflow();
+    renderTabs();
 }
 
 /**
@@ -62,7 +106,25 @@ export function renderTabs() {
         if (wid === state.activeWorkflowId) tab.classList.add('active');
         if (!meta.enabled) tab.classList.add('disabled');
         tab.dataset.workflowId = wid;
-        
+
+        // Run-state dot: green while the flow's deployed engine is
+        // running, red when it's enabled but stopped (mirrors the Deploy
+        // button's red "stopped" styling), dim grey when the flow is
+        // disabled (a deliberate, distinct state - not an unexpected halt).
+        const statusDot = document.createElement('span');
+        statusDot.className = 'tab-status-dot';
+        if (!meta.enabled) {
+            statusDot.classList.add('tab-status-dot-disabled');
+            statusDot.title = 'Disabled';
+        } else if (meta.running) {
+            statusDot.classList.add('tab-status-dot-running');
+            statusDot.title = 'Running';
+        } else {
+            statusDot.classList.add('tab-status-dot-stopped');
+            statusDot.title = 'Stopped';
+        }
+        tab.appendChild(statusDot);
+
         const nameSpan = document.createElement('span');
         nameSpan.className = 'tab-name';
         nameSpan.textContent = meta.name;
@@ -115,7 +177,18 @@ export async function switchWorkflow(workflowId) {
     
     // Set new active workflow
     state.activeWorkflowId = workflowId;
-    
+
+    // Reflect THIS flow's own run state on the Deploy button (red/"stopped"
+    // or not) instead of leaving whatever the previously-active flow left
+    // behind. Must happen before setModified() below, which also touches
+    // the Deploy button and would otherwise read the stale flag.
+    syncDeployButtonToActiveWorkflow();
+
+    // Re-scope the debug panel to the newly-active flow. The message
+    // buffer itself is untouched - this only hides/shows existing messages
+    // (in "Current flow" mode) so switching back later reveals them again.
+    refilterDebugByWorkflow();
+
     // Tell the server about the active workflow
     fetch(`${API_BASE}/workflows/active`, {
         method: 'PUT',
@@ -163,7 +236,10 @@ export async function createNewWorkflow(name) {
         state.workflows.set(wf.id, {
             name: wf.name,
             enabled: wf.enabled,
-            nodeCount: 0
+            nodeCount: 0,
+            // create_workflow always starts the deployed engine immediately
+            // (see pynode/api/workflows.py create_workflow).
+            running: true
         });
         
         // Switch to the new workflow
@@ -203,6 +279,8 @@ async function deleteWorkflow(workflowId) {
         // If we deleted the active workflow, switch to what server says
         if (workflowId === state.activeWorkflowId) {
             state.activeWorkflowId = result.activeWorkflow;
+            syncDeployButtonToActiveWorkflow();
+            refilterDebugByWorkflow();
             // Clear canvas and load the new active workflow
             document.getElementById('nodes-container').innerHTML = '';
             document.getElementById('connections').innerHTML = '';
@@ -335,7 +413,14 @@ function showWorkflowProperties(workflowId) {
             if (response.ok) {
                 const result = await response.json();
                 meta.enabled = result.enabled;
+                // The backend synchronously starts/stops the deployed
+                // engine to match 'enabled' (see update_workflow), so the
+                // flow's running state now mirrors it too.
+                meta.running = result.enabled;
                 renderTabs();
+                if (workflowId === state.activeWorkflowId) {
+                    syncDeployButtonToActiveWorkflow();
+                }
             }
         } catch (error) {
             console.error('Failed to update workflow enabled state:', error);

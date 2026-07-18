@@ -167,6 +167,10 @@
                         <div class="debug-header">
                             <h3>Debug Messages</h3>
                             <div class="debug-controls">
+                                <select id="debug-flow-filter" class="debug-flow-select" title="Which flow's messages to show">
+                                    <option value="current" selected>Current flow</option>
+                                    <option value="all">All flows</option>
+                                </select>
                                 <button id="pause-debug-btn" class="btn btn-secondary btn-small icon-btn" title="Pause updates"></button>
                                 <button id="clear-debug-btn" class="btn btn-secondary btn-small" title="Clear">🗑️</button>
                             </div>
@@ -198,6 +202,73 @@
                     <button class="panel-toggle-btn" id="right-sidebar-toggle" type="button" aria-label="Toggle sidebar"></button>
                 </div>
             </aside>
+        </div>
+    </div>
+
+    <!-- MQTT broker manager: one overlay, shown/hidden by mqtt-services.js.
+         Pick an existing broker or start a new one, edit every field, test the
+         connection, save and delete - all in a single place. -->
+    <div class="mqtt-service-modal" id="mqtt-broker-dialog" style="display:none;" data-node-id="" data-prop-name="">
+        <div class="mqtt-service-modal-content">
+            <div class="mqtt-service-modal-header">
+                <h3>Manage MQTT Brokers</h3>
+                <button class="mqtt-service-modal-close" type="button" onclick="window.closeMqttBrokerDialog()">&times;</button>
+            </div>
+            <div class="mqtt-service-modal-body">
+                <input type="hidden" id="mqtt-broker-id" value="">
+                <div class="property-group">
+                    <label class="property-label">Broker</label>
+                    <select class="property-select" id="mqtt-broker-picker" onchange="window.onMqttBrokerPick(this.value)">
+                        <option value="__new__">➕ New broker…</option>
+                    </select>
+                </div>
+                <div class="property-group">
+                    <label class="property-label">Name</label>
+                    <input type="text" class="property-input" id="mqtt-broker-name" placeholder="My MQTT Broker">
+                </div>
+                <div class="property-group">
+                    <label class="property-label">Broker Address</label>
+                    <input type="text" class="property-input" id="mqtt-broker-host" placeholder="localhost">
+                </div>
+                <div class="property-group">
+                    <label class="property-label">Port</label>
+                    <input type="number" class="property-input" id="mqtt-broker-port" placeholder="1883">
+                </div>
+                <div class="property-group">
+                    <label class="property-label">Client ID (optional)</label>
+                    <input type="text" class="property-input" id="mqtt-broker-clientId" placeholder="Auto-generated if empty">
+                </div>
+                <div class="property-group">
+                    <label class="property-label">Username (optional)</label>
+                    <input type="text" class="property-input" id="mqtt-broker-username" autocomplete="off">
+                </div>
+                <div class="property-group">
+                    <label class="property-label">Password (optional)</label>
+                    <input type="password" class="property-input" id="mqtt-broker-password" autocomplete="off">
+                </div>
+                <div class="mqtt-broker-inline">
+                    <div class="property-group">
+                        <label class="property-label">Keep Alive (s)</label>
+                        <input type="number" class="property-input" id="mqtt-broker-keepAlive" placeholder="60">
+                    </div>
+                    <div class="property-group">
+                        <label class="property-label">Clean Session</label>
+                        <select class="property-select" id="mqtt-broker-cleanSession">
+                            <option value="true">True</option>
+                            <option value="false">False</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mqtt-test-result" id="mqtt-broker-test-result" style="display:none;"></div>
+            </div>
+            <div class="mqtt-service-modal-footer">
+                <button class="btn btn-secondary" type="button" id="mqtt-broker-test-btn" onclick="window.testMqttBroker()">Test Connection</button>
+                <div class="mqtt-service-modal-actions">
+                    <button class="btn btn-danger" type="button" id="mqtt-broker-delete-btn" style="display:none;" onclick="window.deleteMqttBroker()">Delete</button>
+                    <button class="btn btn-secondary" type="button" onclick="window.closeMqttBrokerDialog()">Cancel</button>
+                    <button class="btn btn-primary" type="button" onclick="window.saveMqttBroker()">Save</button>
+                </div>
+            </div>
         </div>
     </div>
 

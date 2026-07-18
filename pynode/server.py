@@ -91,6 +91,23 @@ def create_app(config=None):
     app.extensions['workflow_manager'] = manager
     logger.info(f"Workflow data directory: {manager.workflows_dir}")
 
+    # Per-app MQTT service manager. Its services file lives under this app's
+    # workflows dir (services/mqtt_services.json). When that path matches the
+    # default module-level manager (the real app), reuse that instance so the
+    # MQTT nodes - which import the module-level ``mqtt_manager`` - and the API
+    # see the same services. Otherwise (e.g. the sandboxed test app with a tmp
+    # workflows dir) build an isolated manager so the real services file is
+    # never touched.
+    from pynode.nodes.MQTTNode.mqtt_service import (
+        mqtt_manager as _default_mqtt_manager, MQTTServiceManager)
+    services_file = cfg.pop(
+        'MQTT_SERVICES_FILE',
+        os.path.join(workflows_dir, 'services', 'mqtt_services.json'))
+    if os.path.abspath(services_file) == os.path.abspath(str(_default_mqtt_manager.config_file)):
+        app.extensions['mqtt_manager'] = _default_mqtt_manager
+    else:
+        app.extensions['mqtt_manager'] = MQTTServiceManager(config_file=services_file)
+
     # Remaining config keys (e.g. TESTING) go straight to app.config.
     app.config.update(cfg)
 

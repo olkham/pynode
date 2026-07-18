@@ -24,7 +24,7 @@ export const state = {
     addedConnections: [],
     deletedConnections: [],
     // Multi-workflow state
-    workflows: new Map(), // workflow_id -> { name, enabled, nodeCount }
+    workflows: new Map(), // workflow_id -> { name, enabled, nodeCount, running }
     activeWorkflowId: null,
     workflowCache: new Map() // workflow_id -> { nodes, connections, changes }
 };
@@ -53,9 +53,18 @@ export function setModified(modified) {
     // Note: deploy-dropdown-btn stays enabled so user can change mode anytime
 }
 
-// Set the transient "processing stopped" state (Stop in the deploy menu).
-// While stopped, the Deploy button stays enabled (even with no edits) and is
-// highlighted so the user can see the flow is stopped and resume it.
+// Set the transient "processing stopped" state (Stop in the deploy menu) for
+// the CURRENTLY ACTIVE workflow. While stopped, the Deploy button stays
+// enabled (even with no edits) and is highlighted so the user can see the
+// flow is stopped and resume it.
+//
+// This only drives the Deploy button itself. Per-workflow bookkeeping (the
+// state.workflows meta map's 'running' field, which feeds each tab's
+// run-state dot) is updated by the workflow.js call sites via
+// workflows.js's refreshActiveWorkflowRunState()/markActiveWorkflowStopped()
+// - those know the enabled/disabled nuance (a disabled flow is never shown
+// as "stopped", see workflows.js) that this generic setter shouldn't have
+// to encode.
 export function setWorkflowStopped(stopped) {
     state.workflowStopped = stopped;
     updateDeployButtonState();

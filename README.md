@@ -19,6 +19,7 @@ https://github.com/user-attachments/assets/0b53085a-2cc6-4c26-bd43-e0de1e0716a2
   - **SwitchNode**: Route messages based on conditions
   - **DelayNode**: Delay message delivery
   - **GateNode**: Control message flow with real-time toggle
+  - **LinkNode**: Pass messages between flows via named channels (Link In / Link Out)
   - **RateProbeNode**: Monitor message throughput
   - **QueueLengthProbeNode**: Monitor queue lengths
   - **CounterNode**: Count messages

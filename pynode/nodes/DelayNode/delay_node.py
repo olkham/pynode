@@ -115,17 +115,23 @@ class DelayNode(BaseNode):
     
     def __init__(self, node_id=None, name="delay"):
         super().__init__(node_id, name)
-        self.last_send_time = 0
+        # Timestamp (time.monotonic clock) of the next slot at which a message
+        # is allowed to pass in rate-limit mode. None until the first message.
+        self._next_allowed = None
         self.queued_messages = []
         self.processing_queue = False
         self.queue_lock = threading.Lock()
         # Buffer for count-based delay
         self._message_buffer: deque = deque()
-    
+
     def on_start(self):
         """Initialize on start."""
         super().on_start()
         self._message_buffer.clear()
+        with self.queue_lock:
+            self._next_allowed = None
+            self.queued_messages.clear()
+            self.processing_queue = False
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """
@@ -161,57 +167,89 @@ class DelayNode(BaseNode):
             oldest_msg = self._message_buffer.popleft()
             self.send(oldest_msg)
     
+    def _interval(self) -> float:
+        """Seconds between allowed messages: rate_time / rate."""
+        rate = self.get_config_int('rate', 1)
+        rate_time = self.get_config_float('rate_time', 1)
+        # Guard against a zero/negative rate configuration.
+        return rate_time / rate if rate > 0 else rate_time
+
+    @staticmethod
+    def _slack(interval: float) -> float:
+        """Jitter tolerance: a message arriving up to this early still passes.
+
+        Scheduling jitter can make a message that is nominally due at slot S
+        arrive a few ms early; without slack that message is dropped and the
+        NEXT arrival (a full source-period later) becomes the one that passes,
+        which halves the effective throughput. Cap at half an interval so slack
+        can never let two messages through in one slot.
+        """
+        return min(0.05, interval / 2.0)
+
+    def _advance_slot(self, now: float, interval: float):
+        """Advance the next-allowed slot after a message passes.
+
+        Advance from the SCHEDULE (``self._next_allowed``) rather than from
+        ``now`` so steady arrivals don't accumulate drift. Clamp with ``now``
+        so that after a long idle gap the schedule jumps forward to the present
+        instead of leaving a stale slot in the past (which would let a burst
+        through). Either way at most one message passes per interval.
+        """
+        self._next_allowed = max(self._next_allowed, now) + interval
+
     def _rate_limit(self, msg: Dict[str, Any]):
         """
         Rate limit messages - only send at specified rate.
+
+        Uses a scheduled-slot (token-bucket-style) limiter keyed off a
+        monotonic ``_next_allowed`` timestamp so that steady input at the
+        configured rate produces steady output, independent of small timing
+        jitter.
         """
-        rate = self.get_config_int('rate', 1)
-        rate_time = self.get_config_float('rate_time', 1)
         rate_drop = self.config.get('rate_drop', 'drop')
-        
-        # Calculate interval: time / count
-        interval = rate_time / rate
-        
+        interval = self._interval()
+        slack = self._slack(interval)
+
         with self.queue_lock:
-            current_time = time.time()
-            time_since_last = current_time - self.last_send_time
-            
-            if time_since_last >= interval and not self.queued_messages:
-                # Enough time has passed and no queue, send immediately
+            now = time.monotonic()
+            if self._next_allowed is None:
+                # First message ever: allow it now and start the schedule here.
+                self._next_allowed = now
+
+            if not self.queued_messages and now >= self._next_allowed - slack:
+                # We're at (or acceptably close to) an open slot: pass it.
                 self.send(msg)
-                self.last_send_time = current_time
-            else:
-                # Too soon or queue exists, handle based on drop/queue setting
-                if rate_drop == 'queue':
-                    self.queued_messages.append(msg)
-                    # Start processing queue if not already running
-                    if not self.processing_queue:
-                        self.processing_queue = True
-                        delay = max(0, interval - time_since_last)
-                        timer = threading.Timer(delay, self._process_queued)
-                        timer.daemon = True
-                        timer.start()
-                # else: drop (do nothing)
-    
+                self._advance_slot(now, interval)
+            elif rate_drop == 'queue':
+                # Buffer for later delivery and make sure the drainer is running.
+                self.queued_messages.append(msg)
+                if not self.processing_queue:
+                    self.processing_queue = True
+                    delay = max(0.0, self._next_allowed - now)
+                    timer = threading.Timer(delay, self._process_queued)
+                    timer.daemon = True
+                    timer.start()
+            # else: drop (do nothing)
+
     def _process_queued(self):
-        """Process next queued message if available."""
+        """Process next queued message if available (queue mode drainer)."""
         with self.queue_lock:
             if not self.queued_messages:
                 self.processing_queue = False
                 return
-            
+
+            interval = self._interval()
             msg = self.queued_messages.pop(0)
-            current_time = time.time()
+            now = time.monotonic()
+            if self._next_allowed is None:
+                self._next_allowed = now
             self.send(msg)
-            self.last_send_time = current_time
-            
+            self._advance_slot(now, interval)
+
             # Schedule next message if queue not empty
             if self.queued_messages:
-                rate = self.get_config_int('rate', 1)
-                rate_time = self.get_config_float('rate_time', 1)
-                interval = rate_time / rate
-                
-                timer = threading.Timer(interval, self._process_queued)
+                delay = max(0.0, self._next_allowed - now)
+                timer = threading.Timer(delay, self._process_queued)
                 timer.daemon = True
                 timer.start()
             else:

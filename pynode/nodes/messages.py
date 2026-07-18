@@ -49,6 +49,7 @@ class MessageKeys:
         HEIGHT: str = 'height'
         JPEG_QUALITY: str = 'jpeg_quality'
         ENCODE_JPEG: str = 'encode_jpeg'
+        BACKEND: str = 'backend'
 
     class VIDEO:
         LOOP: str = 'loop'

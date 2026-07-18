@@ -16,6 +16,15 @@ def _get_manager():
     return current_app.extensions['workflow_manager']
 
 
+def _get_mqtt_manager():
+    """Return the MQTTServiceManager of the app handling the current request.
+
+    Each app owns its own manager (isolated services file), so the sandboxed
+    test app never touches the real mqtt_services.json.
+    """
+    return current_app.extensions['mqtt_manager']
+
+
 def _json_error(message, status):
     """JSON error envelope: {'success': False, 'error': str}."""
     return jsonify({'success': False, 'error': message}), status

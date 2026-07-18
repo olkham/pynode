@@ -7,7 +7,8 @@ import logging
 import os
 import threading
 import json
-from typing import Any, Dict, Callable, Optional, Set
+import uuid
+from typing import Any, Dict, Callable, Optional, Set, Tuple
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -231,41 +232,36 @@ class MQTTService:
         }
 
 
+def _default_config_file() -> Path:
+    """Default services file location (source checkout: workflows/services/)."""
+    module_dir = Path(__file__).parent.parent.parent.parent
+    return Path(os.path.join(module_dir, 'workflows', 'services', 'mqtt_services.json'))
+
+
 class MQTTServiceManager:
     """
-    Singleton manager for all MQTT services.
-    Handles creating, retrieving, and persisting service configurations.
+    Manager for all MQTT services.
+
+    Handles creating, retrieving, and persisting service configurations. Each
+    Flask app owns one manager (``app.extensions['mqtt_manager']``); the
+    module-level ``mqtt_manager`` instance is the default used by the MQTT
+    nodes and the default app. Tests build isolated instances by passing a
+    ``config_file`` inside a tmp directory so the real services file is never
+    touched.
     """
-    
-    _instance = None
-    _lock = threading.Lock()
-    
-    def __new__(cls):
-        if cls._instance is None:
-            with cls._lock:
-                if cls._instance is None:
-                    cls._instance = super().__new__(cls)
-                    cls._instance._initialized = False
-        return cls._instance
-    
-    def __init__(self):
-        if self._initialized:
-            return
-        
+
+    def __init__(self, config_file: Optional[Any] = None):
         self._services: Dict[str, MQTTService] = {}
-        # Use absolute path relative to the workspace root (3 levels up from this module)
-        module_dir = Path(__file__).parent.parent.parent.parent
-        services_dir = Path(os.path.join(module_dir, 'workflows', 'services'))
-        services_dir.mkdir(parents=True, exist_ok=True)
-        self._config_file = Path(os.path.join(services_dir, 'mqtt_services.json'))
-        self._initialized = True
+        self.config_file = Path(config_file) if config_file else _default_config_file()
+        # Ensure the parent directory exists so saves succeed.
+        self.config_file.parent.mkdir(parents=True, exist_ok=True)
         self._load_services()
     
     def _load_services(self):
         """Load saved service configurations from file."""
-        if self._config_file.exists():
+        if self.config_file.exists():
             try:
-                with open(self._config_file, 'r') as f:
+                with open(self.config_file, 'r') as f:
                     data = json.load(f)
                     for service_config in data.get('services', []):
                         service_id = service_config.get('id')
@@ -280,7 +276,7 @@ class MQTTServiceManager:
             data = {
                 'services': [s.to_dict() for s in self._services.values()]
             }
-            with open(self._config_file, 'w') as f:
+            with open(self.config_file, 'w') as f:
                 json.dump(data, f, indent=2)
         except Exception as e:
             logger.error(f"Error saving MQTT services: {e}")
@@ -291,7 +287,6 @@ class MQTTServiceManager:
     
     def create_service(self, config: Dict[str, Any]) -> MQTTService:
         """Create a new MQTT service."""
-        import uuid
         service_id = config.get('id') or str(uuid.uuid4())[:8]
         
         service = MQTTService(service_id, config)
@@ -363,5 +358,74 @@ class MQTTServiceManager:
             service.disconnect()
 
 
-# Global instance
+def test_connection(config: Dict[str, Any], timeout: float = 4.0) -> Tuple[bool, Optional[str]]:
+    """Attempt an MQTT connection using the SUBMITTED config values.
+
+    Uses a throwaway paho client so it never touches or disturbs any live or
+    persisted service. The temporary client is always torn down
+    (loop_stop/disconnect) in the finally block.
+
+    Returns ``(success, error)`` where ``error`` is ``None`` on success and a
+    human-readable message on failure. Never logs credentials.
+    """
+    if not MQTT_AVAILABLE:
+        return False, "paho-mqtt is not installed. Install with: pip install paho-mqtt"
+
+    broker = (config.get('broker') or 'localhost')
+    try:
+        port = int(config.get('port', 1883))
+    except (TypeError, ValueError):
+        return False, "Port must be a number"
+    try:
+        keep_alive = int(config.get('keepAlive', 60))
+    except (TypeError, ValueError):
+        keep_alive = 60
+    username = config.get('username', '')
+    password = config.get('password', '')
+    clean_session = config.get('cleanSession', True)
+    if isinstance(clean_session, str):
+        clean_session = clean_session.strip().lower() != 'false'
+    client_id = config.get('clientId', '') or f"pynode_test_{uuid.uuid4().hex[:8]}"
+
+    result: Dict[str, Any] = {'rc': None}
+    connected_event = threading.Event()
+
+    def _on_connect(client, userdata, flags, rc):
+        result['rc'] = rc
+        connected_event.set()
+
+    client = mqtt.Client(client_id=client_id, clean_session=bool(clean_session))
+    client.on_connect = _on_connect
+    if username:
+        client.username_pw_set(username, password)
+
+    try:
+        # connect() performs a synchronous socket connect, so an unroutable
+        # host / closed port raises here immediately (fast failure path).
+        client.connect(broker, port, keepalive=keep_alive)
+        client.loop_start()
+        if not connected_event.wait(timeout):
+            return False, f"Timed out connecting to {broker}:{port} after {timeout:.0f}s"
+        rc = result['rc']
+        if rc == 0:
+            return True, None
+        try:
+            reason = mqtt.connack_string(rc)
+        except Exception:
+            reason = f"code {rc}"
+        return False, f"Broker refused connection: {reason}"
+    except Exception as e:
+        return False, f"Could not connect to {broker}:{port} - {e}"
+    finally:
+        try:
+            client.loop_stop()
+        except Exception:
+            pass
+        try:
+            client.disconnect()
+        except Exception:
+            pass
+
+
+# Default module-level instance used by the MQTT nodes and the default app.
 mqtt_manager = MQTTServiceManager()

@@ -7,10 +7,20 @@ let messageIdCounter = 0; // Unique ID counter for message elements
 
 const debugState = {
     messageMap: new Map(), // For collapsing similar messages
+    // Single buffer of every message shown in the panel (across all flows).
+    // Each entry is the messageData object also referenced by the DOM
+    // element it rendered to. Messages are never removed from here when
+    // switching flows - only hidden/shown at render time via CSS - so
+    // switching back to a flow re-reveals its history. See
+    // applyFiltersToMessage()/refilterDebugByWorkflow().
+    buffer: [],
     showInfo: true,
     showErrors: true,
     collapseSimilar: false,
-    paused: false // When true, new debug/error messages are not added to the list
+    paused: false, // When true, new debug/error messages are not added to the list
+    // 'current': show only messages tagged with state.activeWorkflowId.
+    // 'all': show every message regardless of origin flow.
+    flowFilterMode: 'current'
 };
 
 export function startDebugPolling() {
@@ -20,20 +30,18 @@ export function startDebugPolling() {
     const streamUrl = `${API_BASE}/debug/stream` +
         (apiKey ? `?api_key=${encodeURIComponent(apiKey)}` : '');
     const eventSource = new EventSource(streamUrl);
-    
+
     eventSource.onmessage = (event) => {
         try {
             const data = JSON.parse(event.data);
-            
-            // Filter by active workflow (skip messages from other workflows)
-            if (data.workflowId && state.activeWorkflowId && data.workflowId !== state.activeWorkflowId) {
-                return;
-            }
-            
+
+            // Every message/error is kept (tagged with its origin flow) so
+            // the "All flows" view and re-filtering on flow switch both work
+            // from one buffer - see displayDebugMessages/displayErrorMessages.
             if (data.type === 'messages' && data.data.length > 0) {
-                displayDebugMessages(data.data);
+                displayDebugMessages(data.data, data.workflowId);
             } else if (data.type === 'errors' && data.data.length > 0) {
-                displayErrorMessages(data.data);
+                displayErrorMessages(data.data, data.workflowId);
             } else if (data.type === 'frame') {
                 updateImageViewer(data.nodeId, data.data);
             } else if (data.type === 'rate') {
@@ -110,7 +118,7 @@ export function updateImageViewer(nodeId, frameData) {
     }
 }
 
-export function displayDebugMessages(messages) {
+export function displayDebugMessages(messages, wfId) {
     // While paused, drop incoming messages so the user can inspect the list
     // without it scrolling. Node UI displays (frames, rates, counters) keep
     // updating - only the debug message list is frozen.
@@ -121,7 +129,10 @@ export function displayDebugMessages(messages) {
     const container = document.getElementById('debug-messages');
 
     messages.forEach(msg => {
-        const messageKey = `${msg.node}:${JSON.stringify(msg.output)}`;
+        // Per-message workflowId (set on the DebugNode entry itself) wins
+        // over the SSE envelope's workflowId, but both should always agree.
+        const msgWfId = msg.workflowId ?? wfId ?? null;
+        const messageKey = `${msgWfId || 'none'}:${msg.node}:${JSON.stringify(msg.output)}`;
 
         if (debugState.collapseSimilar && debugState.messageMap.has(messageKey)) {
             // Update existing message count
@@ -136,6 +147,7 @@ export function displayDebugMessages(messages) {
                 key: messageKey,
                 node: msg.node,
                 nodeId: msg.node_id,
+                wfId: msgWfId,
                 output: msg.output,
                 timestamp: msg.timestamp,
                 count: 1,
@@ -151,14 +163,14 @@ export function displayDebugMessages(messages) {
             createMessageElement(messageData, container);
         }
     });
-    
+
     // Limit number of messages
     trimDebugMessages(container);
-    
+
     container.scrollTop = container.scrollHeight;
 }
 
-export function displayErrorMessages(errors) {
+export function displayErrorMessages(errors, wfId) {
     // While paused, freeze the list (see displayDebugMessages).
     if (debugState.paused) {
         return;
@@ -170,10 +182,11 @@ export function displayErrorMessages(errors) {
     if (!debugState.showErrors) {
         return;
     }
-    
+
     errors.forEach(error => {
-        const messageKey = `error:${error.source_node_name}:${error.message}`;
-        
+        const msgWfId = error.workflowId ?? wfId ?? null;
+        const messageKey = `error:${msgWfId || 'none'}:${error.source_node_name}:${error.message}`;
+
         if (debugState.collapseSimilar && debugState.messageMap.has(messageKey)) {
             // Update existing error count
             const existingData = debugState.messageMap.get(messageKey);
@@ -187,21 +200,22 @@ export function displayErrorMessages(errors) {
                 key: messageKey,
                 node: error.source_node_name,
                 nodeId: error.source_node_id,
+                wfId: msgWfId,
                 output: error.message,
                 timestamp: new Date(error.timestamp * 1000).toLocaleTimeString(),
                 count: 1,
                 isError: true,
                 element: null // Will be set when element is created
             };
-            
+
             if (debugState.collapseSimilar) {
                 debugState.messageMap.set(messageKey, messageData);
             }
-            
+
             createMessageElement(messageData, container);
         }
     });
-    
+
     // Limit number of messages
     trimDebugMessages(container);
     
@@ -214,20 +228,26 @@ function createMessageElement(messageData, container) {
     msgEl.id = messageData.id;
     msgEl.dataset.nodeId = messageData.nodeId;
     msgEl.dataset.isError = messageData.isError;
-    
+    msgEl.dataset.wfId = messageData.wfId || '';
+
     // Store reference to the element
     messageData.element = msgEl;
-    
+
+    // Add to the single cross-flow buffer (never forked per-flow - see
+    // applyFiltersToMessage/refilterDebugByWorkflow for how flow scoping is
+    // applied at render/re-render time instead).
+    debugState.buffer.push(messageData);
+
     updateMessageContent(msgEl, messageData);
-    
+
     // Make message clickable to jump to node
     msgEl.addEventListener('click', () => {
         jumpToNode(messageData.nodeId);
     });
-    
+
     // Apply filters
     applyFiltersToMessage(msgEl);
-    
+
     container.appendChild(msgEl);
 }
 
@@ -385,17 +405,26 @@ function updateMessageContent(msgEl, messageData) {
     const countBadge = messageData.count > 1 ? `<span class="debug-count">${messageData.count}</span>` : '';
     const nodeClass = messageData.isError ? 'debug-node error-node' : 'debug-node';
     const outputClass = messageData.isError ? 'debug-output error-output' : 'debug-output';
-    
+
     // Show display_key (e.g. "msg.payload") before node name in header, if present
     const keyLabel = messageData.display_key ? `<span class="debug-key">${messageData.display_key}</span> ` : '';
-    
+
+    // Per-message flow label - only visible in "All flows" mode (see the
+    // #debug-messages.show-flow-labels rule in style.css) so mixed origins
+    // are distinguishable without cluttering the default "Current flow" view.
+    const flowName = messageData.wfId
+        ? (state.workflows.get(messageData.wfId)?.name || messageData.wfId)
+        : '(no flow)';
+    const flowBadge = `<span class="debug-flow-badge" title="Flow: ${flowName}">${flowName}</span>`;
+
     // Render output as collapsible tree
     const outputHtml = renderOutputTree(messageData.output, messageData.isError);
-    
+
     msgEl.innerHTML = `
         <div class="debug-message-header">
             <span class="debug-timestamp">${messageData.timestamp}</span>
             <span class="${nodeClass}">[${messageData.node}]</span>
+            ${flowBadge}
             ${countBadge}
         </div>
         ${keyLabel ? `<div class="debug-key-label">${keyLabel}:</div>` : ''}
@@ -445,19 +474,59 @@ function jumpToNode(nodeId) {
 
 function applyFiltersToMessage(msgEl) {
     const isError = msgEl.dataset.isError === 'true';
-    
+    const wfId = msgEl.dataset.wfId || null;
+
+    let hidden = false;
     if (isError && !debugState.showErrors) {
-        msgEl.classList.add('hidden');
+        hidden = true;
     } else if (!isError && !debugState.showInfo) {
-        msgEl.classList.add('hidden');
-    } else {
-        msgEl.classList.remove('hidden');
+        hidden = true;
+    } else if (debugState.flowFilterMode === 'current') {
+        // "Current flow" mode: show only messages tagged with the active
+        // flow. Messages with no workflow id (backward-compat / produced
+        // outside any flow) belong to no specific flow, so they're excluded
+        // here and only surface in "All flows" mode.
+        hidden = !wfId || wfId !== state.activeWorkflowId;
     }
+
+    msgEl.classList.toggle('hidden', hidden);
 }
 
+// Re-applies both the info/error toggles and the flow-scope filter to every
+// message currently in the buffer. Called whenever a filter that affects
+// visibility changes (info/error toggle, flow-filter mode, active workflow
+// switch) - the buffer itself is never mutated, only what's shown is.
 function applyAllFilters() {
-    const messages = document.querySelectorAll('.debug-message');
-    messages.forEach(msgEl => applyFiltersToMessage(msgEl));
+    debugState.buffer.forEach(messageData => {
+        if (messageData.element) applyFiltersToMessage(messageData.element);
+    });
+}
+
+/**
+ * Switch the debug panel between "current flow" and "all flows" scoping.
+ * Re-filters the existing buffer in place - nothing is deleted or re-fetched.
+ */
+export function setDebugFlowFilterMode(mode) {
+    debugState.flowFilterMode = mode === 'all' ? 'all' : 'current';
+    const container = document.getElementById('debug-messages');
+    if (container) {
+        container.classList.toggle('show-flow-labels', debugState.flowFilterMode === 'all');
+    }
+    applyAllFilters();
+}
+
+export function getDebugFlowFilterMode() {
+    return debugState.flowFilterMode;
+}
+
+/**
+ * Re-filter the existing message buffer against the (new) active workflow.
+ * Call this after switching flows so old messages from the flow just left
+ * hide again and the newly-active flow's history reappears - no messages
+ * are deleted, only their visibility changes.
+ */
+export function refilterDebugByWorkflow() {
+    applyAllFilters();
 }
 
 export function toggleInfoMessages(show) {
@@ -513,6 +582,11 @@ function trimDebugMessages(container) {
                     break;
                 }
             }
+            // Also drop it from the cross-flow buffer so it doesn't linger
+            // there once its DOM element is gone.
+            const bufferIdx = debugState.buffer.findIndex(data => data.element === msgEl);
+            if (bufferIdx !== -1) debugState.buffer.splice(bufferIdx, 1);
+
             msgEl.remove();
         }
     }
@@ -521,4 +595,5 @@ function trimDebugMessages(container) {
 export function clearDebug() {
     document.getElementById('debug-messages').innerHTML = '';
     debugState.messageMap.clear();
+    debugState.buffer = [];
 }

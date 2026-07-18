@@ -526,6 +526,89 @@ class TestWorkflowStop:
         assert resp2.status_code == 200
         assert resp2.get_json() == {'success': True, 'stopped': 0}
 
+    # ------------------------------------------------------------
+    # Scoped stop: ?workflow=<id> affects only that one flow. This is what
+    # the frontend's Deploy-menu "Stop" action now sends (see workflow.js
+    # stopWorkflow) so stopping one tab's processing no longer stops every
+    # other open tab too.
+    # ------------------------------------------------------------
+
+    def test_scoped_stop_only_halts_requested_workflow(self, api_client):
+        wid1 = _create_wf(api_client, 'scoped stop wf 1')
+        wid2 = _create_wf(api_client, 'scoped stop wf 2')
+        manager = api_client.manager
+        assert manager.deployed_engines[wid1].running is True
+        assert manager.deployed_engines[wid2].running is True
+
+        resp = api_client.post(f'/api/workflow/stop?workflow={wid1}')
+        assert resp.status_code == 200
+        assert resp.get_json() == {'success': True, 'stopped': 1}
+
+        assert manager.deployed_engines[wid1].running is False
+        assert manager.deployed_engines[wid2].running is True  # untouched
+
+        running = {w['id']: w['running'] for w in
+                   api_client.get('/api/workflows').get_json()}
+        assert running == {wid1: False, wid2: True}
+
+    def test_scoped_stop_unknown_workflow_404(self, api_client):
+        _create_wf(api_client, 'scoped stop wf')
+        resp = api_client.post('/api/workflow/stop?workflow=no_such')
+        assert resp.status_code == 404
+        assert resp.get_json()['success'] is False
+
+
+# ------------------------------------------------------------------
+# POST /api/workflow/restart (all vs. scoped)
+# ------------------------------------------------------------------
+
+class TestWorkflowRestart:
+
+    def test_restart_all_restarts_every_enabled_engine(self, api_client):
+        wid1 = _create_wf(api_client, 'restart wf 1')
+        wid2 = _create_wf(api_client, 'restart wf 2')
+        manager = api_client.manager
+        api_client.post('/api/workflow/stop')
+        assert manager.deployed_engines[wid1].running is False
+        assert manager.deployed_engines[wid2].running is False
+
+        resp = api_client.post('/api/workflow/restart')
+        assert resp.status_code == 200
+        assert resp.get_json() == {'success': True}
+        assert manager.deployed_engines[wid1].running is True
+        assert manager.deployed_engines[wid2].running is True
+
+    def test_scoped_restart_only_restarts_requested_workflow(self, api_client):
+        wid1 = _create_wf(api_client, 'scoped restart wf 1')
+        wid2 = _create_wf(api_client, 'scoped restart wf 2')
+        manager = api_client.manager
+        api_client.post('/api/workflow/stop')  # stop both first
+        assert manager.deployed_engines[wid1].running is False
+        assert manager.deployed_engines[wid2].running is False
+
+        resp = api_client.post(f'/api/workflow/restart?workflow={wid1}')
+        assert resp.status_code == 200
+        assert resp.get_json() == {'success': True}
+
+        assert manager.deployed_engines[wid1].running is True
+        assert manager.deployed_engines[wid2].running is False  # untouched
+
+    def test_scoped_restart_does_not_start_disabled_workflow(self, api_client):
+        wid = _create_wf(api_client, 'scoped restart disabled wf')
+        api_client.put(f'/api/workflows/{wid}', json={'enabled': False})
+        manager = api_client.manager
+        assert manager.deployed_engines[wid].running is False
+
+        resp = api_client.post(f'/api/workflow/restart?workflow={wid}')
+        assert resp.status_code == 200
+        assert manager.deployed_engines[wid].running is False
+
+    def test_scoped_restart_unknown_workflow_404(self, api_client):
+        _create_wf(api_client, 'scoped restart wf')
+        resp = api_client.post('/api/workflow/restart?workflow=no_such')
+        assert resp.status_code == 404
+        assert resp.get_json()['success'] is False
+
 
 # ------------------------------------------------------------------
 # GET /api/workflow/stats

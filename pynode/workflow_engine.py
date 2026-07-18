@@ -23,6 +23,13 @@ class WorkflowEngine:
         self.running = False
         self._lock = threading.RLock()  # Use RLock (reentrant lock) to allow nested locking
         self._system_error_node = None  # System error node that's always present
+        # Which workflow (flow tab) this engine belongs to. Set by
+        # WorkflowManager right after construction (create_new_workflow /
+        # load_workflow_from_disk); None for an engine not owned by a
+        # manager (e.g. ad-hoc engines built in tests). Lets nodes look up
+        # their own workflow id via node._workflow_engine.workflow_id for
+        # tagging things like debug messages.
+        self.workflow_id = None
     
     def register_node_type(self, node_class: Type[BaseNode]):
         """

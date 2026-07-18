@@ -1,10 +1,24 @@
 // Workflow import/export and deployment
 import { API_BASE } from './config.js';
-import { state, setModified, setWorkflowStopped, clearAllNodeModifiedIndicators, clearChangeTracking, hasChanges, getNodeType, markNodeAdded, markConnectionAdded } from './state.js';
+import { state, setModified, clearAllNodeModifiedIndicators, clearChangeTracking, hasChanges, getNodeType, markNodeAdded, markConnectionAdded } from './state.js';
 import { renderNode } from './nodes.js';
 import { updateConnections } from './connections.js';
 import { showToast } from './ui-utils.js';
 import { deselectAllNodes } from './selection.js';
+
+// Deploy/stop/restart all change the ACTIVE flow's run state, which
+// workflows.js tracks per-workflow (meta.running, feeding both the tab's
+// run-state dot and the Deploy button's red "stopped" styling). Lazy-import
+// to avoid a circular top-level import, since workflows.js itself imports
+// from this module.
+function syncRunStateAfterDeployOrRestart() {
+    import('./workflows.js').then(
+        (workflowsModule) => workflowsModule.refreshActiveWorkflowRunState());
+}
+function syncRunStateAfterStop() {
+    import('./workflows.js').then(
+        (workflowsModule) => workflowsModule.markActiveWorkflowStopped());
+}
 
 // Helper function to enrich node data with type information
 export function enrichNodeWithTypeInfo(nodeData) {
@@ -187,8 +201,8 @@ export async function deployWorkflow() {
             clearAllNodeModifiedIndicators();
             clearChangeTracking();
             const wasStopped = state.workflowStopped;
-            setWorkflowStopped(false);
             setModified(false);
+            syncRunStateAfterDeployOrRestart();
 
             // Show appropriate message based on what was deployed
             const changedCount = result.nodesRestarted || 0;
@@ -243,8 +257,8 @@ export async function deployWorkflowFull() {
         if (response.ok) {
             clearAllNodeModifiedIndicators();
             clearChangeTracking();
-            setWorkflowStopped(false);
             setModified(false);
+            syncRunStateAfterDeployOrRestart();
             showToast('Full workflow deployed!');
         } else {
             throw new Error('Failed to deploy workflow');
@@ -255,18 +269,24 @@ export async function deployWorkflowFull() {
     }
 }
 
+/**
+ * Restart the CURRENTLY ACTIVE flow's deployed engine without a full
+ * redeploy. Scoped to this one flow (via ?workflow=) so it does not disturb
+ * other open tabs' processing.
+ */
 export async function restartWorkflow() {
     try {
-        const response = await fetch(`${API_BASE}/workflow/restart`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
-        });
-        
+        const response = await fetch(
+            `${API_BASE}/workflow/restart?workflow=${state.activeWorkflowId}`,
+            { method: 'POST', headers: { 'Content-Type': 'application/json' } }
+        );
+
         if (response.ok) {
-            // Restart starts every enabled workflow again, so any transient
+            // Restart starts this flow again (if enabled), so any transient
             // stop is over.
-            setWorkflowStopped(false);
-            showToast('Workflow restarted!');
+            syncRunStateAfterDeployOrRestart();
+            const name = state.workflows.get(state.activeWorkflowId)?.name;
+            showToast(name ? `"${name}" restarted!` : 'Workflow restarted!');
         } else {
             throw new Error('Failed to restart workflow');
         }
@@ -277,23 +297,27 @@ export async function restartWorkflow() {
 }
 
 /**
- * Transiently stop all deployed workflow processing ("Stop" in the deploy
- * menu). Workflows stay enabled and nothing is persisted; selecting Deploy
- * (modified or full) starts processing again.
+ * Transiently stop the CURRENTLY ACTIVE flow's deployed processing ("Stop"
+ * in the deploy menu). Scoped to this one flow (via ?workflow=) so other
+ * open tabs keep running. The flow stays enabled and nothing is persisted;
+ * selecting Deploy (modified or full) or Restart starts it again.
  */
 export async function stopWorkflow() {
     try {
-        const response = await fetch(`${API_BASE}/workflow/stop`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
-        });
+        const response = await fetch(
+            `${API_BASE}/workflow/stop?workflow=${state.activeWorkflowId}`,
+            { method: 'POST', headers: { 'Content-Type': 'application/json' } }
+        );
 
         if (response.ok) {
             const result = await response.json();
-            setWorkflowStopped(true);
-            const count = result.stopped || 0;
-            const flows = count === 1 ? '1 flow' : `${count} flows`;
-            showToast(`Stopped ${flows} - Deploy to start again`);
+            syncRunStateAfterStop();
+            const name = state.workflows.get(state.activeWorkflowId)?.name;
+            const label = name ? `"${name}"` : 'Flow';
+            const wasRunning = (result.stopped || 0) > 0;
+            showToast(wasRunning
+                ? `${label} stopped - Deploy to start again`
+                : `${label} already stopped`);
         } else {
             throw new Error('Failed to stop workflow');
         }

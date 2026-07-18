@@ -278,6 +278,13 @@ export function setupEventListeners() {
             toggleCollapseSimilar(isActive);
         });
     });
+
+    // "Current flow" vs "All flows" debug panel scope selector.
+    document.getElementById('debug-flow-filter').addEventListener('change', (e) => {
+        import('./debug.js').then(({ setDebugFlowFilterMode }) => {
+            setDebugFlowFilterMode(e.target.value);
+        });
+    });
     
     // Properties panel resize
     setupPropertiesResize();

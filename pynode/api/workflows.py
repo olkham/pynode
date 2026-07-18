@@ -4,7 +4,7 @@ full deploy (save), incremental deploy (deploy-changes), restart and stats.
 
 import logging
 
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, request
 
 from pynode.api.helpers import (
     _INVALID_BODY_ERROR,
@@ -419,17 +419,29 @@ def deploy_changes():
 
 @workflows_bp.route('/api/workflow/restart', methods=['POST'])
 def restart_workflow():
-    """Restart all deployed workflows."""
-    manager = _get_manager()
-    try:
-        # Snapshot under the lock; engine stop/start happens outside it.
-        with manager.state_lock:
-            snapshot = [
-                (wid, manager.deployed_engines.get(wid), meta['enabled'])
-                for wid, meta in manager.workflows.items()
-            ]
+    """Restart deployed workflow engine(s) without a full redeploy.
 
-        for wid, deployed, enabled in snapshot:
+    Restarts every deployed engine by default (used by e.g. bulk/maintenance
+    callers). Pass ``?workflow=<id>`` to scope the restart to a single
+    workflow - the Deploy button's "Restart" action does this so it only
+    affects the currently-viewed flow, not every open tab.
+    """
+    manager = _get_manager()
+    wid = request.args.get('workflow')
+    try:
+        with manager.state_lock:
+            if wid is not None:
+                if wid not in manager.workflows:
+                    return jsonify({'success': False, 'error': 'Workflow not found'}), 404
+                snapshot = [(wid, manager.deployed_engines.get(wid), manager.workflows[wid]['enabled'])]
+            else:
+                # Snapshot under the lock; engine stop/start happens outside it.
+                snapshot = [
+                    (w, manager.deployed_engines.get(w), meta['enabled'])
+                    for w, meta in manager.workflows.items()
+                ]
+
+        for w, deployed, enabled in snapshot:
             if not deployed:
                 continue
             workflow_data = deployed.export_workflow()
@@ -446,18 +458,29 @@ def restart_workflow():
 
 @workflows_bp.route('/api/workflow/stop', methods=['POST'])
 def stop_workflows():
-    """Transiently stop ALL deployed workflow engines.
+    """Transiently stop deployed workflow engine(s).
 
     Unlike disabling a workflow, this does NOT change any workflow's
     persisted 'enabled' flag and does NOT write to disk - the next Deploy
     (full save or incremental deploy-changes) starts enabled workflows again.
+
+    Stops every deployed engine by default (used by e.g. bulk/maintenance
+    callers). Pass ``?workflow=<id>`` to scope the stop to a single
+    workflow - the Deploy button's "Stop" action does this so it only
+    affects the currently-viewed flow, not every open tab.
     """
     manager = _get_manager()
+    wid = request.args.get('workflow')
     try:
-        # Snapshot under the lock; engine stop happens outside it.
         with manager.state_lock:
-            snapshot = [manager.deployed_engines.get(wid)
-                        for wid in manager.workflows]
+            if wid is not None:
+                if wid not in manager.workflows:
+                    return jsonify({'success': False, 'error': 'Workflow not found'}), 404
+                snapshot = [manager.deployed_engines.get(wid)]
+            else:
+                # Snapshot under the lock; engine stop happens outside it.
+                snapshot = [manager.deployed_engines.get(w)
+                            for w in manager.workflows]
 
         stopped = 0
         for deployed in snapshot:

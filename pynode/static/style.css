@@ -642,6 +642,28 @@ body {
     font-style: italic;
 }
 
+/* Per-flow run-state dot: running (green) / stopped (red) / disabled
+   (dim grey - a deliberate state, distinct from an unexpected stop). */
+.workflow-tab .tab-status-dot {
+    width: 7px;
+    height: 7px;
+    min-width: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.workflow-tab .tab-status-dot-running {
+    background: #3fb950;
+}
+
+.workflow-tab .tab-status-dot-stopped {
+    background: #d73a49;
+}
+
+.workflow-tab .tab-status-dot-disabled {
+    background: #6e6e6e;
+}
+
 .workflow-tab .tab-name {
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1045,6 +1067,23 @@ body {
     text-align: center;
 }
 
+/* Config badge (e.g. Link node channel) shown on the node card */
+.node-config-badge {
+    font-size: 11px;
+    font-weight: 600;
+    color: #000;
+    background: rgba(255, 255, 255, 0.3);
+    padding: 2px 6px;
+    border-radius: 3px;
+    margin-left: 8px;
+    margin-right: 8px;
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: center;
+}
+
 /* Transport controls (VideoReaderNode) */
 .transport-controls {
     display: flex;
@@ -1255,6 +1294,7 @@ body {
 .node-content .queue-length-display,
 .node-content .counter-display,
 .node-content .transport-controls,
+.node-content .node-config-badge,
 .node-content .image-drop-zone {
     align-self: center;
 }
@@ -1796,6 +1836,50 @@ body {
     gap: 8px;
 }
 
+/* "Manage brokers…" button in the node property panel */
+.property-service-manage {
+    white-space: nowrap;
+}
+
+/* Two fields side-by-side inside the broker dialog (keep alive + clean session) */
+.mqtt-broker-inline {
+    display: flex;
+    gap: 12px;
+}
+
+.mqtt-broker-inline .property-group {
+    flex: 1;
+    margin-bottom: 15px;
+}
+
+/* Inline connection-test feedback */
+.mqtt-test-result {
+    margin-top: 4px;
+    padding: 8px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    border: 1px solid #3e3e42;
+    background: #2d2d30;
+    color: #cccccc;
+    word-break: break-word;
+}
+
+.mqtt-test-result.success {
+    border-color: #4a7a3a;
+    background: #26331f;
+    color: #a5d68a;
+}
+
+.mqtt-test-result.error {
+    border-color: #7a3a3a;
+    background: #331f1f;
+    color: #e08a8a;
+}
+
+.mqtt-test-result.testing {
+    color: #b0b0b0;
+}
+
 /* Debug Panel */
 .debug-panel {
     display: flex;
@@ -1820,7 +1904,25 @@ body {
 
 .debug-controls {
     display: flex;
+    align-items: center;
     gap: 5px;
+}
+
+/* "Current flow" / "All flows" scope selector, styled to match the
+   secondary/small buttons (clear-debug-btn, pause-debug-btn) beside it. */
+.debug-flow-select {
+    background: #3e3e42;
+    color: #d4d4d4;
+    border: 1px solid #555;
+    border-radius: 4px;
+    padding: 4px 6px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.debug-flow-select:hover {
+    background: #4e4e52;
 }
 
 .icon-btn {
@@ -1961,6 +2063,25 @@ body {
 .debug-node.error-node {
     color: #FF6B6B;
     font-weight: bold;
+}
+
+/* Per-message flow (workflow) label. Hidden by default (Current flow mode
+   only shows one flow's messages, so the label would be redundant); shown
+   when the "All flows" scope is selected so mixed origins are
+   distinguishable - see #debug-messages.show-flow-labels below and
+   setDebugFlowFilterMode() in debug.js. */
+.debug-flow-badge {
+    display: none;
+    color: #9d9d9d;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 1px 6px;
+    font-size: 10px;
+    margin-left: 4px;
+}
+
+#debug-messages.show-flow-labels .debug-flow-badge {
+    display: inline-block;
 }
 
 .debug-output {

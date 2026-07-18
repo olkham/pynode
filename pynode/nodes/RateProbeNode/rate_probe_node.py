@@ -79,35 +79,52 @@ class RateProbeNode(BaseNode):
     
     def __init__(self, node_id=None, name="rate probe"):
         super().__init__(node_id, name)
-        # Store timestamps of recent messages
+        # Store timestamps of recent messages (monotonic clock)
         self._timestamps = deque()
         self._current_rate = 0.0
-        self._last_update = time.time()
-    
+        self._last_update = time.monotonic()
+
+    def _compute_rate(self, current_time: float, window_size: float) -> float:
+        """Compute the message rate (msgs/sec) from timestamps in the window.
+
+        The rate is derived from the intervals BETWEEN messages, not from a
+        raw count divided by the window. With N messages spanning a time
+        ``span``, there are ``N - 1`` intervals, so the rate is
+        ``(N - 1) / span``. Dividing a raw count by ``window_size`` instead
+        biases the result whenever the window is not full (few messages),
+        overstating seconds-per-message; the interval form is exact and is
+        also immune to the +/-1 jitter as a boundary timestamp ages in and
+        out of the window (count and span change together).
+        """
+        # Remove timestamps outside the window
+        cutoff = current_time - window_size
+        while self._timestamps and self._timestamps[0] < cutoff:
+            self._timestamps.popleft()
+
+        n = len(self._timestamps)
+        if n >= 2:
+            span = self._timestamps[-1] - self._timestamps[0]
+            if span > 0:
+                return (n - 1) / span
+        # Need at least two messages to measure a rate.
+        return 0.0
+
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """
         Pass through the message and update rate calculation.
         Sends rate information as the payload.
         """
-        current_time = time.time()
+        current_time = time.monotonic()
         window_size = self.get_config_float('window_size', 1.0)
-        
+
         # Add current timestamp
         self._timestamps.append(current_time)
-        
-        # Remove timestamps outside the window
-        cutoff = current_time - window_size
-        while self._timestamps and self._timestamps[0] < cutoff:
-            self._timestamps.popleft()
-        
-        # Calculate rate (messages per second)
-        if window_size > 0:
-            self._current_rate = len(self._timestamps) / window_size
-        else:
-            self._current_rate = 0.0
-        
+
+        # Calculate rate (messages per second) over the window
+        self._current_rate = self._compute_rate(current_time, window_size)
+
         self._last_update = current_time
-        
+
         # Preserve original message properties (like frame_count) and add rate info
         # Note: send() handles deep copying, so we modify msg directly
         msg[MessageKeys.PAYLOAD] = {
@@ -121,18 +138,9 @@ class RateProbeNode(BaseNode):
     
     def get_rate(self) -> float:
         """Get the current message rate."""
-        current_time = time.time()
+        current_time = time.monotonic()
         window_size = self.get_config_float('window_size', 1.0)
-        
-        # Clean up old timestamps
-        cutoff = current_time - window_size
-        while self._timestamps and self._timestamps[0] < cutoff:
-            self._timestamps.popleft()
-        
-        # Recalculate rate
-        if window_size > 0:
-            self._current_rate = len(self._timestamps) / window_size
-        
+        self._current_rate = self._compute_rate(current_time, window_size)
         return self._current_rate
     
     def get_rate_display(self) -> str:

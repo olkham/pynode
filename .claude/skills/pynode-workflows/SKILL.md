@@ -67,6 +67,8 @@ Messages are dicts in Node-RED style: `payload`, `topic`, `_msgid`, plus extras.
 | `SwitchNode` | 1→N | `property`: dot path (`payload`, `payload.count`); `checkall`: bool; `rules`: list of `{operator, value, valueType}` — **rule index = output index**. Operators: `eq neq lt lte gt gte between contains matches true false null nnull else`. |
 | `ChangeNode` | 1→1 | `rules`: list of `{type: set\|delete\|change\|move, path: "msg.payload...", value, valueType}` |
 | `GateNode` | 1→1 | `{}` — passes messages only while enabled; toggled live from its card |
+| `LinkOutNode` | 1→0 | `channel`: str — publishes each incoming msg to the named channel on a process-wide bus. Reaches every `LinkInNode` with the same channel, **including in other workflows**. Empty channel = disabled. `drop_messages` defaults `"false"`. |
+| `LinkInNode` | 0→1 | `channel`: str — emits every msg published on the named channel (by any `LinkOutNode`, cross-flow). Deep-copied on delivery (flow isolation). Only receives while its flow is deployed/running and the node is enabled. Empty channel = disabled. |
 | `DelayNode` | 1→1 | `mode`: `delay`\|`delay_count`\|`rate`; `timeout`: secs (delay mode); `rate` + `rate_time`: msgs per secs; `rate_drop`: `drop`\|`queue` |
 | `CounterNode` | 1→1 | `initial_value`: "0"; `increment`: "1"; `retain_payload`: "false" |
 | `RateProbeNode` | 1→1 | `window_size`: seconds (float) — passes msgs through, shows msg/s |
