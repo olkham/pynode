@@ -62,7 +62,7 @@ class LinkInNode(BaseNode):
         {
             'name': 'channel',
             'label': 'Channel',
-            'type': 'text',
+            'type': 'link-channel',
             'default': '',
             'placeholder': 'e.g. camera-feed',
             'help': 'Listen for messages published to this channel by Link Out '

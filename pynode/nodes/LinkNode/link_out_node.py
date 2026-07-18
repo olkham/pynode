@@ -69,7 +69,7 @@ class LinkOutNode(BaseNode):
         {
             'name': 'channel',
             'label': 'Channel',
-            'type': 'text',
+            'type': 'link-channel',
             'default': '',
             'placeholder': 'e.g. camera-feed',
             'help': 'Publish messages to this channel. Link In nodes with the '

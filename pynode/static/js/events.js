@@ -38,7 +38,8 @@ function setupExamplesSubmenu() {
             examples.forEach(example => {
                 const item = document.createElement('button');
                 item.className = 'menu-item example-item';
-                item.title = example.description || '';
+                // No title tooltip: it duplicated the visible description and the
+                // native tooltip popup could steal hover from the submenu, closing it.
                 item.innerHTML =
                     `<span class="example-title">${escapeHtml(example.title || example.id)}</span>` +
                     (example.description ? `<span class="example-desc">${escapeHtml(example.description)}</span>` : '') +

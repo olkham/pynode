@@ -164,8 +164,8 @@ export function displayDebugMessages(messages, wfId) {
         }
     });
 
-    // Limit number of messages
-    trimDebugMessages(container);
+    // Trim each flow's messages to its own cap (per-flow, not global)
+    trimDebugMessages();
 
     container.scrollTop = container.scrollHeight;
 }
@@ -216,8 +216,8 @@ export function displayErrorMessages(errors, wfId) {
         }
     });
 
-    // Limit number of messages
-    trimDebugMessages(container);
+    // Trim each flow's messages to its own cap (per-flow, not global)
+    trimDebugMessages();
     
     container.scrollTop = container.scrollHeight;
 }
@@ -240,9 +240,9 @@ function createMessageElement(messageData, container) {
 
     updateMessageContent(msgEl, messageData);
 
-    // Make message clickable to jump to node
+    // Make message clickable to jump to node (across flows if needed)
     msgEl.addEventListener('click', () => {
-        jumpToNode(messageData.nodeId);
+        handleDebugMessageClick(messageData);
     });
 
     // Apply filters
@@ -432,6 +432,39 @@ function updateMessageContent(msgEl, messageData) {
     `;
 }
 
+/**
+ * Handle a click on a debug message: locate (highlight + centre) the source
+ * node that produced it. If the message originated on a different flow than
+ * the one currently open, switch to that flow first (Node-RED style) and then
+ * locate the node once its canvas has rendered. If that flow no longer exists,
+ * surface a toast instead of failing silently.
+ */
+async function handleDebugMessageClick(messageData) {
+    const targetWfId = messageData.wfId;
+
+    // Same-flow (or untagged/backward-compat) message: locate directly -
+    // existing behavior, unchanged.
+    if (!targetWfId || targetWfId === state.activeWorkflowId) {
+        jumpToNode(messageData.nodeId);
+        return;
+    }
+
+    // Cross-flow: the source node lives on another flow.
+    if (!state.workflows.has(targetWfId)) {
+        const { showToast } = await import('./ui-utils.js');
+        showToast('Flow no longer exists');
+        return;
+    }
+
+    // Dynamic import avoids a static debug.js <-> workflows.js import cycle
+    // (workflows.js already imports from debug.js). switchWorkflow is async and
+    // awaits the flow's node rendering (loadWorkflowData / cache restore), so by
+    // the time it resolves the target node element exists and can be located.
+    const { switchWorkflow } = await import('./workflows.js');
+    await switchWorkflow(targetWfId);
+    jumpToNode(messageData.nodeId);
+}
+
 function jumpToNode(nodeId) {
     if (!nodeId) return;
     
@@ -487,7 +520,12 @@ function applyFiltersToMessage(msgEl) {
         // outside any flow) belong to no specific flow, so they're excluded
         // here and only surface in "All flows" mode.
         hidden = !wfId || wfId !== state.activeWorkflowId;
+    } else if (debugState.flowFilterMode !== 'all') {
+        // A specific flow id is selected: show exactly that flow's messages,
+        // regardless of which tab is currently active.
+        hidden = wfId !== debugState.flowFilterMode;
     }
+    // 'all' mode applies no flow-based hiding.
 
     msgEl.classList.toggle('hidden', hidden);
 }
@@ -503,20 +541,76 @@ function applyAllFilters() {
 }
 
 /**
- * Switch the debug panel between "current flow" and "all flows" scoping.
- * Re-filters the existing buffer in place - nothing is deleted or re-fetched.
+ * Set the debug panel's flow scope. `mode` is one of:
+ *   'current' - only the active flow's messages,
+ *   'all'     - every flow's messages,
+ *   <wfId>    - only that specific flow's messages (regardless of active tab).
+ * An unknown/deleted flow id falls back to 'current'. Re-filters the existing
+ * buffer in place - nothing is deleted or re-fetched.
  */
 export function setDebugFlowFilterMode(mode) {
-    debugState.flowFilterMode = mode === 'all' ? 'all' : 'current';
+    if (mode === 'all' || mode === 'current') {
+        debugState.flowFilterMode = mode;
+    } else if (state.workflows.has(mode)) {
+        debugState.flowFilterMode = mode; // specific flow id
+    } else {
+        debugState.flowFilterMode = 'current';
+    }
     const container = document.getElementById('debug-messages');
     if (container) {
-        container.classList.toggle('show-flow-labels', debugState.flowFilterMode === 'all');
+        // Show per-message flow badges whenever we're NOT scoped to just the
+        // current flow (i.e. "All flows" or a specific other flow), so mixed
+        // or cross-flow origins stay distinguishable.
+        container.classList.toggle('show-flow-labels', debugState.flowFilterMode !== 'current');
     }
     applyAllFilters();
 }
 
 export function getDebugFlowFilterMode() {
     return debugState.flowFilterMode;
+}
+
+/**
+ * Rebuild the #debug-flow-filter <select> option list from state.workflows:
+ * the two fixed scopes ("Current flow", "All flows"), a disabled separator,
+ * then one option per workflow (label = flow name, value = its id). Called
+ * from renderTabs() so the list tracks flow create/delete/rename.
+ *
+ * The current selection is preserved across refreshes; if the selected
+ * specific flow was deleted, it falls back to "Current flow".
+ */
+export function populateDebugFlowFilterOptions() {
+    const select = document.getElementById('debug-flow-filter');
+    if (!select) return;
+
+    // What was selected before the rebuild wipes the options.
+    const prev = select.value || 'current';
+
+    select.innerHTML = '';
+    select.add(new Option('Current flow', 'current'));
+    select.add(new Option('All flows', 'all'));
+
+    if (state.workflows.size > 0) {
+        const separator = new Option('──────────', '');
+        separator.disabled = true;
+        select.add(separator);
+        state.workflows.forEach((meta, wid) => {
+            select.add(new Option(meta.name || wid, wid));
+        });
+    }
+
+    // Preserve the prior selection if it still maps to a selectable option;
+    // otherwise fall back to "Current flow" (e.g. a specific flow was deleted).
+    const stillSelectable = Array.from(select.options).some(
+        opt => opt.value === prev && !opt.disabled
+    );
+    const nextValue = stillSelectable ? prev : 'current';
+    select.value = nextValue;
+
+    // Keep the internal filter mode in sync when we had to fall back.
+    if (nextValue !== prev) {
+        setDebugFlowFilterMode(nextValue);
+    }
 }
 
 /**
@@ -569,31 +663,84 @@ export function toggleCollapseSimilar(collapse) {
     }
 }
 
-function trimDebugMessages(container) {
-    const messages = container.querySelectorAll('.debug-message');
-    if (messages.length > MAX_DEBUG_MESSAGES) {
-        const removeCount = messages.length - MAX_DEBUG_MESSAGES;
-        for (let i = 0; i < removeCount; i++) {
-            const msgEl = messages[i];
-            // Find and remove from messageMap by element reference
-            for (const [key, data] of debugState.messageMap.entries()) {
-                if (data.element === msgEl) {
-                    debugState.messageMap.delete(key);
-                    break;
-                }
-            }
-            // Also drop it from the cross-flow buffer so it doesn't linger
-            // there once its DOM element is gone.
-            const bufferIdx = debugState.buffer.findIndex(data => data.element === msgEl);
-            if (bufferIdx !== -1) debugState.buffer.splice(bufferIdx, 1);
+/**
+ * Pure helper: given the single chronological buffer and a per-flow cap,
+ * return the entries to evict so that each workflow group keeps only its most
+ * recent `cap` entries. Entries are grouped by wfId; untagged entries (no
+ * wfId) form their own 'none' group. A chatty flow can therefore never evict a
+ * quiet flow's history - each flow is capped independently.
+ *
+ * We only ever drop the OLDEST entries within a group (the earliest ones in
+ * buffer order), so the overall chronological ordering of the survivors is
+ * preserved. Returns an array of the evicted entry objects (in buffer order).
+ * Exported so the trim logic is unit-testable without a DOM.
+ */
+export function computeTrimEvictions(buffer, cap) {
+    // Count entries per flow group.
+    const counts = new Map();
+    for (const entry of buffer) {
+        const key = entry.wfId || 'none';
+        counts.set(key, (counts.get(key) || 0) + 1);
+    }
 
-            msgEl.remove();
+    // How many of each group's oldest entries still need dropping.
+    const toDrop = new Map();
+    counts.forEach((count, key) => {
+        const overflow = count - cap;
+        if (overflow > 0) toDrop.set(key, overflow);
+    });
+    if (toDrop.size === 0) return [];
+
+    // Walk front-to-back (oldest-first) removing each over-cap group's
+    // earliest entries until its overflow is exhausted.
+    const removed = [];
+    for (const entry of buffer) {
+        const key = entry.wfId || 'none';
+        const remaining = toDrop.get(key) || 0;
+        if (remaining > 0) {
+            removed.push(entry);
+            toDrop.set(key, remaining - 1);
         }
+    }
+    return removed;
+}
+
+function trimDebugMessages() {
+    const removed = computeTrimEvictions(debugState.buffer, MAX_DEBUG_MESSAGES);
+    if (removed.length === 0) return;
+
+    const removedSet = new Set(removed);
+    // Drop evicted entries from the cross-flow buffer in one pass (preserves
+    // the surviving order).
+    debugState.buffer = debugState.buffer.filter(data => !removedSet.has(data));
+
+    for (const data of removed) {
+        // Remove the collapse-map entry only if it still points at this exact
+        // object (guards against a newer entry having reused the same key).
+        if (data.key && debugState.messageMap.get(data.key) === data) {
+            debugState.messageMap.delete(data.key);
+        }
+        if (data.element) data.element.remove();
     }
 }
 
 export function clearDebug() {
-    document.getElementById('debug-messages').innerHTML = '';
-    debugState.messageMap.clear();
-    debugState.buffer = [];
+    // Clear only the messages currently VISIBLE under the active filter (flow
+    // scope + info/error toggles). Hidden entries stay in the buffer and
+    // reappear when their filter becomes active again - so clearing while
+    // viewing one flow no longer wipes another flow's history.
+    const visible = debugState.buffer.filter(
+        data => data.element && !data.element.classList.contains('hidden')
+    );
+    if (visible.length === 0) return;
+
+    const visibleSet = new Set(visible);
+    debugState.buffer = debugState.buffer.filter(data => !visibleSet.has(data));
+
+    for (const data of visible) {
+        if (data.key && debugState.messageMap.get(data.key) === data) {
+            debugState.messageMap.delete(data.key);
+        }
+        if (data.element) data.element.remove();
+    }
 }

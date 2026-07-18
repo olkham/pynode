@@ -29,6 +29,28 @@ def get_node_types():
     return jsonify(node_registry.get_node_types())
 
 
+@nodes_bp.route('/api/link-channels', methods=['GET'])
+def get_link_channels():
+    """List distinct, non-empty channel names already used by Link In/Out
+    nodes across every workflow's working engine.
+
+    Backs the properties panel's channel suggestion list, so users can pick
+    an existing channel instead of retyping it. Scans working engines (not
+    just deployed) so channels typed into not-yet-deployed nodes show up too.
+    """
+    manager = _get_manager()
+    channels = set()
+    with manager.state_lock:
+        for engine in manager.working_engines.values():
+            for node in engine.nodes.values():
+                if node.type not in ('LinkInNode', 'LinkOutNode'):
+                    continue
+                channel = str(node.config.get('channel', '') or '').strip()
+                if channel:
+                    channels.add(channel)
+    return jsonify({'success': True, 'channels': sorted(channels)})
+
+
 @nodes_bp.route('/api/nodes', methods=['GET'])
 def get_nodes():
     """Get all nodes in the working workflow."""

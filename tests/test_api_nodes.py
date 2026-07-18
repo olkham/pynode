@@ -259,3 +259,52 @@ class TestNodeEnabledEndpoints:
     def test_get_enabled_unknown_node_404(self, api_client, wf):
         resp = api_client.get('/api/nodes/ghost/enabled')
         assert resp.status_code == 404
+
+
+# ------------------------------------------------------------------
+# GET /api/link-channels
+# ------------------------------------------------------------------
+
+class TestLinkChannelsEndpoint:
+
+    def test_no_link_nodes_returns_empty_list(self, api_client, wf):
+        _post_node(api_client, {'type': 'DebugNode'})
+        resp = api_client.get('/api/link-channels')
+        assert resp.status_code == 200
+        assert resp.get_json() == {'success': True, 'channels': []}
+
+    def test_collects_sorted_deduped_channels_across_workflows_and_types(
+            self, api_client, wf):
+        _post_node(api_client, {'type': 'LinkOutNode', 'config': {'channel': 'zeta'}})
+        _post_node(api_client, {'type': 'LinkInNode', 'config': {'channel': 'alpha'}})
+        # Duplicate channel name (same node type, and across a second workflow)
+        _post_node(api_client, {'type': 'LinkInNode', 'config': {'channel': 'alpha'}})
+
+        wid2 = api_client.post('/api/workflows', json={'name': 'wf two'}).get_json()['id']
+        _post_node(api_client, {'type': 'LinkOutNode', 'config': {'channel': 'beta'}}, workflow=wid2)
+
+        resp = api_client.get('/api/link-channels')
+        assert resp.status_code == 200
+        assert resp.get_json() == {'success': True, 'channels': ['alpha', 'beta', 'zeta']}
+
+    def test_empty_and_whitespace_channels_excluded(self, api_client, wf):
+        _post_node(api_client, {'type': 'LinkOutNode', 'config': {'channel': ''}})
+        _post_node(api_client, {'type': 'LinkInNode', 'config': {'channel': '   '}})
+        _post_node(api_client, {'type': 'LinkInNode', 'config': {'channel': ' real-channel '}})
+
+        resp = api_client.get('/api/link-channels')
+        assert resp.status_code == 200
+        # Stored (untrimmed) config values are trimmed by the endpoint itself.
+        assert resp.get_json() == {'success': True, 'channels': ['real-channel']}
+
+    def test_reflects_working_engine_before_deploy(self, api_client, wf):
+        # Nodes only exist in the working engine until a deploy - the endpoint
+        # must still see them (so unsaved channels are suggested).
+        _post_node(api_client, {'type': 'LinkInNode', 'config': {'channel': 'not-yet-deployed'}})
+        # Confirm this really is testing the pre-deploy case: the deployed
+        # engine has no Link nodes yet (only its auto-created system ErrorNode).
+        assert not any(n.type in ('LinkInNode', 'LinkOutNode')
+                       for n in api_client.manager.deployed_engines[wf].nodes.values())
+
+        resp = api_client.get('/api/link-channels')
+        assert resp.get_json() == {'success': True, 'channels': ['not-yet-deployed']}

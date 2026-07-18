@@ -670,38 +670,6 @@ body {
     max-width: 150px;
 }
 
-.workflow-tab .tab-name[contenteditable="true"] {
-    outline: 1px solid #0e639c;
-    background: #1e1e1e;
-    padding: 1px 4px;
-    border-radius: 2px;
-    max-width: 200px;
-    cursor: text;
-}
-
-.workflow-tab .tab-close {
-    display: none;
-    font-size: 14px;
-    line-height: 1;
-    opacity: 0.5;
-    padding: 0 2px;
-    border: none;
-    background: none;
-    color: inherit;
-    cursor: pointer;
-}
-
-.workflow-tab .tab-close:hover {
-    opacity: 1;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 3px;
-}
-
-.workflow-tab:hover .tab-close,
-.workflow-tab.active .tab-close {
-    display: inline;
-}
-
 .workflow-tab-add {
     display: flex;
     align-items: center;
@@ -1552,6 +1520,25 @@ body {
     padding: 10px;
 }
 
+.property-status-text {
+    padding: 6px;
+    background: #2d2d30;
+    border: 1px solid #3e3e42;
+    border-radius: 3px;
+    color: #cccccc;
+    font-size: 13px;
+}
+
+.workflow-danger-zone {
+    margin-top: 25px;
+    padding-top: 15px;
+    border-top: 1px solid #3e3e42;
+}
+
+.workflow-danger-zone .btn-danger {
+    width: 100%;
+}
+
 .property-enabled-row {
     display: flex;
     align-items: center;
@@ -2067,21 +2054,40 @@ body {
 
 /* Per-message flow (workflow) label. Hidden by default (Current flow mode
    only shows one flow's messages, so the label would be redundant); shown
-   when the "All flows" scope is selected so mixed origins are
-   distinguishable - see #debug-messages.show-flow-labels below and
-   setDebugFlowFilterMode() in debug.js. */
+   whenever the scope is NOT "Current flow" (All flows, or a specific other
+   flow) so mixed / cross-flow origins are distinguishable - see
+   #debug-messages.show-flow-labels below and setDebugFlowFilterMode() in
+   debug.js.
+
+   Pinned to the message entry's top-right corner (the entry is
+   position:relative) so its placement never depends on the message text
+   length. The entry reserves padding-right when badges are shown (below) so
+   long content can't slide under it. */
 .debug-flow-badge {
     display: none;
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    max-width: 90px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    box-sizing: border-box;
     color: #9d9d9d;
     background: rgba(255, 255, 255, 0.08);
     border-radius: 8px;
     padding: 1px 6px;
     font-size: 10px;
-    margin-left: 4px;
 }
 
 #debug-messages.show-flow-labels .debug-flow-badge {
     display: inline-block;
+}
+
+/* Reserve room on the right so message text/header never overlaps the pinned
+   badge (only needed while badges are visible). */
+#debug-messages.show-flow-labels .debug-message {
+    padding-right: 104px;
 }
 
 .debug-output {

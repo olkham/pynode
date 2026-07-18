@@ -14,13 +14,15 @@ import cv2
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
-_info.add_text("Reads a video file and outputs its frames as JPEG (base64) "
-               "messages. Playback is driven by the transport controls on the "
-               "node: play/pause, stop, and single-frame stepping.")
+_info.add_text("Reads a video file and outputs its frames as messages. By default frames "
+               "are sent as raw numpy arrays (no encoding overhead); enable 'Encode as "
+               "JPEG' to send base64 JPEG-encoded frames instead. Playback is driven by "
+               "the transport controls on the node: play/pause, stop, and single-frame "
+               "stepping.")
 _info.add_header("Outputs")
 _info.add_bullets(
-    ("Output 0:", "Frame message (payload.image JPEG base64) with frame index, "
-                  "total frame count and source path."),
+    ("Output 0:", "Frame message (payload.image numpy array or JPEG base64, depending "
+                  "on config) with frame index, total frame count and source path."),
 )
 _info.add_header("Transport Controls")
 _info.add_bullets(
@@ -36,11 +38,12 @@ _info.add_bullets(
     ("Video File:", "Upload a video or enter a path manually."),
     ("Frame Rate:", "Playback FPS override; 0 uses the video's native rate."),
     ("Loop:", "Restart from the first frame when the video ends."),
-    ("JPEG Quality:", "Encoding quality for the emitted frames (1-100)."),
+    ("Encode as JPEG:", "Output as base64 JPEG or raw numpy array (default)."),
+    ("JPEG Quality:", "Encoding quality for the emitted frames when JPEG is enabled (1-100)."),
 )
 _info.add_header("Output Format")
 _info.add_bullets(
-    (f"{MessageKeys.PAYLOAD}.image:", "JPEG base64 image dict (format/encoding/data/width/height)."),
+    (f"{MessageKeys.PAYLOAD}.image:", "Image data (JPEG base64 or numpy array depending on config)."),
     (f"{MessageKeys.PAYLOAD}.frame:", "Zero-based index of the emitted frame."),
     (f"{MessageKeys.PAYLOAD}.total_frames:", "Total number of frames in the video."),
     (f"{MessageKeys.PAYLOAD}.source:", "Path of the video file."),
@@ -103,6 +106,7 @@ class VideoReaderNode(BaseNode):
         MessageKeys.VIDEO.SOURCE: '',
         MessageKeys.CAMERA.FPS: 0,
         MessageKeys.VIDEO.LOOP: False,
+        MessageKeys.CAMERA.ENCODE_JPEG: False,
         MessageKeys.CAMERA.JPEG_QUALITY: 80,
     }
 
@@ -127,6 +131,12 @@ class VideoReaderNode(BaseNode):
             'label': 'Loop',
             'type': 'checkbox',
             'default': DEFAULT_CONFIG[MessageKeys.VIDEO.LOOP],
+        },
+        {
+            'name': MessageKeys.CAMERA.ENCODE_JPEG,
+            'label': 'Encode as JPEG',
+            'type': 'checkbox',
+            'default': DEFAULT_CONFIG[MessageKeys.CAMERA.ENCODE_JPEG],
         },
         {
             'name': MessageKeys.CAMERA.JPEG_QUALITY,
@@ -357,21 +367,32 @@ class VideoReaderNode(BaseNode):
             total = self._total_frames
             path = self._video_path
 
-        quality = self.get_config_int(MessageKeys.CAMERA.JPEG_QUALITY, 80)
-        ok, buffer = cv2.imencode('.jpg', frame,
-                                  (cv2.IMWRITE_JPEG_QUALITY, quality))
-        if not ok:
-            self.report_error("Failed to encode frame as JPEG")
-            return False
-        jpeg_base64 = base64.b64encode(buffer.tobytes()).decode('utf-8')
+        if self.get_config_bool(MessageKeys.CAMERA.ENCODE_JPEG, False):
+            quality = self.get_config_int(MessageKeys.CAMERA.JPEG_QUALITY, 80)
+            ok, buffer = cv2.imencode('.jpg', frame,
+                                      (cv2.IMWRITE_JPEG_QUALITY, quality))
+            if not ok:
+                self.report_error("Failed to encode frame as JPEG")
+                return False
+            jpeg_base64 = base64.b64encode(buffer.tobytes()).decode('utf-8')
 
-        image_payload = {
-            MessageKeys.IMAGE.FORMAT: 'jpeg',
-            MessageKeys.IMAGE.ENCODING: 'base64',
-            MessageKeys.IMAGE.DATA: jpeg_base64,
-            MessageKeys.IMAGE.WIDTH: frame.shape[1],
-            MessageKeys.IMAGE.HEIGHT: frame.shape[0],
-        }
+            image_payload = {
+                MessageKeys.IMAGE.FORMAT: 'jpeg',
+                MessageKeys.IMAGE.ENCODING: 'base64',
+                MessageKeys.IMAGE.DATA: jpeg_base64,
+                MessageKeys.IMAGE.WIDTH: frame.shape[1],
+                MessageKeys.IMAGE.HEIGHT: frame.shape[0],
+            }
+        else:
+            # Raw numpy array (default) - mirrors CameraNode's non-encoded output.
+            image_payload = {
+                MessageKeys.IMAGE.FORMAT: 'bgr',
+                MessageKeys.IMAGE.ENCODING: 'numpy',
+                MessageKeys.IMAGE.DATA: frame,
+                MessageKeys.IMAGE.WIDTH: frame.shape[1],
+                MessageKeys.IMAGE.HEIGHT: frame.shape[0],
+            }
+
         message_payload: Dict[str, Any] = {
             MessageKeys.IMAGE.PATH: image_payload,
             'frame': index,

@@ -6,7 +6,7 @@ import { updateConnections } from './connections.js';
 import { showToast } from './ui-utils.js';
 import { deselectAllNodes } from './selection.js';
 import { loadWorkflowData, enrichNodeWithTypeInfo } from './workflow.js';
-import { refilterDebugByWorkflow } from './debug.js';
+import { refilterDebugByWorkflow, populateDebugFlowFilterOptions } from './debug.js';
 
 /**
  * Initialize workflow tabs from the server.
@@ -129,19 +129,9 @@ export function renderTabs() {
         nameSpan.className = 'tab-name';
         nameSpan.textContent = meta.name;
         tab.appendChild(nameSpan);
-        
-        const closeBtn = document.createElement('span');
-        closeBtn.className = 'tab-close';
-        closeBtn.textContent = '×';
-        closeBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            deleteWorkflow(wid);
-        });
-        tab.appendChild(closeBtn);
-        
+
         // Single click: switch to workflow (if not active) or open properties (if active)
-        tab.addEventListener('click', (e) => {
-            if (e.target === closeBtn) return;
+        tab.addEventListener('click', () => {
             if (wid === state.activeWorkflowId) {
                 // Already active - open properties panel for workflow editing
                 showWorkflowProperties(wid);
@@ -149,15 +139,27 @@ export function renderTabs() {
                 switchWorkflow(wid);
             }
         });
-        
-        // Double click: start inline rename
+
+        // Double click: open the properties panel for this workflow (rename
+        // and delete both live there now - see showWorkflowProperties).
         tab.addEventListener('dblclick', (e) => {
             e.stopPropagation();
-            startInlineRename(wid, nameSpan);
+            showWorkflowProperties(wid);
         });
-        
+
         container.insertBefore(tab, addBtn);
     });
+
+    // Keep the debug panel's flow-scope <select> in sync with the current set
+    // of flows (adds/removes/renames), preserving the user's selection.
+    populateDebugFlowFilterOptions();
+
+    // If the workflow properties panel is currently open, keep its read-only
+    // status line (Running/Stopped/Disabled) in sync - renderTabs() is
+    // already called after every meta.running/meta.enabled mutation, so
+    // hooking in here covers deploy/stop/restart/switch/enable-toggle
+    // without duplicating that logic at each call site.
+    refreshWorkflowPropertiesStatus();
 }
 
 /**
@@ -289,6 +291,13 @@ async function deleteWorkflow(workflowId) {
         
         renderTabs();
         showToast(`Deleted workflow: ${name}`);
+
+        // The workflow whose properties were showing no longer exists (the
+        // Delete button only ever appears inside its own properties panel -
+        // see showWorkflowProperties). Close the panel rather than leaving
+        // it displaying a stale, deleted workflow's name/status.
+        const propertiesPanel = document.getElementById('properties-panel-container');
+        if (propertiesPanel) propertiesPanel.classList.add('hidden');
     } catch (error) {
         console.error('Failed to delete workflow:', error);
         showToast('Failed to delete workflow');
@@ -296,74 +305,50 @@ async function deleteWorkflow(workflowId) {
 }
 
 /**
- * Start inline rename on a tab.
+ * Derive the read-only run-state text shown in the workflow properties
+ * panel from the same per-flow meta that drives the tab's status dot.
  */
-function startInlineRename(workflowId, nameSpan) {
-    nameSpan.contentEditable = 'true';
-    nameSpan.focus();
-    
-    // Select all text
-    const range = document.createRange();
-    range.selectNodeContents(nameSpan);
-    const sel = window.getSelection();
-    sel.removeAllRanges();
-    sel.addRange(range);
-    
-    const finish = async () => {
-        nameSpan.contentEditable = 'false';
-        const newName = nameSpan.textContent.trim();
-        if (!newName) {
-            // Revert to old name
-            nameSpan.textContent = state.workflows.get(workflowId)?.name || 'Untitled';
-            return;
-        }
-        
-        try {
-            const response = await fetch(`${API_BASE}/workflows/${workflowId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: newName })
-            });
-            
-            if (response.ok) {
-                const result = await response.json();
-                const meta = state.workflows.get(workflowId);
-                if (meta) meta.name = result.name;
-                nameSpan.textContent = result.name;
-            }
-        } catch (error) {
-            console.error('Failed to rename workflow:', error);
-        }
-    };
-    
-    nameSpan.addEventListener('blur', finish, { once: true });
-    nameSpan.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            nameSpan.blur();
-        }
-        if (e.key === 'Escape') {
-            nameSpan.textContent = state.workflows.get(workflowId)?.name || 'Untitled';
-            nameSpan.contentEditable = 'false';
-        }
-    });
+function computeWorkflowStatusText(meta) {
+    if (!meta.enabled) return 'Disabled';
+    return meta.running ? 'Running' : 'Stopped (enabled — start via Deploy)';
 }
 
 /**
- * Show workflow properties in the properties panel.
+ * If the workflow properties panel is currently open, refresh its status
+ * line in place from the latest meta. Safe to call anytime (e.g. from
+ * renderTabs(), which already runs after every meta.running/meta.enabled
+ * mutation) - it no-ops when the panel is hidden or showing node properties.
+ */
+function refreshWorkflowPropertiesStatus() {
+    const container = document.getElementById('properties-panel-container');
+    if (!container || container.classList.contains('hidden')) return;
+
+    const wfProps = document.querySelector('.workflow-properties');
+    const statusEl = document.getElementById('wf-prop-status');
+    if (!wfProps || !statusEl) return;
+
+    const workflowId = wfProps.dataset.workflowId;
+    const meta = state.workflows.get(workflowId);
+    if (meta) statusEl.textContent = computeWorkflowStatusText(meta);
+}
+
+/**
+ * Show workflow properties in the properties panel: name (rename), enabled
+ * toggle, a read-only run-state line, and workflow deletion - the tabs
+ * themselves only switch/open this panel now (see renderTabs()).
  */
 function showWorkflowProperties(workflowId) {
     const meta = state.workflows.get(workflowId);
     if (!meta) return;
-    
+
     const panel = document.getElementById('properties-panel');
     const container = document.getElementById('properties-panel-container');
-    
+
     // Deselect any selected node
     deselectAllNodes();
-    
+
     panel.innerHTML = `
-        <div class="workflow-properties">
+        <div class="workflow-properties" data-workflow-id="${workflowId}">
             <div class="property-group">
                 <label class="property-label">Workflow Name</label>
                 <input type="text" class="property-input" id="wf-prop-name" value="${meta.name}" />
@@ -375,16 +360,26 @@ function showWorkflowProperties(workflowId) {
                 </label>
                 <span class="property-hint">Disabled workflows won't run when deployed</span>
             </div>
+            <div class="property-group">
+                <label class="property-label">Status</label>
+                <div class="property-status-text" id="wf-prop-status">${computeWorkflowStatusText(meta)}</div>
+            </div>
+            <div class="property-group workflow-danger-zone">
+                <button type="button" class="btn btn-danger" id="wf-prop-delete">Delete Workflow</button>
+            </div>
         </div>
     `;
-    
+
     container.classList.remove('hidden');
-    
+
     // Wire up change handlers
     const nameInput = document.getElementById('wf-prop-name');
-    nameInput.addEventListener('change', async () => {
+    const applyRename = async () => {
         const newName = nameInput.value.trim();
-        if (!newName) return;
+        if (!newName || newName === meta.name) {
+            nameInput.value = meta.name;
+            return;
+        }
         try {
             const response = await fetch(`${API_BASE}/workflows/${workflowId}`, {
                 method: 'PUT',
@@ -396,12 +391,27 @@ function showWorkflowProperties(workflowId) {
                 meta.name = result.name;
                 nameInput.value = result.name;
                 renderTabs();
+            } else {
+                nameInput.value = meta.name;
             }
         } catch (error) {
             console.error('Failed to update workflow name:', error);
+            nameInput.value = meta.name;
+        }
+    };
+    // Apply on blur (covers clicking/tabbing away) and on Enter (which blurs
+    // the field, triggering the same handler rather than duplicating it).
+    nameInput.addEventListener('blur', applyRename);
+    nameInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            nameInput.blur();
+        } else if (e.key === 'Escape') {
+            nameInput.value = meta.name;
+            nameInput.blur();
         }
     });
-    
+
     const enabledCheckbox = document.getElementById('wf-prop-enabled');
     enabledCheckbox.addEventListener('change', async () => {
         try {
@@ -421,9 +431,17 @@ function showWorkflowProperties(workflowId) {
                 if (workflowId === state.activeWorkflowId) {
                     syncDeployButtonToActiveWorkflow();
                 }
+            } else {
+                enabledCheckbox.checked = meta.enabled;
             }
         } catch (error) {
             console.error('Failed to update workflow enabled state:', error);
+            enabledCheckbox.checked = meta.enabled;
         }
+    });
+
+    const deleteBtn = document.getElementById('wf-prop-delete');
+    deleteBtn.addEventListener('click', () => {
+        deleteWorkflow(workflowId);
     });
 }

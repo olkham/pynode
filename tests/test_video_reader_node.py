@@ -15,6 +15,7 @@ import cv2
 import numpy as np
 import pytest
 
+from pynode.nodes import image_utils
 from pynode.nodes.base_node import MessageKeys
 from pynode.nodes.VideoReaderNode.video_reader_node import VideoReaderNode
 
@@ -33,10 +34,11 @@ def _wait_until(cond, timeout=8.0, interval=0.01):
 
 
 def _decode_mean(image_payload):
-    """Decode the jpeg-base64 image payload and return its mean intensity."""
-    raw = base64.b64decode(image_payload[MessageKeys.IMAGE.DATA])
-    img = cv2.imdecode(np.frombuffer(raw, dtype=np.uint8), cv2.IMREAD_COLOR)
-    assert img is not None
+    """Decode the image payload (raw numpy dict or jpeg-base64 dict, the two
+    formats VideoReaderNode can emit depending on 'encode_jpeg') and return
+    its mean intensity."""
+    img, format_type = image_utils.decode_image(image_payload)
+    assert img is not None, f"failed to decode image payload (format_type={format_type})"
     return float(img.mean())
 
 
@@ -102,8 +104,11 @@ class TestPlayback:
             assert payload[MessageKeys.VIDEO.SOURCE] == video_path
 
             image = payload[MessageKeys.IMAGE.PATH]
-            assert image[MessageKeys.IMAGE.FORMAT] == 'jpeg'
-            assert image[MessageKeys.IMAGE.ENCODING] == 'base64'
+            # Default output is raw numpy (no JPEG encoding overhead) - see
+            # TestOutputFormat below for the encode_jpeg=True path.
+            assert image[MessageKeys.IMAGE.FORMAT] == 'bgr'
+            assert image[MessageKeys.IMAGE.ENCODING] == 'numpy'
+            assert isinstance(image[MessageKeys.IMAGE.DATA], np.ndarray)
             assert image[MessageKeys.IMAGE.WIDTH] == SIZE
             assert image[MessageKeys.IMAGE.HEIGHT] == SIZE
             assert abs(_decode_mean(image) - i * STEP) < 12
@@ -220,6 +225,57 @@ class TestTransportControls:
         time.sleep(0.3)
         assert len(sink.received) == count
         assert node._frame_index == 0
+
+
+class TestOutputFormat:
+    """VideoReaderNode.DEFAULT_CONFIG[encode_jpeg] is False: raw numpy is the
+    default payload format (mirrors CameraNode's ENCODE_JPEG toggle); JPEG
+    base64 is opt-in. Frames are read via step_next() -> _emit_frame_at(),
+    so no playback thread is ever started for these tests."""
+
+    def test_default_config_has_encode_jpeg_false(self):
+        assert VideoReaderNode.DEFAULT_CONFIG[MessageKeys.CAMERA.ENCODE_JPEG] is False
+
+    def test_default_output_is_raw_numpy(self, vr):
+        node, sink = vr
+        node.step_next()
+        assert len(sink.received) == 1
+        image = sink.received[-1][MessageKeys.PAYLOAD][MessageKeys.IMAGE.PATH]
+
+        assert image[MessageKeys.IMAGE.FORMAT] == 'bgr'
+        assert image[MessageKeys.IMAGE.ENCODING] == 'numpy'
+        data = image[MessageKeys.IMAGE.DATA]
+        assert isinstance(data, np.ndarray)
+        assert data.shape == (SIZE, SIZE, 3)
+        assert image[MessageKeys.IMAGE.WIDTH] == SIZE
+        assert image[MessageKeys.IMAGE.HEIGHT] == SIZE
+
+    def test_encode_jpeg_true_outputs_jpeg_base64(self, vr):
+        node, sink = vr
+        node.configure({MessageKeys.CAMERA.ENCODE_JPEG: True})
+        node.step_next()
+        assert len(sink.received) == 1
+        image = sink.received[-1][MessageKeys.PAYLOAD][MessageKeys.IMAGE.PATH]
+
+        assert image[MessageKeys.IMAGE.FORMAT] == 'jpeg'
+        assert image[MessageKeys.IMAGE.ENCODING] == 'base64'
+        data = image[MessageKeys.IMAGE.DATA]
+        assert isinstance(data, str)  # base64 text, not raw bytes/ndarray
+
+        raw = base64.b64decode(data)
+        decoded = cv2.imdecode(np.frombuffer(raw, dtype=np.uint8), cv2.IMREAD_COLOR)
+        assert decoded is not None
+        assert decoded.shape == (SIZE, SIZE, 3)
+
+    def test_jpeg_quality_only_applies_when_encoding_is_enabled(self, vr):
+        """jpeg_quality is read but has no effect on the raw-numpy default;
+        it only feeds cv2.imencode() when encode_jpeg=True."""
+        node, sink = vr
+        node.configure({MessageKeys.CAMERA.JPEG_QUALITY: 1})  # would visibly degrade JPEG
+        node.step_next()
+        image = sink.received[-1][MessageKeys.PAYLOAD][MessageKeys.IMAGE.PATH]
+        assert image[MessageKeys.IMAGE.ENCODING] == 'numpy'
+        assert isinstance(image[MessageKeys.IMAGE.DATA], np.ndarray)
 
 
 class TestLifecycle:

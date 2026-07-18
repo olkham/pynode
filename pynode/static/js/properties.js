@@ -75,10 +75,28 @@ export function renderProperties(nodeData) {
                 const placeholder = prop.placeholder || prop.default || '';
                 html += `
                     <label class="property-label">${prop.label}</label>
-                    <input type="text" class="property-input" 
+                    <input type="text" class="property-input"
                            value="${value}"
                            placeholder="${placeholder}"
                            onchange="window.updateNodeConfig('${nodeData.id}', '${prop.name}', this.value)">
+                `;
+            } else if (prop.type === 'link-channel') {
+                // Same as 'text', plus a <datalist> of known channel names (Link
+                // In/Out nodes) so users can pick an existing channel instead of
+                // retyping it. <datalist> never restricts input, so free-text
+                // entry keeps working. The datalist is populated after render by
+                // populateLinkChannelDatalists().
+                const value = nodeData.config[prop.name] !== undefined ? nodeData.config[prop.name] : (prop.default || '');
+                const placeholder = prop.placeholder || prop.default || '';
+                const listId = `link-channel-list-${nodeData.id}-${prop.name}`;
+                html += `
+                    <label class="property-label">${prop.label}</label>
+                    <input type="text" class="property-input"
+                           value="${value}"
+                           placeholder="${placeholder}"
+                           list="${listId}"
+                           onchange="window.updateNodeConfig('${nodeData.id}', '${prop.name}', this.value)">
+                    <datalist id="${listId}"></datalist>
                 `;
             } else if (prop.type === 'number') {
                 const value = nodeData.config[prop.name] !== undefined ? nodeData.config[prop.name] : (prop.default || 0);
@@ -248,9 +266,57 @@ export function renderProperties(nodeData) {
     }
     
     panel.innerHTML = html;
-    
+
     // Update property visibility based on current config
     window.updatePropertyVisibility(nodeData.id);
+
+    // Populate channel suggestions for any 'link-channel' property (Link
+    // In/Out nodes): fetches server-known channels and merges in channels
+    // typed into Link nodes elsewhere in the current editor state, so
+    // unsaved/undeployed channels show up too.
+    populateLinkChannelDatalists(nodeData);
+}
+
+/**
+ * Populate the <datalist> for every 'link-channel' property rendered on this
+ * node: union of server-known channels (GET /api/link-channels, which scans
+ * every workflow's working engine) and channels already present on
+ * LinkInNode/LinkOutNode configs in the current client-side editor state
+ * (state.nodes) - deduped and sorted. Free-text entry still works; this only
+ * adds suggestions.
+ */
+async function populateLinkChannelDatalists(nodeData) {
+    const nodeType = getNodeType(nodeData.type);
+    if (!nodeType || !nodeType.properties) return;
+    const linkChannelProps = nodeType.properties.filter(p => p.type === 'link-channel');
+    if (linkChannelProps.length === 0) return;
+
+    const clientChannels = new Set();
+    state.nodes.forEach(n => {
+        if (n.type === 'LinkInNode' || n.type === 'LinkOutNode') {
+            const ch = (n.config && n.config.channel != null ? String(n.config.channel) : '').trim();
+            if (ch) clientChannels.add(ch);
+        }
+    });
+
+    let serverChannels = [];
+    try {
+        const response = await fetch(`${API_BASE}/link-channels`);
+        const data = await response.json();
+        if (data && data.success && Array.isArray(data.channels)) {
+            serverChannels = data.channels;
+        }
+    } catch (error) {
+        console.error('Failed to load link channels:', error);
+    }
+
+    const merged = Array.from(new Set([...serverChannels, ...clientChannels])).sort();
+    const optionsHtml = merged.map(ch => `<option value="${escapeHtml(ch)}"></option>`).join('');
+
+    linkChannelProps.forEach(prop => {
+        const datalist = document.getElementById(`link-channel-list-${nodeData.id}-${prop.name}`);
+        if (datalist) datalist.innerHTML = optionsHtml;
+    });
 }
 
 export function updateNodeProperty(nodeId, property, value) {
