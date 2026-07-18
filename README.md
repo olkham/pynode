@@ -47,6 +47,12 @@ pip install "pynode-flow[full]"
 pynode
 ```
 
+or specify a port:
+
+```bash
+pynode --port 500
+```
+
 See [INSTALL.md](INSTALL.md) for the full list of extras (`vision`, `mqtt`,
 `camera`, `inference`, `vlm`, `upload`, `discovery`, `full`) and how to install
 per-node dependencies with `pynode-install-nodes`.
@@ -121,6 +127,15 @@ python -m pynode
 ### Open Your Browser
 
 Navigate to `http://localhost:5000`
+
+### Load an Example Workflow
+
+Ten ready-made learning workflows ship with PyNode — from a two-node hello
+world up to a camera → YOLO → filter → MQTT alert pipeline (including a "blur
+every detected person" privacy flow). Load any of them straight from the
+editor: **☰ menu → Examples → pick one**, then press **Deploy**. See
+[pynode/static/examples/README.md](pynode/static/examples/README.md) for the
+guided tour and per-example prerequisites.
 
 ### Data Directory
 

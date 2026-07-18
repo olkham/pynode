@@ -23,9 +23,24 @@ workflows_bp = Blueprint('workflows', __name__)
 
 @workflows_bp.route('/api/version', methods=['GET'])
 def get_version():
-    """Return the running PyNode version (for display in the UI)."""
-    from pynode import __version__
-    return jsonify({'success': True, 'version': __version__})
+    """Return the running PyNode version (for display in the UI).
+
+    Defensive on purpose: if the top-level ``pynode`` package resolves to a
+    namespace package (e.g. a stale, conflicting ``pynode`` distribution left
+    an ``__init__.py``-less folder in site-packages), ``from pynode import
+    __version__`` raises ImportError. Fall back to the installed distribution
+    metadata rather than returning a 500 for a purely cosmetic endpoint.
+    """
+    try:
+        from pynode import __version__ as version
+    except Exception:
+        try:
+            from importlib.metadata import version as _dist_version
+            version = _dist_version('pynode-flow')
+        except Exception:
+            logger.warning("Could not determine PyNode version", exc_info=True)
+            version = 'unknown'
+    return jsonify({'success': True, 'version': version})
 
 
 @workflows_bp.route('/api/workflows', methods=['GET'])

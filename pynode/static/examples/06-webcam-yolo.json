@@ -1,0 +1,75 @@
+{
+  "nodes": [
+    {
+      "id": "camera_main",
+      "type": "CameraNode",
+      "name": "Webcam",
+      "config": {
+        "device_index": 0,
+        "fps": 10,
+        "width": 640,
+        "height": 480,
+        "encode_jpeg": false,
+        "jpeg_quality": 75
+      },
+      "x": 80,
+      "y": 160
+    },
+    {
+      "id": "yolo_detect",
+      "type": "UltralyticsNode",
+      "name": "YOLO Detect",
+      "config": {
+        "model": "yolo11n.pt",
+        "confidence": "0.25",
+        "iou": "0.45",
+        "draw_results": "true",
+        "max_det": "300",
+        "include_image": true,
+        "include_predictions": true,
+        "drop_messages": "true",
+        "device": "cpu"
+      },
+      "x": 340,
+      "y": 160
+    },
+    {
+      "id": "viewer_annotated",
+      "type": "ImageViewerNode",
+      "name": "Detections",
+      "config": {
+        "width": 480,
+        "height": 360,
+        "image_path": "payload.image",
+        "drop_messages": true
+      },
+      "x": 600,
+      "y": 80
+    },
+    {
+      "id": "func_summary",
+      "type": "FunctionNode",
+      "name": "Summarize",
+      "config": {
+        "func": "p = msg.get('payload') or {}\nnames = [d.get('class_name', '?') for d in (p.get('detections') or [])]\ncounts = {}\nfor n in names:\n    counts[n] = counts.get(n, 0) + 1\nmsg['payload'] = {'total': len(names), 'by_class': counts}\nreturn msg",
+        "outputs": 1
+      },
+      "x": 600,
+      "y": 260
+    },
+    {
+      "id": "debug_summary",
+      "type": "DebugNode",
+      "name": "What was seen",
+      "config": { "console": false, "complete": "payload" },
+      "x": 860,
+      "y": 260
+    }
+  ],
+  "connections": [
+    { "source": "camera_main", "target": "yolo_detect", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "yolo_detect", "target": "viewer_annotated", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "yolo_detect", "target": "func_summary", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "func_summary", "target": "debug_summary", "sourceOutput": 0, "targetInput": 0 }
+  ]
+}

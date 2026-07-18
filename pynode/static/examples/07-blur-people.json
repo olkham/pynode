@@ -1,0 +1,95 @@
+{
+  "nodes": [
+    {
+      "id": "camera_main",
+      "type": "CameraNode",
+      "name": "Webcam",
+      "config": {
+        "device_index": 0,
+        "fps": 10,
+        "width": 640,
+        "height": 480,
+        "encode_jpeg": false,
+        "jpeg_quality": 75
+      },
+      "x": 80,
+      "y": 160
+    },
+    {
+      "id": "yolo_detect",
+      "type": "UltralyticsNode",
+      "name": "YOLO (no drawing)",
+      "config": {
+        "model": "yolo11n.pt",
+        "confidence": "0.35",
+        "iou": "0.45",
+        "draw_results": "false",
+        "max_det": "300",
+        "include_image": true,
+        "include_predictions": true,
+        "drop_messages": "true",
+        "device": "cpu"
+      },
+      "x": 340,
+      "y": 160
+    },
+    {
+      "id": "filter_person",
+      "type": "LabelFilterNode",
+      "name": "Only people",
+      "config": {
+        "labels": "person",
+        "match_mode": "any",
+        "case_sensitive": false,
+        "filter_detections": true,
+        "detections_path": "payload.detections"
+      },
+      "x": 600,
+      "y": 160
+    },
+    {
+      "id": "func_blur",
+      "type": "FunctionNode",
+      "name": "Blur detections",
+      "config": {
+        "func": "import cv2\nimport numpy as np\np = msg.get('payload') or {}\nimg = p.get('image')\ndets = p.get('detections') or []\nif not isinstance(img, np.ndarray):\n    return msg\nh, w = img.shape[:2]\nfor d in dets:\n    bbox = d.get('bbox') or []\n    if len(bbox) != 4:\n        continue\n    x1, y1, x2, y2 = [int(round(v)) for v in bbox]\n    x1 = max(0, min(x1, w - 1)); x2 = max(x1 + 1, min(x2, w))\n    y1 = max(0, min(y1, h - 1)); y2 = max(y1 + 1, min(y2, h))\n    k = max(9, ((x2 - x1) // 4)) | 1\n    p['image'][y1:y2, x1:x2] = cv2.GaussianBlur(img[y1:y2, x1:x2], (k, k), 0)\nreturn msg",
+        "outputs": 1
+      },
+      "x": 860,
+      "y": 160
+    },
+    {
+      "id": "viewer_blurred",
+      "type": "ImageViewerNode",
+      "name": "Privacy View",
+      "config": {
+        "width": 480,
+        "height": 360,
+        "image_path": "payload.image",
+        "drop_messages": true
+      },
+      "x": 1120,
+      "y": 160
+    },
+    {
+      "id": "viewer_no_person",
+      "type": "ImageViewerNode",
+      "name": "No person seen",
+      "config": {
+        "width": 320,
+        "height": 240,
+        "image_path": "payload.image",
+        "drop_messages": true
+      },
+      "x": 860,
+      "y": 340
+    }
+  ],
+  "connections": [
+    { "source": "camera_main", "target": "yolo_detect", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "yolo_detect", "target": "filter_person", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "filter_person", "target": "func_blur", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "func_blur", "target": "viewer_blurred", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "filter_person", "target": "viewer_no_person", "sourceOutput": 1, "targetInput": 0 }
+  ]
+}

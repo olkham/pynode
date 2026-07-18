@@ -36,7 +36,11 @@ async function loadVersion() {
         const data = await response.json();
         const el = document.getElementById('app-version');
         if (el && data.version) {
-            el.textContent = `v${data.version}`;
+            // Show only the release part ("0.2.2.dev0+g46a6184ff" -> "v0.2.2");
+            // keep the full version available as a tooltip.
+            const short = (String(data.version).match(/^\d+\.\d+(?:\.\d+)?/) || [data.version])[0];
+            el.textContent = `v${short}`;
+            el.title = `v${data.version}`;
         }
     } catch (error) {
         console.warn('Could not load version:', error);

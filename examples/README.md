@@ -2,6 +2,11 @@
 
 This directory contains example Python scripts that demonstrate how to use PyNode workflows programmatically without the UI.
 
+> Looking for **GUI-loadable** examples instead? PyNode ships ten example
+> workflows you can load from the editor's **☰ menu → Examples**. Their source
+> and a guided tour live in
+> [pynode/static/examples/](../pynode/static/examples/README.md).
+
 ## Examples
 
 ### 1. `camera_workflow.py` - Simple Camera Display

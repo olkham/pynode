@@ -1,0 +1,56 @@
+{
+  "nodes": [
+    {
+      "id": "inject_message",
+      "type": "InjectNode",
+      "name": "Every 5s",
+      "config": {
+        "props": [
+          { "property": "payload", "value": "hello from PyNode", "valueType": "str" }
+        ],
+        "topic": "",
+        "once": "",
+        "repeat": "5"
+      },
+      "x": 80,
+      "y": 100
+    },
+    {
+      "id": "mqtt_publish",
+      "type": "MqttOutNode",
+      "name": "Publish",
+      "config": {
+        "serviceId": "04aed763",
+        "topic": "pynode/demo/greeting",
+        "qos": "0",
+        "retain": "false"
+      },
+      "x": 340,
+      "y": 100
+    },
+    {
+      "id": "mqtt_subscribe",
+      "type": "MqttInNode",
+      "name": "Subscribe pynode/demo/#",
+      "config": {
+        "serviceId": "04aed763",
+        "topic": "pynode/demo/#",
+        "qos": "0"
+      },
+      "x": 80,
+      "y": 260
+    },
+    {
+      "id": "debug_received",
+      "type": "DebugNode",
+      "name": "Received",
+      "config": { "console": true, "complete": "msg" },
+      "x": 340,
+      "y": 260
+    }
+  ],
+  "connections": [
+    { "source": "inject_message", "target": "mqtt_publish", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "mqtt_subscribe", "target": "debug_received", "sourceOutput": 0, "targetInput": 0 }
+  ]
+}

@@ -2,13 +2,71 @@
 import { state } from './state.js';
 import { createNode, deleteNode, deleteNodeAndReconnect, snapNodeToGrid } from './nodes.js';
 import { deselectNode, deselectAllNodes, selectNode } from './selection.js';
-import { deployWorkflow, deployWorkflowFull, restartWorkflow, stopWorkflow, clearWorkflow, exportWorkflow, importWorkflow } from './workflow.js';
+import { deployWorkflow, deployWorkflowFull, restartWorkflow, stopWorkflow, clearWorkflow, exportWorkflow, importWorkflow, fetchExamples, loadExampleWorkflow } from './workflow.js';
 import { clearDebug, toggleDebugPaused } from './debug.js';
 import { getConnectionAtPoint, highlightConnectionForInsert, clearConnectionHighlight, getHoveredConnection, insertNodeIntoConnection } from './connections.js';
 import { clientToCanvas, getZoom } from './viewport.js';
 
 // Track deploy mode: 'modified' or 'full'
 let deployMode = 'modified';
+
+// Populate the Examples submenu from the bundled manifest on first open, then
+// cache. Kept standalone (looks elements up by id) so it does not depend on the
+// setupEventListeners closure.
+function setupExamplesSubmenu() {
+    const submenu = document.getElementById('examples-btn')?.closest('.menu-submenu');
+    const listEl = document.getElementById('examples-list');
+    if (!submenu || !listEl) return;
+
+    let loaded = false;
+
+    const closeMenu = () => {
+        document.getElementById('menu-dropdown')?.classList.add('hidden');
+        document.getElementById('examples-submenu')?.classList.add('hidden');
+    };
+
+    const populate = async () => {
+        if (loaded) return;
+        loaded = true;  // guard against concurrent hovers; reset on error below
+        try {
+            const examples = await fetchExamples();
+            listEl.innerHTML = '';
+            if (!examples.length) {
+                listEl.innerHTML = '<div class="examples-placeholder">No examples found</div>';
+                return;
+            }
+            examples.forEach(example => {
+                const item = document.createElement('button');
+                item.className = 'menu-item example-item';
+                item.title = example.description || '';
+                item.innerHTML =
+                    `<span class="example-title">${escapeHtml(example.title || example.id)}</span>` +
+                    (example.description ? `<span class="example-desc">${escapeHtml(example.description)}</span>` : '') +
+                    (example.requires ? `<span class="example-requires">${escapeHtml(example.requires)}</span>` : '');
+                item.addEventListener('click', async () => {
+                    closeMenu();
+                    await loadExampleWorkflow(example);
+                });
+                listEl.appendChild(item);
+            });
+        } catch (error) {
+            console.error('Failed to load examples:', error);
+            listEl.innerHTML = '<div class="examples-placeholder">Could not load examples</div>';
+            loaded = false;  // allow a retry next time the submenu opens
+        }
+    };
+
+    // Trigger population the first time the user reaches for the submenu.
+    submenu.addEventListener('mouseenter', populate);
+    submenu.addEventListener('focusin', populate);
+    document.getElementById('examples-btn')?.addEventListener('click', populate);
+}
+
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = String(str);
+    return div.innerHTML;
+}
 
 export function setupEventListeners() {
     const nodesContainer = document.getElementById('nodes-container');
@@ -59,6 +117,11 @@ export function setupEventListeners() {
     }
 
     document.getElementById('import-btn').addEventListener('click', importWorkflow);
+
+    // Examples submenu: lazily populated from the bundled manifest the first
+    // time the user opens it, then cached.
+    setupExamplesSubmenu();
+
     document.getElementById('clear-debug-btn').addEventListener('click', clearDebug);
 
     // Pause/resume debug list updates. While paused the button pulses and

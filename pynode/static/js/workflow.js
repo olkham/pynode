@@ -1,6 +1,6 @@
 // Workflow import/export and deployment
 import { API_BASE } from './config.js';
-import { state, setModified, setWorkflowStopped, clearAllNodeModifiedIndicators, clearChangeTracking, hasChanges, getNodeType } from './state.js';
+import { state, setModified, setWorkflowStopped, clearAllNodeModifiedIndicators, clearChangeTracking, hasChanges, getNodeType, markNodeAdded, markConnectionAdded } from './state.js';
 import { renderNode } from './nodes.js';
 import { updateConnections } from './connections.js';
 import { showToast } from './ui-utils.js';
@@ -412,58 +412,95 @@ export function exportSelected() {
     }
 }
 
+// Load a parsed workflow object into a brand-new workflow tab. Shared by
+// file import and example loading so both behave identically.
+export async function loadWorkflowObject(workflow, name) {
+    if (!workflow || !Array.isArray(workflow.nodes)) {
+        throw new Error('Invalid workflow: missing "nodes" array');
+    }
+
+    // Import creates a new workflow tab
+    const { createNewWorkflow } = await import('./workflows.js');
+    await createNewWorkflow(name);
+
+    // Now populate the new (now active) workflow with imported data
+    state.nodes.clear();
+    state.connections = [];
+    document.getElementById('nodes-container').innerHTML = '';
+    document.getElementById('connections').innerHTML = '';
+
+    workflow.nodes.forEach(nodeData => {
+        enrichNodeWithTypeInfo(nodeData);
+        state.nodes.set(nodeData.id, nodeData);
+        renderNode(nodeData);
+        // Register with change tracking: the default "Deploy modified" mode
+        // sends only tracked changes, so without this the backend never
+        // learns about the imported nodes and node actions 404.
+        markNodeAdded(nodeData.id);
+    });
+
+    (workflow.connections || []).forEach(conn => {
+        state.connections.push(conn);
+        markConnectionAdded(conn);
+    });
+
+    // Render all connections after nodes are in DOM
+    updateConnections();
+
+    // Clear history after importing workflow
+    import('./history.js').then(({ clearHistory }) => {
+        clearHistory();
+    });
+
+    setModified(true);
+}
+
 export function importWorkflow() {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'application/json';
-    
+
     input.onchange = async (e) => {
         const file = e.target.files[0];
         const text = await file.text();
-        const workflow = JSON.parse(text);
-        
+
         try {
-            // Import creates a new workflow tab
-            const { createNewWorkflow } = await import('./workflows.js');
-            
+            const workflow = JSON.parse(text);
             // Derive name from filename (strip .json)
-            let name = file.name.replace(/\.json$/i, '');
-            
-            // Create new workflow
-            await createNewWorkflow(name);
-            
-            // Now populate the new (now active) workflow with imported data
-            state.nodes.clear();
-            state.connections = [];
-            document.getElementById('nodes-container').innerHTML = '';
-            document.getElementById('connections').innerHTML = '';
-            
-            workflow.nodes.forEach(nodeData => {
-                enrichNodeWithTypeInfo(nodeData);
-                
-                state.nodes.set(nodeData.id, nodeData);
-                renderNode(nodeData);
-            });
-            
-            workflow.connections.forEach(conn => {
-                state.connections.push(conn);
-            });
-            
-            // Render all connections after nodes are in DOM
-            updateConnections();
-            
-            // Clear history after importing workflow
-            import('./history.js').then(({ clearHistory }) => {
-                clearHistory();
-            });
-            
-            setModified(true);
+            const name = file.name.replace(/\.json$/i, '');
+            await loadWorkflowObject(workflow, name);
             showToast('Workflow imported into new tab. Deploy to activate.');
         } catch (error) {
             console.error('Failed to import workflow:', error);
             showToast('Failed to import workflow');
         }
     };
-    
+
     input.click();
+}
+
+// Fetch the bundled example manifest (served from static/examples/).
+export async function fetchExamples() {
+    const response = await fetch('examples/manifest.json', { cache: 'no-cache' });
+    if (!response.ok) {
+        throw new Error(`Failed to load examples manifest (${response.status})`);
+    }
+    const data = await response.json();
+    return data.examples || [];
+}
+
+// Load one bundled example workflow (by manifest entry) into a new tab.
+export async function loadExampleWorkflow(example) {
+    try {
+        const response = await fetch(`examples/${example.file}`, { cache: 'no-cache' });
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        const workflow = await response.json();
+        await loadWorkflowObject(workflow, example.title || example.id);
+        showToast(`Loaded example "${example.title || example.id}". Deploy to activate.`);
+    } catch (error) {
+        console.error('Failed to load example workflow:', error);
+        showToast('Failed to load example');
+    }
 }

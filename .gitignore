@@ -150,6 +150,8 @@ Thumbs.db
 
 # Project specific - ignore all JSON files (workflows and backups)
 *.json
+# ...but keep the bundled, GUI-loadable example workflows
+!pynode/static/examples/*.json
 
 # PyTorch model files
 *.pt

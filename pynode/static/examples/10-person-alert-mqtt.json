@@ -1,0 +1,134 @@
+{
+  "nodes": [
+    {
+      "id": "camera_main",
+      "type": "CameraNode",
+      "name": "Webcam",
+      "config": {
+        "device_index": 0,
+        "fps": 5,
+        "width": 640,
+        "height": 480,
+        "encode_jpeg": false,
+        "jpeg_quality": 75
+      },
+      "x": 80,
+      "y": 160
+    },
+    {
+      "id": "yolo_detect",
+      "type": "UltralyticsNode",
+      "name": "YOLO Detect",
+      "config": {
+        "model": "yolo11n.pt",
+        "confidence": "0.25",
+        "iou": "0.45",
+        "draw_results": "false",
+        "max_det": "50",
+        "include_image": false,
+        "include_predictions": true,
+        "drop_messages": "true",
+        "device": "cpu"
+      },
+      "x": 340,
+      "y": 160
+    },
+    {
+      "id": "filter_confidence",
+      "type": "ConfidenceFilterNode",
+      "name": "Confidence >= 0.6",
+      "config": {
+        "threshold_source": "manual",
+        "threshold": 0.6,
+        "detections_path": "payload.detections",
+        "confidence_field": "confidence"
+      },
+      "x": 600,
+      "y": 160
+    },
+    {
+      "id": "filter_person",
+      "type": "LabelFilterNode",
+      "name": "Only people",
+      "config": {
+        "labels": "person",
+        "match_mode": "any",
+        "case_sensitive": false,
+        "filter_detections": true,
+        "detections_path": "payload.detections"
+      },
+      "x": 860,
+      "y": 160
+    },
+    {
+      "id": "func_alert",
+      "type": "FunctionNode",
+      "name": "Build alert",
+      "config": {
+        "func": "p = msg.get('payload') or {}\ndets = p.get('detections') or []\nconfs = [d.get('confidence', 0) for d in dets]\nmsg['payload'] = {\n    'alert': 'person_detected',\n    'person_count': len(dets),\n    'max_confidence': round(max(confs), 3) if confs else 0,\n    'timestamp': time.time()\n}\nreturn msg",
+        "outputs": 1
+      },
+      "x": 1120,
+      "y": 160
+    },
+    {
+      "id": "switch_has_person",
+      "type": "SwitchNode",
+      "name": "Any person?",
+      "config": {
+        "property": "payload.person_count",
+        "checkall": false,
+        "rules": [
+          { "operator": "gt", "value": "0", "valueType": "num" }
+        ]
+      },
+      "x": 1380,
+      "y": 160
+    },
+    {
+      "id": "delay_throttle",
+      "type": "DelayNode",
+      "name": "Max 1 alert / 5s",
+      "config": {
+        "mode": "rate",
+        "timeout": 0,
+        "rate": 1,
+        "rate_time": 5,
+        "rate_drop": "drop"
+      },
+      "x": 1640,
+      "y": 100
+    },
+    {
+      "id": "mqtt_alert",
+      "type": "MqttOutNode",
+      "name": "Publish alert",
+      "config": {
+        "serviceId": "04aed763",
+        "topic": "pynode/alerts/person",
+        "qos": "0",
+        "retain": "false"
+      },
+      "x": 1900,
+      "y": 100
+    },
+    {
+      "id": "debug_alert",
+      "type": "DebugNode",
+      "name": "Alert log",
+      "config": { "console": false, "complete": "payload" },
+      "x": 1640,
+      "y": 260
+    }
+  ],
+  "connections": [
+    { "source": "camera_main", "target": "yolo_detect", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "yolo_detect", "target": "filter_confidence", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "filter_confidence", "target": "filter_person", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "filter_person", "target": "func_alert", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "func_alert", "target": "switch_has_person", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "switch_has_person", "target": "delay_throttle", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "delay_throttle", "target": "mqtt_alert", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "switch_has_person", "target": "debug_alert", "sourceOutput": 0, "targetInput": 0 }
+  ]
+}

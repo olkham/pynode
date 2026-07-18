@@ -1,0 +1,35 @@
+{
+  "nodes": [
+    {
+      "id": "camera_main",
+      "type": "CameraNode",
+      "name": "Webcam",
+      "config": {
+        "device_index": 0,
+        "fps": 15,
+        "width": 640,
+        "height": 480,
+        "encode_jpeg": false,
+        "jpeg_quality": 75
+      },
+      "x": 80,
+      "y": 140
+    },
+    {
+      "id": "viewer_main",
+      "type": "ImageViewerNode",
+      "name": "Live View",
+      "config": {
+        "width": 480,
+        "height": 360,
+        "image_path": "payload.image",
+        "drop_messages": true
+      },
+      "x": 340,
+      "y": 140
+    }
+  ],
+  "connections": [
+    { "source": "camera_main", "target": "viewer_main", "sourceOutput": 0, "targetInput": 0 }
+  ]
+}

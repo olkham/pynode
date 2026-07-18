@@ -1,0 +1,80 @@
+{
+  "nodes": [
+    {
+      "id": "inject_tick",
+      "type": "InjectNode",
+      "name": "Every 1s",
+      "config": {
+        "props": [
+          { "property": "payload", "value": "", "valueType": "date" }
+        ],
+        "topic": "",
+        "once": "",
+        "repeat": "1"
+      },
+      "x": 80,
+      "y": 160
+    },
+    {
+      "id": "func_random",
+      "type": "FunctionNode",
+      "name": "Random 0-1",
+      "config": {
+        "func": "import random\nmsg['payload'] = round(random.random(), 3)\nreturn msg",
+        "outputs": 1
+      },
+      "x": 340,
+      "y": 160
+    },
+    {
+      "id": "switch_split",
+      "type": "SwitchNode",
+      "name": "High or Low?",
+      "config": {
+        "property": "payload",
+        "checkall": false,
+        "rules": [
+          { "operator": "gte", "value": "0.5", "valueType": "num" },
+          { "operator": "else", "value": "", "valueType": "str" }
+        ]
+      },
+      "x": 600,
+      "y": 160
+    },
+    {
+      "id": "change_tag_high",
+      "type": "ChangeNode",
+      "name": "Tag as high",
+      "config": {
+        "rules": [
+          { "type": "set", "path": "msg.topic", "value": "high-roll", "valueType": "str" }
+        ]
+      },
+      "x": 860,
+      "y": 80
+    },
+    {
+      "id": "debug_high",
+      "type": "DebugNode",
+      "name": "High (>= 0.5)",
+      "config": { "console": true, "complete": "msg" },
+      "x": 1120,
+      "y": 80
+    },
+    {
+      "id": "debug_low",
+      "type": "DebugNode",
+      "name": "Low (< 0.5)",
+      "config": { "console": true, "complete": "payload" },
+      "x": 860,
+      "y": 240
+    }
+  ],
+  "connections": [
+    { "source": "inject_tick", "target": "func_random", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "func_random", "target": "switch_split", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "switch_split", "target": "change_tag_high", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "change_tag_high", "target": "debug_high", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "switch_split", "target": "debug_low", "sourceOutput": 1, "targetInput": 0 }
+  ]
+}

@@ -16,6 +16,16 @@ pip install "pynode-flow[full]"
 Nodes whose optional dependencies are missing are simply skipped at startup, so
 a core-only install still runs fine.
 
+> **Warning — conflicting `pynode` package:** an unrelated project on PyPI is
+> named `pynode`, and it also installs a top-level `pynode` package. If it is
+> present in the same environment the two clobber each other (symptoms include
+> `ImportError: cannot import name '__version__' from 'pynode' (unknown
+> location)`). Remove it before or after installing:
+>
+> ```bash
+> pip uninstall pynode
+> ```
+
 ### Optional extras
 
 Install only the node groups you need:

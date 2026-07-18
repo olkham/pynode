@@ -1,0 +1,45 @@
+{
+  "nodes": [
+    {
+      "id": "inject_number",
+      "type": "InjectNode",
+      "name": "Every 2s: send 5",
+      "config": {
+        "props": [
+          { "property": "payload", "value": "5", "valueType": "num" }
+        ],
+        "topic": "numbers",
+        "once": "",
+        "repeat": "2"
+      },
+      "x": 80,
+      "y": 120
+    },
+    {
+      "id": "func_transform",
+      "type": "FunctionNode",
+      "name": "Transform",
+      "config": {
+        "func": "value = float(msg.get('payload') or 0)\nmsg['payload'] = {\n    'input': value,\n    'doubled': value * 2,\n    'squared': value ** 2,\n    'at': time.strftime('%H:%M:%S')\n}\nreturn msg",
+        "outputs": 1
+      },
+      "x": 340,
+      "y": 120
+    },
+    {
+      "id": "debug_result",
+      "type": "DebugNode",
+      "name": "Result",
+      "config": {
+        "console": true,
+        "complete": "payload"
+      },
+      "x": 600,
+      "y": 120
+    }
+  ],
+  "connections": [
+    { "source": "inject_number", "target": "func_transform", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "func_transform", "target": "debug_result", "sourceOutput": 0, "targetInput": 0 }
+  ]
+}

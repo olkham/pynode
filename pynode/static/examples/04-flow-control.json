@@ -1,0 +1,76 @@
+{
+  "nodes": [
+    {
+      "id": "inject_fast",
+      "type": "InjectNode",
+      "name": "Every 0.5s",
+      "config": {
+        "props": [
+          { "property": "payload", "value": "tick", "valueType": "str" }
+        ],
+        "topic": "ticks",
+        "once": "",
+        "repeat": "0.5"
+      },
+      "x": 80,
+      "y": 140
+    },
+    {
+      "id": "gate_main",
+      "type": "GateNode",
+      "name": "Gate (toggle me)",
+      "config": {},
+      "x": 340,
+      "y": 140
+    },
+    {
+      "id": "delay_ratelimit",
+      "type": "DelayNode",
+      "name": "Limit 1 msg/s",
+      "config": {
+        "mode": "rate",
+        "timeout": 0,
+        "rate": 1,
+        "rate_time": 1,
+        "rate_drop": "drop"
+      },
+      "x": 600,
+      "y": 140
+    },
+    {
+      "id": "rate_probe",
+      "type": "RateProbeNode",
+      "name": "Rate (msg/s)",
+      "config": { "window_size": 5.0 },
+      "x": 860,
+      "y": 140
+    },
+    {
+      "id": "counter_msgs",
+      "type": "CounterNode",
+      "name": "Count",
+      "config": {
+        "initial_value": "0",
+        "increment": "1",
+        "retain_payload": "false"
+      },
+      "x": 1120,
+      "y": 140
+    },
+    {
+      "id": "debug_out",
+      "type": "DebugNode",
+      "name": "Output",
+      "config": { "console": false, "complete": "payload" },
+      "x": 1380,
+      "y": 140
+    }
+  ],
+  "connections": [
+    { "source": "inject_fast", "target": "gate_main", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "gate_main", "target": "delay_ratelimit", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "delay_ratelimit", "target": "rate_probe", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "rate_probe", "target": "counter_msgs", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "counter_msgs", "target": "debug_out", "sourceOutput": 0, "targetInput": 0 }
+  ]
+}

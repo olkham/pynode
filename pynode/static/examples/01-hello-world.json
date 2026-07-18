@@ -1,0 +1,33 @@
+{
+  "nodes": [
+    {
+      "id": "inject_hello",
+      "type": "InjectNode",
+      "name": "Say Hello",
+      "config": {
+        "props": [
+          { "property": "payload", "value": "Hello, PyNode!", "valueType": "str" }
+        ],
+        "topic": "greetings",
+        "once": "",
+        "repeat": ""
+      },
+      "x": 80,
+      "y": 120
+    },
+    {
+      "id": "debug_hello",
+      "type": "DebugNode",
+      "name": "Show Message",
+      "config": {
+        "console": true,
+        "complete": "msg"
+      },
+      "x": 340,
+      "y": 120
+    }
+  ],
+  "connections": [
+    { "source": "inject_hello", "target": "debug_hello", "sourceOutput": 0, "targetInput": 0 }
+  ]
+}

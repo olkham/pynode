@@ -1,0 +1,74 @@
+{
+  "examples": [
+    {
+      "id": "01-hello-world",
+      "file": "01-hello-world.json",
+      "title": "1 · Hello World",
+      "description": "The smallest flow: Inject to Debug. Press the inject button and watch the Debug panel.",
+      "requires": "core"
+    },
+    {
+      "id": "02-function-transform",
+      "file": "02-function-transform.json",
+      "title": "2 · Function Transform",
+      "description": "Write Python in a FunctionNode to reshape the message payload. Fires every 2s.",
+      "requires": "core"
+    },
+    {
+      "id": "03-switch-routing",
+      "file": "03-switch-routing.json",
+      "title": "3 · Switch Routing",
+      "description": "Route a random number to different outputs with SwitchNode; tag one branch with ChangeNode.",
+      "requires": "core"
+    },
+    {
+      "id": "04-flow-control",
+      "file": "04-flow-control.json",
+      "title": "4 · Flow Control",
+      "description": "Gate (toggle live), Delay rate-limiting, RateProbe and Counter for back-pressure.",
+      "requires": "core"
+    },
+    {
+      "id": "05-webcam-viewer",
+      "file": "05-webcam-viewer.json",
+      "title": "5 · Webcam Viewer",
+      "description": "First vision flow: Camera to ImageViewer. Needs a webcam and the vision extra.",
+      "requires": "vision + webcam"
+    },
+    {
+      "id": "06-webcam-yolo",
+      "file": "06-webcam-yolo.json",
+      "title": "6 · Webcam + YOLO",
+      "description": "YOLO object detection with an annotated view plus a detection-summary debug branch.",
+      "requires": "vision + webcam"
+    },
+    {
+      "id": "07-blur-people",
+      "file": "07-blur-people.json",
+      "title": "7 · Blur People (privacy)",
+      "description": "Detect, filter to the 'person' class, then Gaussian-blur each detection box.",
+      "requires": "vision + webcam"
+    },
+    {
+      "id": "08-video-yolo-recorder",
+      "file": "08-video-yolo-recorder.json",
+      "title": "8 · Video + YOLO Recorder",
+      "description": "VideoReader to YOLO to preview and VideoWriter. Pick a video file in the reader's properties first.",
+      "requires": "vision + video file"
+    },
+    {
+      "id": "09-mqtt-pub-sub",
+      "file": "09-mqtt-pub-sub.json",
+      "title": "9 · MQTT Pub/Sub",
+      "description": "Publish every 5s and receive it back on a wildcard subscription. Pick a broker in the MQTT nodes.",
+      "requires": "mqtt + broker"
+    },
+    {
+      "id": "10-person-alert-mqtt",
+      "file": "10-person-alert-mqtt.json",
+      "title": "10 · Person Alert to MQTT",
+      "description": "Capstone: camera to YOLO to confidence/label filters to a rate-limited MQTT alert.",
+      "requires": "vision + mqtt + webcam"
+    }
+  ]
+}

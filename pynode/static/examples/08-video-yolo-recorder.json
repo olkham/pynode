@@ -1,0 +1,73 @@
+{
+  "nodes": [
+    {
+      "id": "video_in",
+      "type": "VideoReaderNode",
+      "name": "Video File (pick one!)",
+      "config": {
+        "source": "",
+        "fps": 0,
+        "loop": true,
+        "jpeg_quality": 80
+      },
+      "x": 80,
+      "y": 160
+    },
+    {
+      "id": "yolo_detect",
+      "type": "UltralyticsNode",
+      "name": "YOLO Detect",
+      "config": {
+        "model": "yolo11n.pt",
+        "confidence": "0.25",
+        "iou": "0.45",
+        "draw_results": "true",
+        "max_det": "300",
+        "include_image": true,
+        "include_predictions": true,
+        "drop_messages": "true",
+        "device": "cpu"
+      },
+      "x": 340,
+      "y": 160
+    },
+    {
+      "id": "viewer_live",
+      "type": "ImageViewerNode",
+      "name": "Preview",
+      "config": {
+        "width": 480,
+        "height": 360,
+        "image_path": "payload.image",
+        "drop_messages": true
+      },
+      "x": 600,
+      "y": 80
+    },
+    {
+      "id": "video_out",
+      "type": "VideoWriterNode",
+      "name": "Record annotated video",
+      "config": {
+        "path": "./output",
+        "filename": "yolo_demo_{counter}",
+        "codec": "mp4v",
+        "framerate": 30.0,
+        "width": 1280,
+        "height": 720,
+        "auto_resolution": true,
+        "clip_length": 0,
+        "naming_mode": "counter",
+        "counter_digits": 4,
+        "resize_method": "fit"
+      },
+      "x": 600,
+      "y": 260
+    }
+  ],
+  "connections": [
+    { "source": "video_in", "target": "yolo_detect", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "yolo_detect", "target": "viewer_live", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "yolo_detect", "target": "video_out", "sourceOutput": 0, "targetInput": 0 }
+  ]
+}
