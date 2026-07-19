@@ -1,14 +1,25 @@
 """
-Node-RED Node package - a high-performance PyNode <-> Node-RED UDP bridge.
+Node-RED Node package - high-performance PyNode <-> Node-RED bridges.
 
-``NodeRedOutNode`` / ``NodeRedInNode`` send/receive messages using the PNB1
-wire protocol implemented in ``bridge_protocol.py`` (pure, stdlib-only,
-shared by both nodes and their tests). The ``nodered/`` subfolder contains
-the matching Node-RED-side flow (importable JSON + README) that implements
-the same protocol with core Node-RED nodes only.
+Two transports, same message semantics:
+
+* ``NodeRedOutNode`` / ``NodeRedInNode`` - chunked UDP using the PNB1 wire
+  protocol in ``bridge_protocol.py``. Binary-native and drop-friendly; best
+  for sustained high-rate video frames. The Node-RED side needs the bundled
+  function-node flow.
+* ``NodeRedTcpOutNode`` / ``NodeRedTcpInNode`` - newline-delimited JSON over
+  TCP (``ndjson_protocol.py``). Reliable/ordered and needs ZERO custom
+  Node-RED code to receive (core tcp-in + json nodes); best for
+  control/telemetry/detections.
+
+The ``nodered/`` subfolder contains the matching Node-RED-side flow
+(importable JSON + README) covering both transports with core nodes only.
 """
 
 from .nodered_out_node import NodeRedOutNode
 from .nodered_in_node import NodeRedInNode
+from .nodered_tcp_out_node import NodeRedTcpOutNode
+from .nodered_tcp_in_node import NodeRedTcpInNode
 
-__all__ = ['NodeRedOutNode', 'NodeRedInNode']
+__all__ = ['NodeRedOutNode', 'NodeRedInNode',
+           'NodeRedTcpOutNode', 'NodeRedTcpInNode']

@@ -147,5 +147,172 @@
         "x": 680,
         "y": 340,
         "wires": []
+    },
+    {
+        "id": "pnbtcp000000tab1",
+        "type": "tab",
+        "label": "PyNode Bridge (TCP/NDJSON)",
+        "disabled": false,
+        "info": "TCP/NDJSON transport: reliable, ordered, zero custom decode code. Pair with PyNode's 'Node-RED TCP Out' (default port 7403) and 'Node-RED TCP In' (default port 7404) nodes."
+    },
+    {
+        "id": "pnbtcp00comment1",
+        "type": "comment",
+        "z": "pnbtcp000000tab1",
+        "name": "PyNode -> Node-RED (PyNode 'Node-RED TCP Out' connects here)",
+        "info": "",
+        "x": 260,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "pnbtcp0000tcpin1",
+        "type": "tcp in",
+        "z": "pnbtcp000000tab1",
+        "name": "NDJSON TCP in (from PyNode)",
+        "server": "server",
+        "host": "",
+        "port": "7403",
+        "datamode": "stream",
+        "datatype": "utf8",
+        "newline": "\n",
+        "topic": "",
+        "trim": true,
+        "base64": false,
+        "tls": "",
+        "x": 150,
+        "y": 100,
+        "wires": [
+            [
+                "pnbtcp0000json01"
+            ]
+        ]
+    },
+    {
+        "id": "pnbtcp0000json01",
+        "type": "json",
+        "z": "pnbtcp000000tab1",
+        "name": "parse line",
+        "property": "payload",
+        "action": "obj",
+        "pretty": false,
+        "x": 350,
+        "y": 100,
+        "wires": [
+            [
+                "pnbtcp00promote1"
+            ]
+        ]
+    },
+    {
+        "id": "pnbtcp00promote1",
+        "type": "function",
+        "z": "pnbtcp000000tab1",
+        "name": "promote to msg (optional)",
+        "func": "// Optional: promote the bridged message to the top level so the Node-RED msg\n// replicates the PyNode msg exactly (payload/topic/_msgid/... as msg.*).\n// Delete this node if you prefer the whole object in msg.payload.\nvar m = msg.payload;\nif (m && typeof m === 'object' && !Array.isArray(m) && 'payload' in m) {\n    return m;\n}\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 560,
+        "y": 100,
+        "wires": [
+            [
+                "pnbtcp000debug01"
+            ]
+        ]
+    },
+    {
+        "id": "pnbtcp000debug01",
+        "type": "debug",
+        "z": "pnbtcp000000tab1",
+        "name": "NDJSON in debug",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 780,
+        "y": 100,
+        "wires": []
+    },
+    {
+        "id": "pnbtcp00comment2",
+        "type": "comment",
+        "z": "pnbtcp000000tab1",
+        "name": "Node-RED -> PyNode (set tcp out host to the PyNode machine)",
+        "info": "",
+        "x": 250,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "pnbtcp00inject01",
+        "type": "inject",
+        "z": "pnbtcp000000tab1",
+        "name": "Sample message",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "nodered/tcp/demo",
+        "payload": "{\"hello\":\"from node-red over tcp\"}",
+        "payloadType": "json",
+        "x": 140,
+        "y": 260,
+        "wires": [
+            [
+                "pnbtcp00string01"
+            ]
+        ]
+    },
+    {
+        "id": "pnbtcp00string01",
+        "type": "function",
+        "z": "pnbtcp000000tab1",
+        "name": "NDJSON stringify",
+        "func": "// One JSON object per line; the newline is the framing. topic is optional.\nmsg.payload = JSON.stringify({payload: msg.payload, topic: msg.topic || ''}) + \"\n\";\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 340,
+        "y": 260,
+        "wires": [
+            [
+                "pnbtcp000tcpout1"
+            ]
+        ]
+    },
+    {
+        "id": "pnbtcp000tcpout1",
+        "type": "tcp out",
+        "z": "pnbtcp000000tab1",
+        "name": "NDJSON TCP out (to PyNode)",
+        "host": "127.0.0.1",
+        "port": "7404",
+        "beserver": "client",
+        "base64": false,
+        "end": false,
+        "tls": "",
+        "x": 560,
+        "y": 260,
+        "wires": []
     }
 ]

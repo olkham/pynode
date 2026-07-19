@@ -679,7 +679,8 @@ def test_flow_json_constants_match_python():
     bridge_protocol.py - this is the only automated guard against the JS
     mirror silently drifting from the Python implementation it must match."""
     data = _load_flow()
-    func_src = {n['name']: n['func'] for n in data if n['type'] == 'function'}
+    func_src = {n['name']: n['func'] for n in data if n['type'] == 'function'
+                and n['name'].startswith('PNB1')}
     assert 'PNB1 reassemble' in func_src and 'PNB1 chunk+send' in func_src
 
     for name, js in func_src.items():
@@ -713,3 +714,195 @@ def test_flow_json_header_offsets_match_struct_layout():
     write_offsets = set(re.findall(r'write(?:UInt8|UInt16BE|UInt32BE)\([^,]+,\s*(\d+)\)',
                                    func_src['PNB1 chunk+send']))
     assert expected_offsets <= write_offsets, f"missing header field writes: {expected_offsets - write_offsets}"
+
+
+# ===========================================================================
+# TCP/NDJSON transport (ndjson_protocol + NodeRedTcpOutNode/NodeRedTcpInNode)
+# ===========================================================================
+
+from pynode.nodes.NodeRedNode import ndjson_protocol as ndj  # noqa: E402
+from pynode.nodes.NodeRedNode.nodered_tcp_in_node import NodeRedTcpInNode  # noqa: E402
+from pynode.nodes.NodeRedNode.nodered_tcp_out_node import NodeRedTcpOutNode  # noqa: E402
+
+
+def _make_tcp_in_node(sink):
+    """A started NodeRedTcpInNode on an ephemeral loopback port, wired to
+    ``sink``. Caller must call ``.on_stop()`` (in a finally block)."""
+    node = NodeRedTcpInNode(name='tcp-in')
+    node.configure({'bind_host': '127.0.0.1', 'port': 0})
+    node.connect(sink)
+    node.on_start()
+    assert node.bound_port, "NodeRedTcpInNode failed to bind"
+    return node
+
+
+def _make_tcp_out_node(target_port, **cfg_overrides):
+    """A started NodeRedTcpOutNode targeting 127.0.0.1:target_port, waited
+    until connected. Caller must call ``.on_stop()`` (in a finally block)."""
+    node = NodeRedTcpOutNode(name='tcp-out')
+    cfg = {'host': '127.0.0.1', 'port': target_port, 'reconnect_delay': 0.2}
+    cfg.update(cfg_overrides)
+    node.configure(cfg)
+    node.on_start()
+    assert _wait_until(lambda: node.connected), "tcp out never connected"
+    return node
+
+
+def test_ndjson_payload_encodings_pure():
+    # plain JSON values pass through
+    assert ndj.encode_payload({'a': 1}) == {'a': 1}
+    assert ndj.decode_payload('hi') == 'hi'
+    # bytes wrap to base64 marker and back
+    wrapped = ndj.encode_payload(b'\x00\xffbin')
+    assert wrapped[ndj.MARKER_KEY] == ndj.MARKER_BYTES
+    assert ndj.decode_payload(wrapped) == b'\x00\xffbin'
+    # ndarray (no jpeg) round-trips exactly
+    arr = _make_test_frame()[:12, :16]  # small slice keeps base64 lines tiny
+    wrapped = ndj.encode_payload(arr, encode_images=False)
+    assert wrapped[ndj.MARKER_KEY] == ndj.MARKER_NDARRAY
+    out = ndj.decode_payload(wrapped)
+    assert out.dtype == arr.dtype and out.shape == arr.shape
+    assert np.array_equal(out, arr)
+    # jpeg marker decodes to an image of the same shape
+    wrapped = ndj.encode_payload(arr, encode_images=True)
+    assert wrapped[ndj.MARKER_KEY] == ndj.MARKER_JPEG
+    assert ndj.decode_payload(wrapped).shape == arr.shape
+    # non-serializable payload raises
+    with pytest.raises(ndj.NdjsonError):
+        ndj.encode_payload(object())
+
+
+def test_ndjson_line_roundtrip_pure():
+    msg = {'payload': {'v': 2}, 'topic': 't/a', '_msgid': 'abc',
+           'frame_count': 9, 'bad': object()}
+    line = ndj.build_line(msg, include_props=True)
+    assert line.endswith(b'\n') and b'\n' not in line[:-1]
+    payload, topic, extra = ndj.parse_line(line)
+    assert payload == {'v': 2}
+    assert topic == 't/a'
+    assert extra == {'_msgid': 'abc', 'frame_count': 9}  # 'bad' skipped
+    # a bare JSON value line is the payload itself
+    payload, topic, extra = ndj.parse_line(b'123.5\n')
+    assert payload == 123.5 and topic == '' and extra == {}
+
+
+def test_tcp_roundtrip_json_real_nodes(node_classes):
+    sink = node_classes['sink'](name='sink')
+    in_node = _make_tcp_in_node(sink)
+    out_node = _make_tcp_out_node(in_node.bound_port)
+    try:
+        out_node.on_input(out_node.create_message(payload={'v': 1}, topic='t'))
+        assert _wait_until(lambda: len(sink.received) == 1)
+        received = sink.received[0]
+        assert received['payload'] == {'v': 1}
+        assert received['topic'] == 't'
+        assert out_node.sent_count == 1 and in_node.received_count == 1
+    finally:
+        out_node.on_stop()
+        in_node.on_stop()
+
+
+def test_tcp_exact_replication_real_nodes(node_classes):
+    sink = node_classes['sink'](name='sink')
+    in_node = _make_tcp_in_node(sink)
+    out_node = _make_tcp_out_node(in_node.bound_port, include_msg_props=True)
+    try:
+        msg = out_node.create_message(payload=1784494826.7259126, frame_count=42)
+        sent_msgid = msg['_msgid']
+        sent_ts_orig = msg['_timestamp_orig']
+        out_node.on_input(msg)
+        assert _wait_until(lambda: len(sink.received) == 1)
+        received = sink.received[0]
+        assert received['payload'] == 1784494826.7259126
+        assert received['frame_count'] == 42
+        assert received['_msgid'] == sent_msgid
+        assert received['_timestamp_orig'] == sent_ts_orig
+    finally:
+        out_node.on_stop()
+        in_node.on_stop()
+
+
+def test_tcp_frame_roundtrips_real_nodes(node_classes):
+    sink = node_classes['sink'](name='sink')
+    in_node = _make_tcp_in_node(sink)
+    out_node = _make_tcp_out_node(in_node.bound_port, encode_images=False)
+    try:
+        frame = _make_test_frame()
+        out_node.on_input(out_node.create_message(payload=frame))
+        assert _wait_until(lambda: len(sink.received) == 1)
+        assert np.array_equal(sink.received[0]['payload'], frame)  # raw = exact
+
+        out_node.configure({'encode_images': True})
+        out_node.on_input(out_node.create_message(payload=frame))
+        assert _wait_until(lambda: len(sink.received) == 2)
+        decoded = sink.received[1]['payload']
+        assert decoded.shape == frame.shape
+        diff = float(np.mean(np.abs(decoded.astype(np.int16) - frame.astype(np.int16))))
+        assert diff < 5.0, f"JPEG round-trip mean abs diff too high: {diff}"
+    finally:
+        out_node.on_stop()
+        in_node.on_stop()
+
+
+def test_tcp_in_accepts_raw_client_lines(node_classes):
+    """A plain socket sending split/bare/malformed lines: framing across
+    packet boundaries works, a bare JSON value becomes the payload, and a
+    malformed line is counted + skipped without killing the connection."""
+    sink = node_classes['sink'](name='sink')
+    in_node = _make_tcp_in_node(sink)
+    client = socket.create_connection(('127.0.0.1', in_node.bound_port), timeout=5.0)
+    try:
+        # one line split across three sends
+        line = json.dumps({'payload': {'n': 1}, 'topic': 'split'}).encode() + b'\n'
+        for part in (line[:5], line[5:20], line[20:]):
+            client.sendall(part)
+            time.sleep(0.05)
+        # malformed line, then a bare-value line, in one send
+        client.sendall(b'{not json}\n"bare-string"\n')
+
+        assert _wait_until(lambda: len(sink.received) == 2)
+        assert sink.received[0]['payload'] == {'n': 1}
+        assert sink.received[0]['topic'] == 'split'
+        assert sink.received[1]['payload'] == 'bare-string'
+        assert in_node.error_count == 1
+    finally:
+        client.close()
+        in_node.on_stop()
+
+
+def test_tcp_out_reconnects_after_server_restart(node_classes):
+    sink = node_classes['sink'](name='sink')
+    in_node = _make_tcp_in_node(sink)
+    port = in_node.bound_port
+    out_node = _make_tcp_out_node(port)
+    try:
+        out_node.on_input(out_node.create_message(payload={'n': 1}))
+        assert _wait_until(lambda: len(sink.received) == 1)
+
+        # Kill the server. A send right after the peer closes can still
+        # succeed into the local TCP buffer, so keep poking until a send
+        # errors and the node notices the connection is gone.
+        in_node.on_stop()
+
+        def _poke_until_disconnected():
+            if out_node.connected:
+                out_node.on_input(out_node.create_message(payload={'n': 'lost'}))
+            return not out_node.connected
+        assert _wait_until(_poke_until_disconnected, timeout=10.0, interval=0.1)
+
+        # bring a server back on the SAME port and wait for reconnection
+        sink2 = node_classes['sink'](name='sink2')
+        in_node = NodeRedTcpInNode(name='tcp-in-2')
+        in_node.configure({'bind_host': '127.0.0.1', 'port': port})
+        in_node.connect(sink2)
+        in_node.on_start()
+        assert in_node.bound_port == port
+        assert _wait_until(lambda: out_node.connected)
+
+        out_node.on_input(out_node.create_message(payload={'n': 2}))
+        assert _wait_until(lambda: len(sink2.received) == 1)
+        assert sink2.received[0]['payload'] == {'n': 2}
+        assert out_node.dropped_count >= 1
+    finally:
+        out_node.on_stop()
+        in_node.on_stop()

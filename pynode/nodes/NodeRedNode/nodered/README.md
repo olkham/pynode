@@ -99,6 +99,41 @@ Node-RED: [inject] -> [PNB1 chunk+send] -> [udp out]  --UDP-->  PyNode: [Node-RE
   - Anything else (object, array, string, number, boolean, `null`) is
     JSON-encoded, tagged `payload_type: "json"`.
 
+## TCP/NDJSON transport (simpler alternative)
+
+The flow file also contains a second tab, **"PyNode Bridge (TCP/NDJSON)"**,
+for the TCP node pair (`Node-RED TCP Out` / `Node-RED TCP In` in PyNode).
+One message = one JSON line over a persistent TCP connection - reliable,
+ordered, no size limit, no chunking/reassembly/fragmentation, and the
+receive path uses only core nodes:
+
+```
+PyNode: [Node-RED TCP Out] --connects to--> Node-RED: [tcp in :7403, stream of strings
+        split on \n] -> [json] -> [promote to msg (optional)] -> ...
+
+Node-RED: [anything] -> [NDJSON stringify function] -> [tcp out, connect to
+          <pynode-host>:7404] --> PyNode: [Node-RED TCP In :7404]
+```
+
+- The `promote to msg` function is one `return msg.payload;`-style line that
+  lifts the bridged object to the top level so the Node-RED msg replicates
+  the PyNode msg exactly; delete it if you prefer the object in
+  `msg.payload`.
+- The `NDJSON stringify` function is the only code the send direction needs:
+  `msg.payload = JSON.stringify({payload: msg.payload, topic: msg.topic ||
+  ''}) + "\n";`. A bare JSON value followed by `\n` also works - PyNode
+  treats a non-object line as the payload itself.
+- Binary payloads (images) travel base64-wrapped in the JSON
+  (`{"_pnb": "jpeg", "data": "<base64>"}`, decode in Node-RED with
+  `Buffer.from(msg.payload.data, 'base64')`), costing ~33% extra size - for
+  sustained high-rate video frames prefer the UDP (PNB1) tab.
+- TCP backpressure: a slow/stalled consumer makes PyNode's sends time out
+  and drop (counted on the node) rather than queue unboundedly.
+
+**When to use which:** TCP/NDJSON for control messages, events, detections,
+telemetry (simpler, reliable). UDP/PNB1 for live video and very high message
+rates (drop-friendly, binary-native).
+
 ## Chunk size
 
 The Python side's **Chunk Size** select (60000 bytes, or 1400 for MTU-safe
