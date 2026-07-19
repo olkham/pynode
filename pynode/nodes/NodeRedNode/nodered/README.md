@@ -55,9 +55,14 @@ PyNode: [Node-RED Out node]  --UDP-->  Node-RED: [udp in] -> [PNB1 reassemble] -
   - `msg.topic`: the topic PyNode's message had (empty string if none).
   - `msg._pnb1`: `{messageId, payloadType, totalSize[, dtype, shape]}` for
     debugging/introspection.
-  - Any "extra" message properties PyNode's Node-RED Out node was configured
-    to forward (its **Include Extra Message Properties** checkbox) are
-    merged onto the top level of the emitted message.
+  - With the Node-RED Out node's **Include Extra Message Properties**
+    checkbox on, EVERY property of the PyNode message except
+    `payload`/`topic` (underscore ones included: `_msgid`,
+    `_timestamp_orig`, `_timestamp_emit`, `_age`, `_queue_length`,
+    `drop_count`, plus custom fields) is forwarded and merged onto the top
+    level of the emitted message - the Node-RED msg replicates the PyNode
+    msg exactly. Values that aren't JSON-serializable are skipped
+    individually.
 - An incomplete message (a chunk was lost) is silently dropped after 2000ms
   (`DEFAULT_REASSEMBLY_TIMEOUT_MS` in the function code) - nothing is emitted
   for it. There is no retransmission (UDP is fire-and-forget both ways).
@@ -113,6 +118,13 @@ placeholders. They're arbitrary - pick any free UDP ports, just keep both
 ends of each direction consistent.
 
 ## Troubleshooting: Node-RED receives nothing
+
+> **Seeing `PNB1` plus gibberish/JSON in the debug panel?** Datagrams ARE
+> arriving - you are looking at the raw wire bytes (16-byte binary header +
+> metadata + payload). Two fixes: set the `udp in` node's **Output** to
+> `a Buffer` (not `a string` - that corrupts the binary header), and wire it
+> through the **PNB1 reassemble** function node from this flow rather than
+> straight into debug. The reassemble node emits the decoded message.
 
 Work through these in order - each step isolates one link of the chain.
 

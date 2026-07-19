@@ -2,6 +2,7 @@
 PyNode instance) using the PNB1 bridge protocol.
 """
 
+import json
 import socket
 from typing import Any, Dict
 
@@ -36,12 +37,14 @@ _info.add_bullets(
                        "sent as raw bytes with dtype/shape metadata - only "
                        "useful for PyNode-to-PyNode, since Node-RED has no "
                        "numpy to reshape them with."),
-    ("Include Extra Message Properties:", "When on, forwards every "
-                       "non-underscore msg property other than payload/topic "
-                       "(e.g. a custom field added upstream) in the datagram "
-                       "metadata's 'extra' object, so a receiving "
-                       "NodeRedInNode can restore them onto the emitted "
-                       "message."),
+    ("Include Extra Message Properties:", "When on, forwards EVERY msg "
+                       "property other than payload/topic (including "
+                       "underscore ones: _msgid, _timestamp_orig, "
+                       "_timestamp_emit, _age, _queue_length, drop_count, "
+                       "and any custom fields) in the datagram metadata's "
+                       "'extra' object, so the receiver reconstructs the "
+                       "message exactly. Properties whose values are not "
+                       "JSON-serializable are skipped individually."),
 )
 _info.add_header("Protocol")
 _info.add_text(
@@ -123,7 +126,7 @@ class NodeRedOutNode(BaseNode):
             'label': 'Include Extra Message Properties',
             'type': 'checkbox',
             'default': DEFAULT_CONFIG['include_msg_props'],
-            'help': 'Forward non-underscore extra msg properties (besides payload/topic) in the datagram metadata'
+            'help': 'Forward every msg property besides payload/topic (incl. _msgid, timestamps, ...) so the receiver replicates the message exactly'
         },
     ]
 
@@ -181,11 +184,22 @@ class NodeRedOutNode(BaseNode):
 
         extra_props = None
         if include_props:
+            # Forward the WHOLE message (except payload/topic, which travel in
+            # dedicated fields and are restored on arrival) - underscore props
+            # included - so the receiver can replicate the message exactly.
+            # Filter per-key for JSON-serializability so one exotic value
+            # (e.g. a numpy array stashed at a custom key) skips that key
+            # instead of failing the whole message.
             reserved = {MessageKeys.PAYLOAD, MessageKeys.TOPIC}
-            extra_props = {
-                k: v for k, v in msg.items()
-                if k not in reserved and not k.startswith('_')
-            }
+            extra_props = {}
+            for k, v in msg.items():
+                if k in reserved:
+                    continue
+                try:
+                    json.dumps(v)
+                except (TypeError, ValueError):
+                    continue
+                extra_props[k] = v
 
         self._message_id = bridge_protocol.next_message_id(self._message_id)
 

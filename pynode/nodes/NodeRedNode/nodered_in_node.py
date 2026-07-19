@@ -220,7 +220,14 @@ class NodeRedInNode(BaseNode):
         extra = meta.get('extra') or {}
         if not isinstance(extra, dict):
             extra = {}
+        # payload/topic travel in dedicated fields; a (misbehaving) sender
+        # including them in extra would raise a duplicate-kwarg TypeError below.
+        extra.pop('payload', None)
+        extra.pop('topic', None)
 
+        # Underscore props (_msgid, _timestamp_orig, ...) in extra override the
+        # fresh ones create_message generates - that is what replicates the
+        # sender's message exactly when the sender forwards its props.
         msg = self.create_message(payload=payload, topic=topic, **extra)
         self.received_count += 1
         self.send(msg)

@@ -450,6 +450,39 @@ def test_include_msg_props_real_node(node_classes):
         in_node.on_stop()
 
 
+def test_include_msg_props_exact_replication(node_classes):
+    """With include_msg_props on, the received message replicates the sent
+    one - underscore props (_msgid, _timestamp_orig) included - and a
+    non-JSON-serializable value skips just that key, not the whole message.
+
+    (_timestamp_emit/_age/_queue_length are per-hop stamps rewritten by every
+    PyNode send(), so only the stable identity props are compared exactly
+    here; a Node-RED receiver gets ALL forwarded props verbatim.)
+    """
+    sink = node_classes['sink'](name='sink')
+    in_node = _make_in_node(sink)
+    out_node = _make_out_node(in_node.bound_port, include_msg_props=True)
+    try:
+        msg = out_node.create_message(payload=1784494826.7259126, frame_count=42)
+        msg['drop_count'] = 3
+        msg['not_serializable'] = object()  # must skip only this key
+        sent_msgid = msg['_msgid']
+        sent_ts_orig = msg['_timestamp_orig']
+        out_node.on_input(msg)
+
+        assert _wait_until(lambda: len(sink.received) == 1)
+        received = sink.received[0]
+        assert received['payload'] == 1784494826.7259126
+        assert received['frame_count'] == 42
+        assert received['drop_count'] == 3
+        assert received['_msgid'] == sent_msgid
+        assert received['_timestamp_orig'] == sent_ts_orig
+        assert 'not_serializable' not in received
+    finally:
+        out_node.on_stop()
+        in_node.on_stop()
+
+
 def test_message_id_wraparound_real_node(node_classes):
     sink = node_classes['sink'](name='sink')
     in_node = _make_in_node(sink)
