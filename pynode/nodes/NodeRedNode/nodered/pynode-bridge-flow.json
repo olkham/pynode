@@ -1,0 +1,151 @@
+[
+    {
+        "id": "pnb1000000000001",
+        "type": "tab",
+        "label": "PyNode Bridge (PNB1)",
+        "disabled": false,
+        "info": "Both directions of the PyNode <-> Node-RED UDP bridge (PNB1 protocol).\n\nPyNode -> Node-RED: 'udp in' (port 7401) -> 'PNB1 reassemble' -> debug.\nNode-RED -> PyNode: inject -> 'PNB1 chunk+send' -> 'udp out' (127.0.0.1:7402).\n\nSee README.md next to this file for setup instructions. Ports 7401/7402 are\nplaceholders matching examples/workflows/nodered_bridge.json - change them to\nmatch your PyNode Node-RED In/Out node configuration.",
+        "env": []
+    },
+    {
+        "id": "pnb1000000000002",
+        "type": "comment",
+        "z": "pnb1000000000001",
+        "name": "PyNode -> Node-RED",
+        "info": "PyNode's 'Node-RED Out' node sends PNB1 datagrams here. Configure the 'udp in' node's port to match that node's configured destination port (default 7401 in the example workflow).",
+        "x": 150,
+        "y": 80,
+        "wires": []
+    },
+    {
+        "id": "pnb1000000000003",
+        "type": "udp in",
+        "z": "pnb1000000000001",
+        "name": "PNB1 UDP in (from PyNode)",
+        "iface": "",
+        "port": "7401",
+        "ipv": "udp4",
+        "multicast": "false",
+        "group": "",
+        "datatype": "buffer",
+        "x": 180,
+        "y": 140,
+        "wires": [
+            [
+                "pnb1000000000004"
+            ]
+        ]
+    },
+    {
+        "id": "pnb1000000000004",
+        "type": "function",
+        "z": "pnb1000000000001",
+        "name": "PNB1 reassemble",
+        "func": "// PNB1 reassemble - mirrors pynode/nodes/NodeRedNode/bridge_protocol.py byte-for-byte.\n// Input: msg.payload = Buffer (configure the upstream 'udp in' node with Output = buffer),\n//        msg.ip / msg.port = sender address (set automatically by 'udp in').\n// Output: one msg per fully-reassembled PNB1 message, or nothing (returns null) while\n//         a message is still incomplete or the datagram is invalid.\n\nconst MAGIC = 'PNB1';\nconst HEADER_VERSION = 1;\nconst HEADER_SIZE = 16;\nconst FLAG_BINARY = 0x01;\nconst FLAG_JPEG = 0x02;\nconst DEFAULT_REASSEMBLY_TIMEOUT_MS = 2000;\nconst MAX_INCOMPLETE = 100;\n\nconst buf = msg.payload;\nif (!Buffer.isBuffer(buf) || buf.length < HEADER_SIZE) {\n    node.warn('PNB1: dropped short/non-buffer datagram');\n    return null;\n}\n\nconst magic = buf.toString('ascii', 0, 4);\nif (magic !== MAGIC) {\n    node.warn('PNB1: bad magic ' + magic);\n    return null;\n}\nconst version = buf.readUInt8(4);\nconst flags = buf.readUInt8(5);\nconst messageId = buf.readUInt32BE(6);\nconst chunkIndex = buf.readUInt16BE(10);\nconst chunkCount = buf.readUInt16BE(12);\nconst metaLength = buf.readUInt16BE(14);\n\nif (chunkCount === 0 || chunkIndex >= chunkCount) {\n    node.warn('PNB1: invalid chunk index/count ' + chunkIndex + '/' + chunkCount);\n    return null;\n}\n\nconst body = buf.slice(HEADER_SIZE);\n\n// Per-node reassembly state, keyed by sender ip:port:messageId. Stored in node\n// context so it survives between messages (but not between redeploys).\nlet pending = context.get('pnb1_pending') || {};\nconst senderKey = (msg.ip || '') + ':' + (msg.port || '') + ':' + messageId;\nconst now = Date.now();\n\n// Sweep entries older than the reassembly timeout before handling this chunk.\nfor (const key of Object.keys(pending)) {\n    if (now - pending[key].firstSeen > DEFAULT_REASSEMBLY_TIMEOUT_MS) {\n        delete pending[key];\n    }\n}\n\nlet entry = pending[senderKey];\nif (!entry) {\n    const keys = Object.keys(pending);\n    if (keys.length >= MAX_INCOMPLETE) {\n        let oldestKey = null, oldestTime = Infinity;\n        for (const k of keys) {\n            if (pending[k].firstSeen < oldestTime) { oldestTime = pending[k].firstSeen; oldestKey = k; }\n        }\n        if (oldestKey) delete pending[oldestKey];\n    }\n    entry = { chunkCount: chunkCount, flags: flags, chunks: {}, meta: null, firstSeen: now };\n    pending[senderKey] = entry;\n}\n\nif (chunkIndex === 0) {\n    const metaBytes = body.slice(0, metaLength);\n    try {\n        entry.meta = JSON.parse(metaBytes.toString('utf8'));\n    } catch (e) {\n        node.warn('PNB1: failed to parse metadata JSON: ' + e.message);\n        delete pending[senderKey];\n        context.set('pnb1_pending', pending);\n        return null;\n    }\n    entry.chunks[0] = body.slice(metaLength);\n} else {\n    entry.chunks[chunkIndex] = body;\n}\n\nlet complete = true;\nfor (let i = 0; i < entry.chunkCount; i++) {\n    if (!(i in entry.chunks)) { complete = false; break; }\n}\n\nif (!complete) {\n    context.set('pnb1_pending', pending);\n    return null;\n}\n\ndelete pending[senderKey];\ncontext.set('pnb1_pending', pending);\n\nconst parts = [];\nfor (let i = 0; i < entry.chunkCount; i++) { parts.push(entry.chunks[i]); }\nconst payloadBytes = Buffer.concat(parts);\n\nconst meta = entry.meta || {};\nconst payloadType = meta.payload_type;\nlet outPayload;\nif (payloadType === 'json') {\n    outPayload = payloadBytes.length ? JSON.parse(payloadBytes.toString('utf8')) : null;\n} else if (payloadType === 'bytes' || payloadType === 'raw_numpy') {\n    // raw_numpy has no JS/numpy equivalent - forwarded as a raw Buffer;\n    // meta.dtype/meta.shape (see below) describe how to interpret it.\n    outPayload = payloadBytes;\n} else if (payloadType === 'jpeg') {\n    outPayload = payloadBytes; // Buffer - wire straight into an image/preview node\n} else {\n    node.warn('PNB1: unknown payload_type ' + payloadType);\n    return null;\n}\n\nconst newMsg = {\n    payload: outPayload,\n    topic: meta.topic || '',\n    _pnb1: { messageId: messageId, payloadType: payloadType, totalSize: meta.total_size }\n};\nif (payloadType === 'raw_numpy') {\n    newMsg._pnb1.dtype = meta.dtype;\n    newMsg._pnb1.shape = meta.shape;\n}\nif (meta.extra && typeof meta.extra === 'object') {\n    for (const k of Object.keys(meta.extra)) {\n        if (!(k in newMsg)) { newMsg[k] = meta.extra[k]; }\n    }\n}\n\nreturn newMsg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 420,
+        "y": 140,
+        "wires": [
+            [
+                "pnb1000000000005"
+            ]
+        ]
+    },
+    {
+        "id": "pnb1000000000005",
+        "type": "debug",
+        "z": "pnb1000000000001",
+        "name": "PNB1 in debug",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 660,
+        "y": 140,
+        "wires": []
+    },
+    {
+        "id": "pnb1000000000006",
+        "type": "comment",
+        "z": "pnb1000000000001",
+        "name": "Node-RED -> PyNode",
+        "info": "Replace this inject node with whatever produces the message you want to send to PyNode. Configure the 'udp out' node's address/port to match the PyNode 'Node-RED In' node's bind host/port (default port 7402 in the example workflow).",
+        "x": 150,
+        "y": 280,
+        "wires": []
+    },
+    {
+        "id": "pnb1000000000007",
+        "type": "inject",
+        "z": "pnb1000000000001",
+        "name": "Sample message",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "nodered/bridge/demo",
+        "payload": "{\"hello\":\"from node-red\"}",
+        "payloadType": "json",
+        "x": 160,
+        "y": 340,
+        "wires": [
+            [
+                "pnb1000000000008"
+            ]
+        ]
+    },
+    {
+        "id": "pnb1000000000008",
+        "type": "function",
+        "z": "pnb1000000000001",
+        "name": "PNB1 chunk+send",
+        "func": "// PNB1 chunk+send - mirrors pynode/nodes/NodeRedNode/bridge_protocol.py byte-for-byte.\n// Input: any msg (msg.payload / msg.topic).\n// Output: an array of messages, one per UDP datagram, each with payload = Buffer -\n//         wire this function's output directly into a single 'udp out' node\n//         configured with the target host/port (must match the receiving\n//         NodeRedInNode's bind host/port).\n\nconst MAGIC = 'PNB1';\nconst HEADER_VERSION = 1;\nconst HEADER_SIZE = 16;\nconst FLAG_BINARY = 0x01;\nconst FLAG_JPEG = 0x02;\nconst DEFAULT_CHUNK_SIZE = 60000;\nconst MTU_CHUNK_SIZE = 1400;\n\n// Change to MTU_CHUNK_SIZE for WAN/VPN links. Any positive value works -\n// chunk size only controls fragmentation, both ends decode the same way.\nconst CHUNK_SIZE = DEFAULT_CHUNK_SIZE;\n\nfunction classifyPayload(payload) {\n    if (Buffer.isBuffer(payload)) {\n        const isJpeg = payload.length >= 2 && payload[0] === 0xFF && payload[1] === 0xD8;\n        if (isJpeg) {\n            return { payloadType: 'jpeg', bytes: payload, flags: FLAG_BINARY | FLAG_JPEG };\n        }\n        return { payloadType: 'bytes', bytes: payload, flags: FLAG_BINARY };\n    }\n    const json = JSON.stringify(payload === undefined ? null : payload);\n    return { payloadType: 'json', bytes: Buffer.from(json, 'utf8'), flags: 0 };\n}\n\nconst classified = classifyPayload(msg.payload);\n\nconst meta = { payload_type: classified.payloadType, total_size: classified.bytes.length };\nif (msg.topic) { meta.topic = msg.topic; }\n\n// Forward non-underscore extra msg properties (besides payload/topic) so a\n// receiving NodeRedInNode can restore them onto the emitted message.\nconst RESERVED_KEYS = ['payload', 'topic', 'req', 'res', '_msgid'];\nconst extra = {};\nfor (const k of Object.keys(msg)) {\n    if (RESERVED_KEYS.indexOf(k) !== -1 || k.charAt(0) === '_') { continue; }\n    extra[k] = msg[k];\n}\nif (Object.keys(extra).length > 0) { meta.extra = extra; }\n\nlet metaBytes;\ntry {\n    metaBytes = Buffer.from(JSON.stringify(meta), 'utf8');\n} catch (e) {\n    delete meta.extra;\n    metaBytes = Buffer.from(JSON.stringify(meta), 'utf8');\n    node.warn('PNB1: extra msg properties were not JSON-safe; dropped from metadata');\n}\n\nif (metaBytes.length > 0xFFFF) {\n    node.error('PNB1: metadata too large (' + metaBytes.length + ' bytes)', msg);\n    return null;\n}\nconst firstCapacity = CHUNK_SIZE - metaBytes.length;\nif (firstCapacity < 0) {\n    node.error('PNB1: metadata does not fit in one chunk; increase CHUNK_SIZE', msg);\n    return null;\n}\n\nconst payloadBytes = classified.bytes;\nconst chunk0Payload = payloadBytes.slice(0, firstCapacity);\nconst rest = payloadBytes.slice(firstCapacity);\nconst restChunks = [];\nfor (let i = 0; i < rest.length; i += CHUNK_SIZE) {\n    restChunks.push(rest.slice(i, i + CHUNK_SIZE));\n}\nconst chunkCount = 1 + restChunks.length;\nif (chunkCount > 0xFFFF) {\n    node.error('PNB1: message too large (' + chunkCount + ' chunks)', msg);\n    return null;\n}\n\n// Per-node monotonically increasing message id, wraps at 2**32 (matches\n// bridge_protocol.next_message_id).\nlet messageId = context.get('pnb1_message_id');\nmessageId = (messageId === undefined) ? 0 : (messageId + 1) % 0x100000000;\ncontext.set('pnb1_message_id', messageId);\n\nfunction buildHeader(flags, chunkIndex, metaLen) {\n    const header = Buffer.alloc(HEADER_SIZE);\n    header.write(MAGIC, 0, 4, 'ascii');\n    header.writeUInt8(HEADER_VERSION, 4);\n    header.writeUInt8(flags, 5);\n    header.writeUInt32BE(messageId, 6);\n    header.writeUInt16BE(chunkIndex, 10);\n    header.writeUInt16BE(chunkCount, 12);\n    header.writeUInt16BE(metaLen, 14);\n    return header;\n}\n\nconst datagrams = [];\ndatagrams.push(Buffer.concat([buildHeader(classified.flags, 0, metaBytes.length), metaBytes, chunk0Payload]));\nfor (let i = 0; i < restChunks.length; i++) {\n    datagrams.push(Buffer.concat([buildHeader(classified.flags, i + 1, 0), restChunks[i]]));\n}\n\n// Fan out as separate messages, one per datagram; wire straight into a\n// single 'udp out' node so each becomes exactly one UDP packet.\nreturn [datagrams.map(function (d) { return { payload: d }; })];",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 430,
+        "y": 340,
+        "wires": [
+            [
+                "pnb1000000000009"
+            ]
+        ]
+    },
+    {
+        "id": "pnb1000000000009",
+        "type": "udp out",
+        "z": "pnb1000000000001",
+        "name": "PNB1 UDP out (to PyNode)",
+        "addr": "127.0.0.1",
+        "iface": "",
+        "port": "7402",
+        "ipv": "udp4",
+        "outport": "",
+        "base64": false,
+        "multicast": "false",
+        "x": 680,
+        "y": 340,
+        "wires": []
+    }
+]

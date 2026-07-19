@@ -1,0 +1,4 @@
+# stdlib only - uses socket/json/struct/threading from the Python standard
+# library. cv2/numpy are used for optional JPEG image encoding but are
+# already core PyNode dependencies (see pyproject.toml), not an extra
+# requirement of this node.
