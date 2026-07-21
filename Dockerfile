@@ -45,14 +45,21 @@ WORKDIR /app
 # Copy application files
 COPY . /app/
 
-# Make scripts executable
-RUN chmod +x /app/setup.sh /app/install_nodes.sh
-
-# Allow setuptools_scm to succeed without .git (excluded by .dockerignore)
-ENV SETUPTOOLS_SCM_PRETEND_VERSION=0.0.0
-
-# Run setup script
-RUN bash -c "source /app/setup.sh < /dev/null"
+# Derive the display version from git history, then remove .git to save
+# space.  SETUPTOOLS_SCM_PRETEND_VERSION keeps pip install happy (PEP 440);
+# the real version string is written to _version.py afterwards.
+RUN chmod +x /app/setup.sh /app/install_nodes.sh && \
+    RAW=$(git -C /app describe --tags --always 2>/dev/null || true) && \
+    if echo "$RAW" | grep -qE '^v?[0-9]+\.[0-9]+'; then \
+        VERSION=$(echo "$RAW" | sed 's/^v//'); \
+    elif [ -n "$RAW" ]; then \
+        VERSION="0.0.0+g${RAW}"; \
+    else \
+        VERSION="0.0.0"; \
+    fi && \
+    rm -rf /app/.git && \
+    SETUPTOOLS_SCM_PRETEND_VERSION=0.0.0 bash -c "source /app/setup.sh < /dev/null" && \
+    printf '__version__ = "%s"\n' "$VERSION" > /app/pynode/_version.py
 
 # Create a non-root user and give it ownership of the app directory
 RUN useradd --create-home --uid 1000 appuser \

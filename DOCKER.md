@@ -65,6 +65,13 @@ The following directories are mounted for persistence:
 
 ## Building
 
+### Version
+
+The version shown in the UI is derived automatically from git history during
+the Docker build — no extra flags or environment variables are needed. Tagged
+commits display a clean version (e.g. `v0.2.3`); untagged commits include the
+distance and short SHA (e.g. `v0.2.3-1-gcd272cf`).
+
 ### Custom CUDA Version
 
 To use a different CUDA version, edit the `Dockerfile`:

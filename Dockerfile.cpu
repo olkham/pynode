@@ -20,18 +20,24 @@ WORKDIR /app
 # Copy application files
 COPY . /app/
 
-# Allow setuptools_scm to succeed without .git (excluded by .dockerignore)
-ENV SETUPTOOLS_SCM_PRETEND_VERSION=0.0.0
-
-# Create virtual environment
-RUN python3 -m venv appenv
-
-# Activate venv and install dependencies (declared in pyproject.toml;
-# CPU-only torch is installed first so the vision extra reuses it)
-RUN . appenv/bin/activate && \
+# Derive the display version from git history, then remove .git to save
+# space.  SETUPTOOLS_SCM_PRETEND_VERSION keeps pip install happy (PEP 440);
+# the real version string is written to _version.py afterwards.
+RUN RAW=$(git describe --tags --always 2>/dev/null || true) && \
+    if echo "$RAW" | grep -qE '^v?[0-9]+\.[0-9]+'; then \
+        VERSION=$(echo "$RAW" | sed 's/^v//'); \
+    elif [ -n "$RAW" ]; then \
+        VERSION="0.0.0+g${RAW}"; \
+    else \
+        VERSION="0.0.0"; \
+    fi && \
+    rm -rf /app/.git && \
+    python3 -m venv appenv && \
+    . appenv/bin/activate && \
     pip install --upgrade pip && \
     pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu && \
-    pip install -e ".[vision,mqtt]"
+    SETUPTOOLS_SCM_PRETEND_VERSION=0.0.0 pip install -e ".[vision,mqtt]" && \
+    printf '__version__ = "%s"\n' "$VERSION" > /app/pynode/_version.py
 
 # Install per-node dependencies (best-effort: a node whose vendor SDK is not
 # on PyPI, e.g. OmronCameraNode's stapipy, is skipped without failing the build)
