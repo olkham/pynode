@@ -10,7 +10,7 @@ try:
     from zeroconf import ServiceListener as ZeroconfServiceListener
     MDNS_AVAILABLE = True
     # Use the real ServiceListener from zeroconf
-    ServiceListenerBase = ZeroconfServiceListener
+    ServiceListenerBase = ZeroconfServiceListener  # type: ignore[reportAssignmentType]
 except ImportError:
     MDNS_AVAILABLE = False
     # Create dummy base class if zeroconf not available
@@ -260,7 +260,7 @@ if __name__ == "__main__":
         def __call__(self, parser, namespace, values, option_string=None):
             if not hasattr(namespace, 'properties'):
                 namespace.properties = {}
-            for value in values:
+            for value in values:  # type: ignore[reportOptionalIterable]
                 if '=' not in value:
                     raise argparse.ArgumentTypeError(f"Invalid format: '{value}'. Expected key=value")
                 key, val = value.split('=', 1)
@@ -369,7 +369,7 @@ Examples:
         
         zeroconf = Zeroconf()
         listener = MDNSServiceListener(standalone_mode=True)
-        browser = ServiceBrowser(zeroconf, args.service_type, listener)
+        browser = ServiceBrowser(zeroconf, args.service_type, listener)  # type: ignore[reportArgumentType]
         
         try:
             # Keep running until interrupted

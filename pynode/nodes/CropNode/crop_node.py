@@ -293,7 +293,7 @@ class CropNode(BaseNode):
         """Decode image from payload using BaseNode helper. Returns (image, format_type) tuple."""
         return self.decode_image(payload)
     
-    def _crop_image(self, image: np.ndarray, x1: int, y1: int, x2: int, y2: int) -> np.ndarray:
+    def _crop_image(self, image: np.ndarray, x1: int, y1: int, x2: int, y2: int) -> 'np.ndarray | None':
         """Crop image to bounding box."""
         try:
             h, w = image.shape[:2]
@@ -312,6 +312,6 @@ class CropNode(BaseNode):
             self.report_error(f"Error cropping image: {e}")
             return None
     
-    def _encode_image(self, image: np.ndarray, format_type: str):
+    def _encode_image(self, image: np.ndarray, format_type: 'str | None'):
         """Encode image using BaseNode helper matching input format."""
         return self.encode_image(image, format_type)

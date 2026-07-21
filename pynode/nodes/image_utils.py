@@ -103,7 +103,7 @@ def decode_image(payload: Any,
         return None, None
 
 
-def encode_image(image: Any, format_type: str,
+def encode_image(image: Any, format_type: Optional[str],
                  report_error: Optional[Callable[[str], None]] = None) -> Any:
     """
     Encode numpy array image back to the original format.

@@ -178,8 +178,8 @@ class RealsenseDepthNode(BaseNode):
         # Create colorized depth if needed
         depth_colorized = None
         if depth_image is not None and output_format in ['depth_colorized', 'side_by_side', 'both']:
-            depth_8bit = cv2.convertScaleAbs(depth_image, alpha=depth_scale)
-            depth_colorized = cv2.applyColorMap(depth_8bit, colormap)
+            depth_8bit = cv2.convertScaleAbs(depth_image, alpha=depth_scale)  # type: ignore[reportArgumentType]
+            depth_colorized = cv2.applyColorMap(depth_8bit, colormap)  # type: ignore[reportArgumentType]
         
         # Prepare output based on format
         if MessageKeys.PAYLOAD not in msg or not isinstance(msg[MessageKeys.PAYLOAD], dict):

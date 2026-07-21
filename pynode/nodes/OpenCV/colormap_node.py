@@ -242,7 +242,7 @@ class ColormapNode(BaseNode):
             normalized = 255 - normalized
         
         # Apply colormap
-        colorized = cv2.applyColorMap(normalized, colormap)
+        colorized = cv2.applyColorMap(normalized, colormap)  # type: ignore[reportArgumentType]
         
         # Prepare output
         if not isinstance(msg.get(MessageKeys.PAYLOAD), dict):

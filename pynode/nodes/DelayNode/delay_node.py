@@ -117,7 +117,7 @@ class DelayNode(BaseNode):
         super().__init__(node_id, name)
         # Timestamp (time.monotonic clock) of the next slot at which a message
         # is allowed to pass in rate-limit mode. None until the first message.
-        self._next_allowed = None
+        self._next_allowed: 'float | None' = None
         self.queued_messages = []
         self.processing_queue = False
         self.queue_lock = threading.Lock()
@@ -195,7 +195,7 @@ class DelayNode(BaseNode):
         instead of leaving a stale slot in the past (which would let a burst
         through). Either way at most one message passes per interval.
         """
-        self._next_allowed = max(self._next_allowed, now) + interval
+        self._next_allowed = max(self._next_allowed or now, now) + interval
 
     def _rate_limit(self, msg: Dict[str, Any]):
         """

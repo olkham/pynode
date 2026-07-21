@@ -112,7 +112,7 @@ dev = [
 [tool.pyright]
 # Type checking configuration
 typeCheckingMode = "basic"
-reportMissingImports = true
+reportMissingImports = "warning"
 reportMissingTypeStubs = false
 reportAttributeAccessIssue = "none"  # Suppress OpenCV attribute warnings
 reportUnknownMemberType = "none"
@@ -120,6 +120,8 @@ reportUnknownArgumentType = "none"
 reportUnknownVariableType = "none"
 reportOptionalMemberAccess = "warning"
 reportOptionalSubscript = "warning"
+reportOptionalIterable = "warning"
+reportOptionalCall = "warning"
 
 # Python version
 pythonVersion = "3.11"

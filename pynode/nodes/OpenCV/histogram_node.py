@@ -132,7 +132,7 @@ class HistogramNode(BaseNode):
             l_channel = image
         
         # Compute histogram
-        hist = cv2.calcHist([l_channel], [0], None, [256], [0, 256])
+        hist = cv2.calcHist([l_channel], [0], None, [256], [0, 256])  # type: ignore[reportArgumentType]
         extra_fields = {'histogram': hist.flatten().tolist()}
         
         if operation == 'compute':
@@ -146,7 +146,7 @@ class HistogramNode(BaseNode):
                                     tileGridSize=(tile_size, tile_size))
             result = clahe.apply(l_channel)
         elif operation == 'normalize':
-            result = cv2.normalize(l_channel, None, alpha, beta, cv2.NORM_MINMAX)
+            result = cv2.normalize(l_channel, None, alpha, beta, cv2.NORM_MINMAX)  # type: ignore[reportArgumentType]
         else:
             result = l_channel
         

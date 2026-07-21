@@ -107,7 +107,7 @@ class PerspectiveNode(BaseNode):
                     x = x * img_w
                     y = y * img_h
                 points.append([x, y])
-            return np.float32(points)
+            return np.float32(points)  # type: ignore[reportArgumentType]
         except Exception:
             return None
     
@@ -141,20 +141,20 @@ class PerspectiveNode(BaseNode):
                 # Assume normalized if values are <= 1.0, otherwise pixel coords
                 flat = [v for pt in src_points for v in (pt if isinstance(pt, (list, tuple)) else [pt])]
                 if all(0 <= v <= 1.0 for v in flat):
-                    src_pts = np.float32([[pt[0] * w, pt[1] * h] for pt in src_points])
+                    src_pts = np.float32([[pt[0] * w, pt[1] * h] for pt in src_points])  # type: ignore[reportArgumentType]
                 else:
-                    src_pts = np.float32(src_points)
+                    src_pts = np.float32(src_points)  # type: ignore[reportArgumentType]
             else:
                 src_pts = src_points
         else:
             src_pts = self._parse_points(self.config.get('src_points', ''), w, h)
         
-        if src_pts is None or len(src_pts) != 4:
+        if src_pts is None or len(src_pts) != 4:  # type: ignore[reportArgumentType]
             self.send(msg)
             return
         
         # Define destination points (rectangle)
-        dst_pts = np.float32([
+        dst_pts = np.float32([  # type: ignore[reportArgumentType]
             [0, 0],
             [output_w - 1, 0],
             [output_w - 1, output_h - 1],
@@ -162,7 +162,7 @@ class PerspectiveNode(BaseNode):
         ])
         
         # Compute perspective transform matrix
-        M = cv2.getPerspectiveTransform(src_pts, dst_pts)
+        M = cv2.getPerspectiveTransform(src_pts, dst_pts)  # type: ignore[reportArgumentType]
         
         # Apply warp
         result = cv2.warpPerspective(img, M, (output_w, output_h))

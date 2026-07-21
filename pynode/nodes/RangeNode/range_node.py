@@ -88,6 +88,9 @@ class RangeNode(BaseNode):
         """Map payload value from input range to output range."""
         try:
             payload = msg.get(MessageKeys.PAYLOAD)
+            if payload is None:
+                self.report_error("No payload value to map")
+                return
             value = float(payload)
             
             min_in = self.get_config_float('min_in', 0)

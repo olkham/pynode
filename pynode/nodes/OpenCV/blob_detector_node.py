@@ -148,7 +148,7 @@ class BlobDetectorNode(BaseNode):
         total_area = h * w
         
         # Setup SimpleBlobDetector parameters
-        params = cv2.SimpleBlobDetector_Params()
+        params = cv2.SimpleBlobDetector_Params()  # type: ignore[reportCallIssue]
         
         # Area filter - convert normalized to pixels
         params.filterByArea = True

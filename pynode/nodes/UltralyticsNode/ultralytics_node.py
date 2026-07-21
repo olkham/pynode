@@ -228,7 +228,7 @@ class UltralyticsNode(BaseNode):
                 if not os.path.isdir(openvino_model_path):
                     logger.info(f"Exporting {model_name} to OpenVINO format: {openvino_model_path}")
                     openvino_model_path = base_model.export(format='openvino')
-                self.model = YOLO(openvino_model_path, task=base_model.task)
+                self.model = YOLO(openvino_model_path, task=base_model.task)  # type: ignore[reportArgumentType]
                 logger.info(
                     f"Loaded OpenVINO model from {openvino_model_path} "
                     f"targeting device: {device}"
@@ -300,21 +300,21 @@ class UltralyticsNode(BaseNode):
             # Perform inference on specified device ('intel:gpu' resolved to
             # the first detected GPU, e.g. 'intel:gpu.0')
             device = self._resolve_configured_device()
-            results = self.model.predict(
+            results = list(self.model.predict(
                 image,
                 conf=confidence,
                 iou=iou,
                 max_det=max_det,
                 device=device,
                 verbose=False
-            )
+            ))
             
             # Extract detection information. Pull the whole batch off the device
             # once (each per-box .cpu() call is a separate sync + thread-pool
             # wake-up) and iterate the resulting numpy arrays.
             detections = []
             if len(results) > 0:
-                result = results[0]
+                result = results[0]  # type: ignore[reportIndexIssue]
                 boxes = result.boxes
 
                 if boxes is not None and len(boxes) > 0:
@@ -334,7 +334,7 @@ class UltralyticsNode(BaseNode):
             # Prepare output image
             output_image = image
             if draw_results and len(results) > 0:
-                output_image = results[0].plot()
+                output_image = results[0].plot()  # type: ignore[reportIndexIssue]
             
             # Encode image back to same format as input
             include_image = self.get_config_bool('include_image', True)

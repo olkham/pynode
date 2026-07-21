@@ -222,7 +222,7 @@ class ImageFormatNode(BaseNode):
         except Exception as e:
             self.report_error(f"Conversion error: {e}")
     
-    def _numpy_to_base64(self, image: np.ndarray) -> Dict[str, Any]:
+    def _numpy_to_base64(self, image: Any) -> Dict[str, Any]:
         """Convert numpy array to base64 encoded image."""
         if not isinstance(image, np.ndarray):
             raise ValueError(f"Expected numpy array, got {type(image)}")
@@ -231,7 +231,7 @@ class ImageFormatNode(BaseNode):
         
         if img_format == 'jpeg':
             quality = self.get_config_int(MessageKeys.IMAGE.JPEG_QUALITY, 85)
-            encode_params = [cv2.IMWRITE_JPEG_QUALITY, quality]
+            encode_params = (cv2.IMWRITE_JPEG_QUALITY, quality)
             ret, buffer = cv2.imencode('.jpg', image, encode_params)
             ext = 'jpeg'
         elif img_format == 'png':

@@ -205,7 +205,7 @@ class RoboflowUploadNode(BaseNode):
         temp_path = os.path.join(tempfile.gettempdir(), filename)
 
         try:
-            success, buffer = cv2.imencode('.jpg', image, [cv2.IMWRITE_JPEG_QUALITY, 95])
+            success, buffer = cv2.imencode('.jpg', image, (cv2.IMWRITE_JPEG_QUALITY, 95))
             if not success:
                 self.report_error("Failed to encode image as JPEG")
                 self.send(msg)

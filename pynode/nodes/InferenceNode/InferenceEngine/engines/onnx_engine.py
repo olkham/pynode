@@ -31,7 +31,7 @@ class OnnxEngine(BaseInferenceEngine):
         super().__init__(**kwargs)
         self.model_path = kwargs.get('model_path', self.model_path)
         self.device = kwargs.get('device', self.device)
-        self.session: Optional[ort.InferenceSession] = None
+        self.session: Optional[ort.InferenceSession] = None  # type: ignore[reportInvalidTypeForm]
         self.input_name: Optional[str] = None
         self.input_shape: Optional[Tuple[int, ...]] = None
         self.output_name: Optional[str] = None

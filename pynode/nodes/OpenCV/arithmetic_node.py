@@ -249,13 +249,13 @@ class ArithmeticNode(BaseNode):
             if img2 is None:
                 return img1
             img1, img2 = self._resize_images(img1, img2)
-            img1, img2 = self._match_channels(img1, img2)
+            img1, img2 = self._match_channels(img1, img2)  # type: ignore[reportArgumentType]
             img1_f = img1.astype(np.float32)
             img2_f = img2.astype(np.float32)
         
         # Perform operation
         if operation == 'add':
-            result = cv2.add(img1, img2 if mode == 'image' else img2_f.astype(np.uint8))
+            result = cv2.add(img1, img2 if mode == 'image' else img2_f.astype(np.uint8))  # type: ignore[reportArgumentType]
         elif operation == 'subtract':
             if mode == 'constant':
                 const_value = float(self.config.get('constant', '50'))
@@ -265,7 +265,7 @@ class ArithmeticNode(BaseNode):
                     # Negative constant means add
                     result = cv2.add(img1, np.full_like(img1, abs(const_value), dtype=np.uint8))
             else:
-                result = cv2.subtract(img1, img2)
+                result = cv2.subtract(img1, img2)  # type: ignore[reportArgumentType]
         elif operation == 'multiply':
             # Scale factor for multiply
             result = img1_f * (img2_f / 255.0 if mode == 'image' else img2_f / 255.0)
@@ -293,12 +293,12 @@ class ArithmeticNode(BaseNode):
             if mode == 'constant':
                 result = cv2.addWeighted(img1, alpha, img2_f.astype(np.uint8), beta, gamma)
             else:
-                result = cv2.addWeighted(img1, alpha, img2, beta, gamma)
+                result = cv2.addWeighted(img1, alpha, img2, beta, gamma)  # type: ignore[reportArgumentType]
         elif operation == 'absdiff':
             if mode == 'constant':
                 result = cv2.absdiff(img1, img2_f.astype(np.uint8))
             else:
-                result = cv2.absdiff(img1, img2)
+                result = cv2.absdiff(img1, img2)  # type: ignore[reportArgumentType]
         elif operation == 'min':
             if mode == 'constant':
                 result = np.minimum(img1_f, img2_f)

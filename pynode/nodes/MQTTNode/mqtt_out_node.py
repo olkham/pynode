@@ -85,7 +85,7 @@ class MqttOutNode(BaseNode):
         }
     ]
     
-    def __init__(self, node_id: str = None, name: str = ""):
+    def __init__(self, node_id: 'str | None' = None, name: str = ""):
         super().__init__(node_id, name)
         self._service: Optional[MQTTService] = None
     
