@@ -25,8 +25,8 @@ elif command -v nvidia-smi &> /dev/null; then
     CUDA_MAJOR=$(echo $CUDA_VERSION | cut -d. -f1)
     CUDA_MINOR=$(echo $CUDA_VERSION | cut -d. -f2)
     
-    if [[ "$CUDA_MAJOR" -eq 13 && "$CUDA_MINOR" -eq 0 ]]; then
-        echo "Installing PyTorch with CUDA 13.0 support (highest available for CUDA 13.0)..."
+    if [[ "$CUDA_MAJOR" -ge 13 ]]; then
+        echo "Installing PyTorch with CUDA 13.0 support (highest available; forward-compatible with CUDA 13.x)..."
         pip install torch torchvision --index-url https://download.pytorch.org/whl/cu130
     elif [[ "$CUDA_MAJOR" -eq 12 && "$CUDA_MINOR" -eq 8 ]]; then
         echo "Installing PyTorch with CUDA 12.8 support..."
