@@ -1,5 +1,9 @@
-"""Node-RED In node - receives messages from a remote UDP sender (Node-RED or
-another PyNode instance) using the PNB1 bridge protocol.
+"""UDP In node - receives messages from a remote UDP sender using the PNB1
+protocol.
+
+The sender can be a PyNode ``UdpOutNode``, or any external program that
+implements the PNB1 wire format (see ``udp_protocol.py``) - e.g. the example
+Node-RED flow in ``interop/``.
 """
 
 import socket
@@ -8,15 +12,15 @@ import time
 from typing import Any, Dict
 
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
-from pynode.nodes.NodeRedNode import bridge_protocol
+from pynode.nodes.SocketNode import udp_protocol
 
 _info = Info()
 _info.add_text(
-    "Listens on a UDP port for messages sent using the PNB1 bridge protocol "
-    "- a lightweight, chunked, stdlib-only wire format designed to move "
-    "messages (including video frames) between PyNode and Node-RED, or "
-    "between two PyNode instances, over UDP. Fragmented messages are "
-    "reassembled before being emitted.")
+    "Listens on a UDP port for messages sent using the PNB1 protocol - a "
+    "lightweight, chunked, stdlib-only wire format for moving messages "
+    "(including video frames) over UDP from another PyNode instance or any "
+    "program that implements it. Fragmented messages are reassembled before "
+    "being emitted.")
 _info.add_header("Outputs")
 _info.add_bullets(
     ("Output 0:", "One message per completed datagram sequence received. "
@@ -39,10 +43,9 @@ _info.add_bullets(
 )
 _info.add_header("Protocol")
 _info.add_text(
-    "See pynode/nodes/NodeRedNode/bridge_protocol.py for the full wire "
-    "format, and pynode/nodes/NodeRedNode/nodered/ for a ready-to-import "
-    "Node-RED flow (pynode-bridge-flow.json) implementing both directions "
-    "with core nodes only.")
+    "See pynode/nodes/SocketNode/udp_protocol.py for the full wire format, "
+    "and pynode/nodes/SocketNode/interop/ for a standalone udp_probe.py "
+    "diagnostic and an example Node-RED flow that implements it.")
 _info.add_header("Notes")
 _info.add_bullets(
     ("UDP is unreliable:", "datagrams can be lost, duplicated, or reordered. "
@@ -55,11 +58,11 @@ _info.add_bullets(
 )
 
 
-class NodeRedInNode(BaseNode):
-    """Receives messages from a remote UDP sender using the PNB1 bridge protocol."""
+class UdpInNode(BaseNode):
+    """Receives messages from a remote UDP sender using the PNB1 protocol."""
 
     info = str(_info)
-    display_name = 'Node-RED In'
+    display_name = 'UDP In'
     icon = '📡'
     category = 'network'
     color = '#87A980'
@@ -71,7 +74,7 @@ class NodeRedInNode(BaseNode):
     DEFAULT_CONFIG = {
         'bind_host': '0.0.0.0',
         'port': 7401,
-        'reassembly_timeout': bridge_protocol.DEFAULT_REASSEMBLY_TIMEOUT,
+        'reassembly_timeout': udp_protocol.DEFAULT_REASSEMBLY_TIMEOUT,
     }
 
     properties = [
@@ -109,7 +112,7 @@ class NodeRedInNode(BaseNode):
     # the comment in on_start() for why this needs to be generous.
     _RECV_SOCKET_BUFFER_SIZE = 4 * 1024 * 1024
 
-    def __init__(self, node_id=None, name="node-red in"):
+    def __init__(self, node_id=None, name="udp in"):
         super().__init__(node_id, name)
         self._socket = None
         self._recv_thread = None
@@ -124,9 +127,9 @@ class NodeRedInNode(BaseNode):
 
         bind_host = str(self.config.get('bind_host', self.DEFAULT_CONFIG['bind_host']))
         port = self.get_config_int('port', self.DEFAULT_CONFIG['port'])
-        timeout = self.get_config_float('reassembly_timeout', bridge_protocol.DEFAULT_REASSEMBLY_TIMEOUT)
+        timeout = self.get_config_float('reassembly_timeout', udp_protocol.DEFAULT_REASSEMBLY_TIMEOUT)
 
-        self._reassembler = bridge_protocol.Reassembler(timeout=timeout)
+        self._reassembler = udp_protocol.Reassembler(timeout=timeout)
 
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -146,7 +149,7 @@ class NodeRedInNode(BaseNode):
             sock.bind((bind_host, port))
             sock.settimeout(self._SOCKET_POLL_TIMEOUT)
         except OSError as e:
-            self.report_error(f"Node-RED In: failed to bind UDP socket on {bind_host}:{port}: {e}")
+            self.report_error(f"UDP In: failed to bind UDP socket on {bind_host}:{port}: {e}")
             return
 
         self._socket = sock
@@ -196,7 +199,7 @@ class NodeRedInNode(BaseNode):
                     result = self._reassembler.add_datagram(addr, data)
                 except Exception as e:  # pragma: no cover - defensive
                     self.error_count += 1
-                    self.report_error(f"Node-RED In: error reassembling datagram from {addr}: {e}")
+                    self.report_error(f"UDP In: error reassembling datagram from {addr}: {e}")
                     result = None
                 if result is not None:
                     self._emit(result)
@@ -210,10 +213,10 @@ class NodeRedInNode(BaseNode):
         meta = result.get('meta') or {}
         payload_type = meta.get('payload_type')
         try:
-            payload = bridge_protocol.decode_payload(payload_type, result['payload_bytes'], meta)
-        except bridge_protocol.DecodeError as e:
+            payload = udp_protocol.decode_payload(payload_type, result['payload_bytes'], meta)
+        except udp_protocol.DecodeError as e:
             self.error_count += 1
-            self.report_error(f"Node-RED In: failed to decode payload ({payload_type}): {e}")
+            self.report_error(f"UDP In: failed to decode payload ({payload_type}): {e}")
             return
 
         topic = meta.get('topic', '') or ''

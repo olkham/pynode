@@ -1,10 +1,11 @@
-"""Tests for the PyNode <-> Node-RED UDP bridge (NodeRedOutNode / NodeRedInNode
-/ bridge_protocol.py) and the bundled Node-RED-side flow JSON.
+"""Tests for the UDP / TCP socket nodes (UdpOutNode / UdpInNode /
+udp_protocol.py, TcpOutNode / TcpInNode / ndjson_protocol.py) and the
+bundled example Node-RED interop flow JSON.
 
 Safety
 ------
 * No Flask app, WorkflowManager, or ``workflows/`` directory is touched -
-  ``NodeRedOutNode``/``NodeRedInNode`` are instantiated and driven directly,
+  ``UdpOutNode``/``UdpInNode`` are instantiated and driven directly,
   exactly as ``tests/conftest.py``'s ``node_classes``-based tests do for other
   node families (see also ``tests/test_zenoh_nodes.py`` for the template this
   file follows).
@@ -28,9 +29,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from pynode.nodes.NodeRedNode import bridge_protocol as bp
-from pynode.nodes.NodeRedNode.nodered_in_node import NodeRedInNode
-from pynode.nodes.NodeRedNode.nodered_out_node import NodeRedOutNode
+from pynode.nodes.SocketNode import udp_protocol as bp
+from pynode.nodes.SocketNode.udp_in_node import UdpInNode
+from pynode.nodes.SocketNode.udp_out_node import UdpOutNode
 
 
 # ---------------------------------------------------------------------------
@@ -59,9 +60,9 @@ def _make_test_frame():
 
 
 def _make_in_node(sink, reassembly_timeout=2.0):
-    """A started NodeRedInNode bound to an ephemeral loopback port, wired to
+    """A started UdpInNode bound to an ephemeral loopback port, wired to
     ``sink``. Caller must call ``.on_stop()`` (in a finally block)."""
-    node = NodeRedInNode(name='node-red-in')
+    node = UdpInNode(name='udp-in')
     node.configure({
         'bind_host': '127.0.0.1',
         'port': 0,
@@ -69,13 +70,13 @@ def _make_in_node(sink, reassembly_timeout=2.0):
     })
     node.connect(sink)
     node.on_start()
-    assert node.bound_port, "NodeRedInNode failed to bind (bound_port is falsy)"
+    assert node.bound_port, "UdpInNode failed to bind (bound_port is falsy)"
     return node
 
 
 def _make_out_node(target_port, chunk_size=None, encode_images=True, include_msg_props=False):
-    """A started NodeRedOutNode targeting 127.0.0.1:target_port."""
-    node = NodeRedOutNode(name='node-red-out')
+    """A started UdpOutNode targeting 127.0.0.1:target_port."""
+    node = UdpOutNode(name='udp-out')
     cfg = {
         'host': '127.0.0.1',
         'port': target_port,
@@ -90,7 +91,7 @@ def _make_out_node(target_port, chunk_size=None, encode_images=True, include_msg
 
 
 # ===========================================================================
-# Pure protocol unit tests (bridge_protocol.py only - no sockets)
+# Pure protocol unit tests (udp_protocol.py only - no sockets)
 # ===========================================================================
 
 def test_header_size_and_format():
@@ -359,7 +360,7 @@ def test_reassembler_out_of_order_pure():
 
 
 # ===========================================================================
-# Real loopback tests: NodeRedOutNode -> UDP -> NodeRedInNode
+# Real loopback tests: UdpOutNode -> UDP -> UdpInNode
 # ===========================================================================
 
 def test_roundtrip_small_json_real_node(node_classes):
@@ -522,7 +523,7 @@ def test_stats_counters_real_node(node_classes):
 
 
 def test_out_of_order_chunk_delivery_real_node(node_classes):
-    """Hand-build a multi-chunk message and feed it to a real NodeRedInNode
+    """Hand-build a multi-chunk message and feed it to a real UdpInNode
     via a raw socket, in shuffled order - reassembly must not depend on
     arrival order."""
     sink = node_classes['sink'](name='sink')
@@ -569,7 +570,7 @@ def test_missing_chunk_eviction_real_node(node_classes):
             sender.sendto(d, ('127.0.0.1', in_node.bound_port))
 
         # Wait past reassembly_timeout + the node's eviction sweep interval.
-        time.sleep(0.1 + NodeRedInNode._EVICT_INTERVAL + 0.4)
+        time.sleep(0.1 + UdpInNode._EVICT_INTERVAL + 0.4)
 
         assert sink.received == []
         assert in_node._reassembler.pending == {}
@@ -599,7 +600,7 @@ class _FailingSocket:
 def test_out_node_socket_error_reports_once_per_burst(node_classes):
     """A send failure for one message must call report_error once, not once
     per chunk (a multi-chunk message that fails should not spam)."""
-    out_node = NodeRedOutNode(name='node-red-out')
+    out_node = UdpOutNode(name='udp-out')
     out_node.configure({'host': '127.0.0.1', 'port': 7401, 'chunk_size': '50'})
     errors = []
     out_node._workflow_engine = type('FakeEngine', (), {
@@ -618,11 +619,11 @@ def test_out_node_socket_error_reports_once_per_burst(node_classes):
 
 
 # ===========================================================================
-# Node-RED-side flow JSON validation
+# Example Node-RED interop flow JSON validation
 # ===========================================================================
 
 FLOW_JSON_PATH = (Path(__file__).resolve().parent.parent / 'pynode' / 'nodes' /
-                  'NodeRedNode' / 'nodered' / 'pynode-bridge-flow.json')
+                  'SocketNode' / 'interop' / 'nodered-example-flow.json')
 
 
 def _load_flow():
@@ -717,29 +718,29 @@ def test_flow_json_header_offsets_match_struct_layout():
 
 
 # ===========================================================================
-# TCP/NDJSON transport (ndjson_protocol + NodeRedTcpOutNode/NodeRedTcpInNode)
+# TCP/NDJSON transport (ndjson_protocol + TcpOutNode/TcpInNode)
 # ===========================================================================
 
-from pynode.nodes.NodeRedNode import ndjson_protocol as ndj  # noqa: E402
-from pynode.nodes.NodeRedNode.nodered_tcp_in_node import NodeRedTcpInNode  # noqa: E402
-from pynode.nodes.NodeRedNode.nodered_tcp_out_node import NodeRedTcpOutNode  # noqa: E402
+from pynode.nodes.SocketNode import ndjson_protocol as ndj  # noqa: E402
+from pynode.nodes.SocketNode.tcp_in_node import TcpInNode  # noqa: E402
+from pynode.nodes.SocketNode.tcp_out_node import TcpOutNode  # noqa: E402
 
 
 def _make_tcp_in_node(sink):
-    """A started NodeRedTcpInNode on an ephemeral loopback port, wired to
+    """A started TcpInNode on an ephemeral loopback port, wired to
     ``sink``. Caller must call ``.on_stop()`` (in a finally block)."""
-    node = NodeRedTcpInNode(name='tcp-in')
+    node = TcpInNode(name='tcp-in')
     node.configure({'bind_host': '127.0.0.1', 'port': 0})
     node.connect(sink)
     node.on_start()
-    assert node.bound_port, "NodeRedTcpInNode failed to bind"
+    assert node.bound_port, "TcpInNode failed to bind"
     return node
 
 
 def _make_tcp_out_node(target_port, **cfg_overrides):
-    """A started NodeRedTcpOutNode targeting 127.0.0.1:target_port, waited
+    """A started TcpOutNode targeting 127.0.0.1:target_port, waited
     until connected. Caller must call ``.on_stop()`` (in a finally block)."""
-    node = NodeRedTcpOutNode(name='tcp-out')
+    node = TcpOutNode(name='tcp-out')
     cfg = {'host': '127.0.0.1', 'port': target_port, 'reconnect_delay': 0.2}
     cfg.update(cfg_overrides)
     node.configure(cfg)
@@ -892,7 +893,7 @@ def test_tcp_out_reconnects_after_server_restart(node_classes):
 
         # bring a server back on the SAME port and wait for reconnection
         sink2 = node_classes['sink'](name='sink2')
-        in_node = NodeRedTcpInNode(name='tcp-in-2')
+        in_node = TcpInNode(name='tcp-in-2')
         in_node.configure({'bind_host': '127.0.0.1', 'port': port})
         in_node.connect(sink2)
         in_node.on_start()

@@ -1,15 +1,17 @@
-"""Node-RED TCP Out - sends messages to Node-RED as newline-delimited JSON.
+"""TCP Out - sends messages over TCP as newline-delimited JSON.
 
-The TCP counterpart to ``NodeRedOutNode`` (UDP/PNB1). One persistent client
-connection to a listening ``tcp in`` node; one JSON line per message. TCP
-provides ordering/reliability/unlimited size, so the Node-RED side needs
-ZERO custom code: ``tcp in`` (stream of strings, delimited by \\n) ->
-``json`` node -> the message object.
+The TCP counterpart to ``UdpOutNode`` (UDP/PNB1). One persistent client
+connection to a listening TCP receiver; one JSON line per message. TCP
+provides ordering/reliability/unlimited size, so any consumer can read it
+with a plain socket read split on newlines followed by JSON.parse - no
+custom framing needed. (For example, a Node-RED ``tcp in`` node in "stream
+of strings, delimited by \\n" mode feeding a ``json`` node yields the
+message object directly.)
 
-Trade-off vs the UDP bridge: binary payloads travel base64-wrapped (~33%
-bigger) and a slow consumer applies backpressure (the stream stalls rather
-than dropping frames) - prefer this for control/telemetry/detections,
-prefer UDP for sustained high-rate video.
+Trade-off vs UDP: binary payloads travel base64-wrapped (~33% bigger) and a
+slow consumer applies backpressure (the stream stalls rather than dropping
+frames) - prefer this for control/telemetry/detections, prefer UDP for
+sustained high-rate video.
 """
 
 import socket
@@ -17,19 +19,20 @@ import threading
 from typing import Any, Dict
 
 from pynode.nodes.base_node import BaseNode, Info
-from pynode.nodes.NodeRedNode import ndjson_protocol
+from pynode.nodes.SocketNode import ndjson_protocol
 
 _info = Info()
 _info.add_text(
-    "Sends each incoming message to Node-RED (or another PyNode) over a "
-    "persistent TCP connection as one JSON line (NDJSON). The Node-RED side "
-    "needs no custom code: a core 'tcp in' node (Listen on port, output "
-    "'stream of' 'strings' delimited by \\n) feeding a core 'json' node "
-    "yields the message object directly.")
+    "Sends each incoming message over a persistent TCP connection as one "
+    "JSON line (NDJSON). Any consumer reads it as a stream of newline-"
+    "delimited JSON objects - no custom decoding needed. Pair with a PyNode "
+    "'TCP In' node, or any TCP listener (e.g. a Node-RED 'tcp in' node in "
+    "'stream of strings delimited by \\n' mode feeding a 'json' node).")
 _info.add_header("Configuration")
 _info.add_bullets(
-    ("Host / Port:", "The machine and port where Node-RED's 'tcp in' node "
-                     "(or a PyNode 'Node-RED TCP In' node) is listening."),
+    ("Host / Port:", "The machine and port where the TCP receiver (a PyNode "
+                     "'TCP In' node, or any listening TCP server) is "
+                     "listening."),
     ("Encode Images:", "JPEG-encode numpy image payloads (sent as "
                        '{"_pnb": "jpeg", "data": "<base64>"}). When off, '
                        "arrays are sent as base64 raw bytes with dtype/shape "
@@ -48,17 +51,17 @@ _info.add_bullets(
                                "slow/stalled consumer backpressures the "
                                "sender (sends time out and drop). For "
                                "sustained high-rate video frames prefer the "
-                               "UDP 'Node-RED Out' node."),
+                               "UDP Out node."),
     ("No encryption or authentication:", "do not expose the port to an "
                                          "untrusted network."),
 )
 
 
-class NodeRedTcpOutNode(BaseNode):
+class TcpOutNode(BaseNode):
     """Sends messages as NDJSON lines over a persistent TCP connection."""
 
     info = str(_info)
-    display_name = 'Node-RED TCP Out'
+    display_name = 'TCP Out'
     icon = '📤'
     category = 'network'
     color = '#C7A96E'
@@ -82,7 +85,7 @@ class NodeRedTcpOutNode(BaseNode):
             'label': 'Host',
             'type': 'text',
             'default': DEFAULT_CONFIG['host'],
-            'help': "Destination host running Node-RED's listening tcp-in node (or a PyNode Node-RED TCP In node)"
+            'help': "Destination host running the listening TCP receiver (a PyNode TCP In node, or any TCP server)"
         },
         {
             'name': 'port',
@@ -126,7 +129,7 @@ class NodeRedTcpOutNode(BaseNode):
     # the configured reconnect delay).
     _POLL_INTERVAL = 0.25
 
-    def __init__(self, node_id=None, name="node-red tcp out"):
+    def __init__(self, node_id=None, name="tcp out"):
         super().__init__(node_id, name)
         self._socket = None
         self._socket_lock = threading.Lock()
@@ -186,7 +189,7 @@ class NodeRedTcpOutNode(BaseNode):
                 if self._was_connected:
                     self._was_connected = False
                     self.report_error(
-                        f"Node-RED TCP Out: connection to {host}:{port} lost, "
+                        f"TCP Out: connection to {host}:{port} lost, "
                         f"retrying every {delay:g}s")
                 if self._stop_flag.wait(delay):
                     return
@@ -225,7 +228,7 @@ class NodeRedTcpOutNode(BaseNode):
             )
         except ndjson_protocol.NdjsonError as e:
             self.error_count += 1
-            self.report_error(f"Node-RED TCP Out: failed to encode message: {e}")
+            self.report_error(f"TCP Out: failed to encode message: {e}")
             return
 
         with self._socket_lock:
@@ -242,6 +245,6 @@ class NodeRedTcpOutNode(BaseNode):
             self.error_count += 1
             self.dropped_count += 1
             self._drop_connection()  # connector will reconnect + report
-            self.report_error(f"Node-RED TCP Out: send failed ({e}); reconnecting")
+            self.report_error(f"TCP Out: send failed ({e}); reconnecting")
             return
         self.sent_count += 1

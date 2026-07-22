@@ -1,30 +1,30 @@
 #!/usr/bin/env python3
-"""Standalone PNB1 bridge diagnostic - no PyNode install needed (stdlib only).
+"""Standalone PNB1 UDP diagnostic - no PyNode install needed (stdlib only).
 
-Copy this single file to any machine (e.g. the Node-RED host) and use it to
-answer the two questions that matter when the bridge "doesn't work":
+Copy this single file to any machine (e.g. the receiver's host) and use it
+to answer the two questions that matter when UDP messages "don't arrive":
 
 1. **Are datagrams actually arriving at this machine?** Run the listener on
-   the port your Node-RED ``udp in`` node uses (stop/redeploy Node-RED first
-   so the port is free, or pick a spare port and point PyNode at it)::
+   the receiving port (free the port first, or pick a spare port and point
+   the UDP Out node at it)::
 
        python3 udp_probe.py listen 7401
 
    Every PNB1 datagram is printed with its header fields; complete messages
-   are decoded and summarised. If PyNode is sending and NOTHING prints here,
-   the problem is network-level (wrong Host on the PyNode "Node-RED Out"
-   node, firewall, fragment-dropping router), not Node-RED.
+   are decoded and summarised. If the UDP Out node is sending and NOTHING
+   prints here, the problem is network-level (wrong Host on the UDP Out
+   node, firewall, fragment-dropping router).
 
-2. **Does the Node-RED flow itself work?** Run the sender ON the Node-RED
-   host so no network is involved, pointing at the ``udp in`` port::
+2. **Does the receiver itself work?** Run the sender ON the receiver's host
+   so no network is involved, pointing at the listening port::
 
        python3 udp_probe.py send 127.0.0.1 7401 "hello from probe"
 
-   If the flow's debug node prints the message, the flow is fine and the
-   problem is upstream (see question 1).
+   If the receiver processes the message, it works and the problem is
+   upstream (see question 1).
 
 The header layout here is a hand-inlined copy of
-``pynode/nodes/NodeRedNode/bridge_protocol.py`` (16 bytes, ``>4sBBIHHH``).
+``pynode/nodes/SocketNode/udp_protocol.py`` (16 bytes, ``>4sBBIHHH``).
 """
 
 import json

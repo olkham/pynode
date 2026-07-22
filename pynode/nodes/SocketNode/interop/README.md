@@ -1,46 +1,52 @@
-# PyNode <-> Node-RED UDP Bridge (PNB1) - Node-RED side
+# Interop example: talking to the UDP / TCP nodes from Node-RED
 
-This folder contains the **Node-RED half** of the PyNode <-> Node-RED bridge.
-The PyNode half is `NodeRedOutNode` ("Node-RED Out") and `NodeRedInNode`
-("Node-RED In") in `pynode/nodes/NodeRedNode/`. Both sides speak the same
-`PNB1` wire protocol, defined once in `pynode/nodes/NodeRedNode/bridge_protocol.py`
-(Python) and mirrored by hand in the two function nodes below (JavaScript).
-See that module's docstring for the full byte-layout spec.
+The `SocketNode` nodes (`UdpOutNode`/`UdpInNode` = **UDP Out**/**UDP In**,
+`TcpOutNode`/`TcpInNode` = **TCP Out**/**TCP In**) are generic - anything
+that speaks their wire format can interoperate. This folder is **one worked
+example**: a Node-RED flow that talks to them, plus a standalone diagnostic.
+Nothing here is required to use the nodes PyNode-to-PyNode.
+
+- **UDP** uses the `PNB1` wire protocol, defined once in
+  `pynode/nodes/SocketNode/udp_protocol.py` (Python) and mirrored by hand in
+  the two Node-RED function nodes below (JavaScript). See that module's
+  docstring for the full byte-layout spec.
+- **TCP** uses newline-delimited JSON (`pynode/nodes/SocketNode/ndjson_protocol.py`)
+  and needs no custom decode code at all.
 
 ## Files
 
-- `pynode-bridge-flow.json` - an importable Node-RED flow (one tab) that
-  implements **both directions** using only core Node-RED nodes (`udp in`,
-  `udp out`, `function`, `debug`, `inject`, `comment`):
-  - **PyNode -> Node-RED**: `udp in` -> function `PNB1 reassemble` -> `debug`
-  - **Node-RED -> PyNode**: `inject` -> function `PNB1 chunk+send` -> `udp out`
-- `udp_probe.py` - standalone, stdlib-only diagnostic (copy the single file
-  anywhere): `listen` mode prints/decodes arriving PNB1 datagrams, `send`
-  mode injects a test message. See Troubleshooting below.
+- `nodered-example-flow.json` - an importable Node-RED flow with two tabs:
+  - **"PyNode Bridge (PNB1)"** - the UDP transport, both directions, using
+    only core nodes (`udp in`, `udp out`, `function`, `debug`, `inject`):
+    - **PyNode -> Node-RED**: `udp in` -> function `PNB1 reassemble` -> `debug`
+    - **Node-RED -> PyNode**: `inject` -> function `PNB1 chunk+send` -> `udp out`
+  - **"PyNode Bridge (TCP/NDJSON)"** - the TCP transport (see below).
+- `../udp_probe.py` - standalone, stdlib-only UDP diagnostic (copy the single
+  file anywhere): `listen` mode prints/decodes arriving PNB1 datagrams,
+  `send` mode injects a test message. See Troubleshooting below.
 - `README.md` - this file.
 
 ## Importing the flow
 
 1. Open the Node-RED editor.
 2. Menu (top-right hamburger) -> **Import** -> **select a file to import** ->
-   choose `pynode-bridge-flow.json`.
-3. Choose "new flow" (it imports into its own tab, "PyNode Bridge (PNB1)") and
-   click **Import**.
-4. Double-click the `udp in`, `udp out`, and `inject` nodes and adjust the
-   host/port fields (see below), then **Deploy**.
+   choose `nodered-example-flow.json`.
+3. Choose "new flow" (each tab imports into its own tab) and click **Import**.
+4. Double-click the `udp in`, `udp out`, `tcp in`, `tcp out`, and `inject`
+   nodes and adjust the host/port fields (see below), then **Deploy**.
 
-Node-RED's UDP node field names are stable across recent versions, but if
-your version's editor shows different fields for `udp in`/`udp out`, use the
-editor's own labels as the source of truth - re-enter host/port there rather
-than hand-editing the JSON.
+Node-RED's UDP/TCP node field names are stable across recent versions, but if
+your version's editor shows different fields, use the editor's own labels as
+the source of truth - re-enter host/port there rather than hand-editing the
+JSON.
 
-## Direction 1: PyNode -> Node-RED
+## UDP direction 1: PyNode -> Node-RED
 
 ```
-PyNode: [Node-RED Out node]  --UDP-->  Node-RED: [udp in] -> [PNB1 reassemble] -> ...
+PyNode: [UDP Out node]  --UDP-->  Node-RED: [udp in] -> [PNB1 reassemble] -> ...
 ```
 
-- In PyNode, add a **Node-RED Out** node downstream of whatever you want to
+- In PyNode, add a **UDP Out** node downstream of whatever you want to
   forward. Set its **Host** to the machine running Node-RED, and **Port** to
   match the `udp in` node's **Local UDP Port** (default in this flow: `7401`).
 - In Node-RED, the `udp in` node **must** have **Output** set to `buffer`
@@ -55,41 +61,35 @@ PyNode: [Node-RED Out node]  --UDP-->  Node-RED: [udp in] -> [PNB1 reassemble] -
   - `msg.topic`: the topic PyNode's message had (empty string if none).
   - `msg._pnb1`: `{messageId, payloadType, totalSize[, dtype, shape]}` for
     debugging/introspection.
-  - With the Node-RED Out node's **Include Extra Message Properties**
-    checkbox on, EVERY property of the PyNode message except
-    `payload`/`topic` (underscore ones included: `_msgid`,
-    `_timestamp_orig`, `_timestamp_emit`, `_age`, `_queue_length`,
-    `drop_count`, plus custom fields) is forwarded and merged onto the top
-    level of the emitted message - the Node-RED msg replicates the PyNode
-    msg exactly. Values that aren't JSON-serializable are skipped
-    individually.
+  - With the UDP Out node's **Include Extra Message Properties** checkbox on,
+    EVERY property of the PyNode message except `payload`/`topic` (underscore
+    ones included: `_msgid`, `_timestamp_orig`, `_timestamp_emit`, `_age`,
+    `_queue_length`, `drop_count`, plus custom fields) is forwarded and
+    merged onto the top level of the emitted message - the Node-RED msg
+    replicates the PyNode msg exactly. Values that aren't JSON-serializable
+    are skipped individually.
 - An incomplete message (a chunk was lost) is silently dropped after 2000ms
   (`DEFAULT_REASSEMBLY_TIMEOUT_MS` in the function code) - nothing is emitted
   for it. There is no retransmission (UDP is fire-and-forget both ways).
 
-## Direction 2: Node-RED -> PyNode
+## UDP direction 2: Node-RED -> PyNode
 
 ```
-Node-RED: [inject] -> [PNB1 chunk+send] -> [udp out]  --UDP-->  PyNode: [Node-RED In node]
+Node-RED: [inject] -> [PNB1 chunk+send] -> [udp out]  --UDP-->  PyNode: [UDP In node]
 ```
 
-- In PyNode, add a **Node-RED In** node. Set **Bind Host** (default
-  `0.0.0.0`, or `127.0.0.1` to only accept from the same machine) and
-  **Port** to match the `udp out` node's target port (default in this flow:
-  `7402`).
+- In PyNode, add a **UDP In** node. Set **Bind Host** (default `0.0.0.0`, or
+  `127.0.0.1` to only accept from the same machine) and **Port** to match the
+  `udp out` node's target port (default in this flow: `7402`).
 - In Node-RED, the `udp out` node's **Host**/**Address** field must point at
-  the machine running PyNode, and its **Port** must match the Node-RED In
-  node's **Port**.
+  the machine running PyNode, and its **Port** must match the UDP In node's
+  **Port**.
 - Replace the sample `inject` node with whatever actually produces the
-  message you want to send (an MQTT-in, a camera/image node, another
-  function, ...). Anything upstream of `PNB1 chunk+send` works as long as it
-  sets `msg.payload` (and optionally `msg.topic`).
+  message you want to send. Anything upstream of `PNB1 chunk+send` works as
+  long as it sets `msg.payload` (and optionally `msg.topic`).
 - `PNB1 chunk+send` returns an **array of messages** (one per UDP datagram)
   on its single output - wire it straight into **one** `udp out` node so
-  each array element becomes exactly one UDP packet, in order. Do not put
-  anything else between them (a rate limiter/delay node would still work
-  functionally, but there is no reason to - one function call already
-  produces the complete, ordered chunk sequence for one message).
+  each array element becomes exactly one UDP packet, in order.
 - `msg.payload` types handled by `classifyPayload()` in the function:
   - A `Buffer` starting with the JPEG SOI marker (`0xFF 0xD8`) is tagged
     `payload_type: "jpeg"` so it decodes into a real image (`cv2.imdecode`)
@@ -101,18 +101,17 @@ Node-RED: [inject] -> [PNB1 chunk+send] -> [udp out]  --UDP-->  PyNode: [Node-RE
 
 ## TCP/NDJSON transport (simpler alternative)
 
-The flow file also contains a second tab, **"PyNode Bridge (TCP/NDJSON)"**,
-for the TCP node pair (`Node-RED TCP Out` / `Node-RED TCP In` in PyNode).
-One message = one JSON line over a persistent TCP connection - reliable,
-ordered, no size limit, no chunking/reassembly/fragmentation, and the
-receive path uses only core nodes:
+The flow file's second tab, **"PyNode Bridge (TCP/NDJSON)"**, pairs with the
+**TCP Out** / **TCP In** PyNode nodes. One message = one JSON line over a
+persistent TCP connection - reliable, ordered, no size limit, no
+chunking/reassembly/fragmentation, and the receive path uses only core nodes:
 
 ```
-PyNode: [Node-RED TCP Out] --connects to--> Node-RED: [tcp in :7403, stream of strings
+PyNode: [TCP Out] --connects to--> Node-RED: [tcp in :7403, stream of strings
         split on \n] -> [json] -> [promote to msg (optional)] -> ...
 
 Node-RED: [anything] -> [NDJSON stringify function] -> [tcp out, connect to
-          <pynode-host>:7404] --> PyNode: [Node-RED TCP In :7404]
+          <pynode-host>:7404] --> PyNode: [TCP In :7404]
 ```
 
 - The `promote to msg` function is one `return msg.payload;`-style line that
@@ -136,23 +135,22 @@ rates (drop-friendly, binary-native).
 
 ## Chunk size
 
-The Python side's **Chunk Size** select (60000 bytes, or 1400 for MTU-safe
+The UDP Out node's **Chunk Size** select (60000 bytes, or 1400 for MTU-safe
 WAN links) only controls how a large payload is *fragmented* - decoding does
-not depend on it, so the two ends do not strictly need to agree. In practice,
-keep the JS `CHUNK_SIZE` constant in `PNB1 chunk+send` reasonably close to
-what you'd pick for `NodeRedOutNode` (edit the `const CHUNK_SIZE =
-DEFAULT_CHUNK_SIZE;` line, e.g. to `MTU_CHUNK_SIZE`, for the same WAN-safety
-reasoning) so packet counts stay sane on constrained links.
+not depend on it, so the two ends do not strictly need to agree. To match on
+the Node-RED side, edit the `const CHUNK_SIZE = DEFAULT_CHUNK_SIZE;` line in
+`PNB1 chunk+send` (e.g. to `MTU_CHUNK_SIZE`) so packet counts stay sane on
+constrained links.
 
 ## Ports
 
-This flow and the bundled PyNode example (menu -> Examples -> "16 · Node-RED
-Bridge", file `pynode/static/examples/16-nodered-bridge.json`) both use
-**7401** (PyNode -> Node-RED) and **7402** (Node-RED -> PyNode) as
-placeholders. They're arbitrary - pick any free UDP ports, just keep both
-ends of each direction consistent.
+This flow and the bundled PyNode example (menu -> Examples -> "16 · UDP/TCP
+Bridge", file `pynode/static/examples/16-socket-bridge.json`) use **7401**
+(PyNode -> Node-RED UDP) and **7402** (Node-RED -> PyNode UDP), plus **7403**
+/ **7404** for TCP, as placeholders. They're arbitrary - pick any free ports,
+just keep both ends of each direction consistent.
 
-## Troubleshooting: Node-RED receives nothing
+## Troubleshooting: Node-RED receives nothing (UDP)
 
 > **Seeing `PNB1` plus gibberish/JSON in the debug panel?** Datagrams ARE
 > arriving - you are looking at the raw wire bytes (16-byte binary header +
@@ -163,10 +161,10 @@ ends of each direction consistent.
 
 Work through these in order - each step isolates one link of the chain.
 
-1. **PyNode's "Node-RED Out" Host defaults to `127.0.0.1`.** If Node-RED
-   runs on a different machine, packets never leave the PyNode box until you
-   set **Host** to the Node-RED machine's IP. This is the most common cause.
-2. **Prove datagrams reach the Node-RED machine.** Copy `udp_probe.py`
+1. **The UDP Out node's Host defaults to `127.0.0.1`.** If Node-RED runs on a
+   different machine, packets never leave the PyNode box until you set
+   **Host** to the Node-RED machine's IP. This is the most common cause.
+2. **Prove datagrams reach the Node-RED machine.** Copy `../udp_probe.py`
    there, temporarily stop the Node-RED flow (or use a spare port on both
    ends), and run:
 
@@ -189,7 +187,7 @@ Work through these in order - each step isolates one link of the chain.
    60000-byte chunk becomes ~40 IP fragments per datagram on a typical
    1500-MTU network; some routers/firewalls drop fragments, and losing ONE
    fragment discards the whole datagram. If small Inject messages arrive but
-   frames don't, set the PyNode node's **Chunk Size** to `1400`.
+   frames don't, set the UDP Out node's **Chunk Size** to `1400`.
 5. **Docker/firewall notes.** `--network host` needs no port mapping
    (with the default bridge network you'd need `-p 7401:7401/udp` instead
    - TCP-only `-p 7401:7401` does NOT cover UDP). `ufw allow 7401/udp`
@@ -200,19 +198,16 @@ Work through these in order - each step isolates one link of the chain.
 
 - **UDP is unreliable.** Datagrams can be lost, duplicated, or reordered by
   the network. Neither side retransmits or acknowledges. A message missing
-  even one chunk is dropped after the reassembly timeout. This bridge is
-  designed for loopback/LAN use (telemetry, video preview, control
-  messages) where an occasional dropped message is acceptable - not for
-  anything requiring guaranteed delivery.
+  even one chunk is dropped after the reassembly timeout. Use the UDP nodes
+  for loopback/LAN telemetry/video where an occasional dropped message is
+  acceptable, or the TCP nodes when you need guaranteed delivery.
 - **No encryption or authentication.** Anyone who can reach the configured
-  UDP port can send to it or sniff traffic on it. Do not expose these ports
-  directly to an untrusted network (the public internet, an untrusted
-  Wi-Fi/VLAN); tunnel over VPN/SSH if you need to bridge across one.
+  port can send to it or sniff traffic on it. Do not expose these ports
+  directly to an untrusted network; tunnel over VPN/SSH if you must.
 - **This flow has not been executed against a live Node-RED instance** as
-  part of building it (no Node-RED runtime is available in the environment
-  that produced it) - it was written to match Node-RED's documented core
-  `udp in`/`udp out`/`function` node schemas and hand-verified for constant
-  parity against `bridge_protocol.py` (see
-  `tests/test_nodered_bridge.py::test_flow_json_constants_match_python`).
-  Verify the `udp in`/`udp out` field names against your Node-RED version's
-  editor after import, before depending on this in production.
+  part of building it - it was written to match Node-RED's documented core
+  node schemas and hand-verified for constant parity against
+  `udp_protocol.py` (see
+  `tests/test_socket_nodes.py::test_flow_json_constants_match_python`).
+  Verify the node field names against your Node-RED version's editor after
+  import, before depending on this in production.

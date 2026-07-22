@@ -1,16 +1,16 @@
-"""Wire protocol for the PyNode <-> Node-RED UDP bridge.
+"""Wire protocol for the chunked-UDP messaging nodes (PNB1).
 
 This module is intentionally **pure** - no sockets, no threads, no node
 classes. It only builds/parses datagrams and reassembles fragmented
 messages from raw bytes. That keeps it trivially unit-testable and lets
-both ``NodeRedOutNode``/``NodeRedInNode`` and ``tests/test_nodered_bridge.py``
-share exactly one implementation of the byte layout, instead of the tests
+both ``UdpOutNode``/``UdpInNode`` and ``tests/test_socket_nodes.py`` share
+exactly one implementation of the byte layout, instead of the tests
 re-deriving it (and silently drifting from what the nodes actually send).
 
-The Node-RED side (``nodered/pynode-bridge-flow.json``) re-implements this
-same layout in plain JavaScript inside two function nodes. See that folder's
-README for the JS mirror and ``tests/test_nodered_bridge.py`` for a check
-that the constants embedded in the JS match the constants below.
+Any external consumer can interoperate by implementing this layout. The
+``interop/`` subfolder ships an example Node-RED flow that re-implements it
+in plain JavaScript, and ``tests/test_socket_nodes.py`` checks that the
+constants embedded in that JS match the constants below.
 
 Wire format
 -----------
@@ -58,8 +58,8 @@ Payload encodings
 * any other numpy array, or an image array with image encoding turned off ->
   raw bytes (``arr.tobytes()``) plus ``dtype``/``shape`` in the metadata so
   the receiver can reconstruct it with ``numpy.frombuffer(...).reshape(...)``
-  (``raw_numpy``). This path exists mainly for PyNode<->PyNode use (or a
-  Node-RED flow that just wants the raw bytes) since Node-RED has no numpy.
+  (``raw_numpy``). This path exists mainly for PyNode<->PyNode use, since a
+  non-Python consumer has no numpy to reshape the bytes with.
 """
 
 from __future__ import annotations

@@ -1,5 +1,8 @@
-"""Node-RED Out node - sends messages to a UDP listener (Node-RED or another
-PyNode instance) using the PNB1 bridge protocol.
+"""UDP Out node - sends messages to a UDP listener using the PNB1 protocol.
+
+The listener can be a PyNode ``UdpInNode``, or any external program that
+implements the PNB1 wire format (see ``udp_protocol.py``) - e.g. the example
+Node-RED flow in ``interop/``.
 """
 
 import json
@@ -7,14 +10,14 @@ import socket
 from typing import Any, Dict
 
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
-from pynode.nodes.NodeRedNode import bridge_protocol
+from pynode.nodes.SocketNode import udp_protocol
 
 _info = Info()
 _info.add_text(
     "Sends each incoming message to a remote UDP listener using the PNB1 "
-    "bridge protocol - a lightweight, chunked, stdlib-only wire format "
-    "designed to move messages (including video frames) between PyNode and "
-    "Node-RED, or between two PyNode instances, over UDP.")
+    "protocol - a lightweight, chunked, stdlib-only wire format for moving "
+    "messages (including video frames) over UDP to another PyNode instance "
+    "or any program that implements it.")
 _info.add_header("Inputs")
 _info.add_bullets(
     ("Input 0:", "Any message. msg.payload is encoded and sent; msg.topic is "
@@ -22,21 +25,21 @@ _info.add_bullets(
 )
 _info.add_header("Configuration")
 _info.add_bullets(
-    ("Host:", "Destination host running the paired listener (Node-RED's "
-              "'udp in' node, or a NodeRedInNode)."),
+    ("Host:", "Destination host running the paired listener (a UdpInNode or "
+              "any PNB1-speaking UDP receiver)."),
     ("Port:", "Destination UDP port."),
     ("Chunk Size:", "Body bytes per datagram. 60000 (default) is fastest on "
                     "a LAN; 1400 keeps every datagram under a single MTU for "
-                    "WAN/VPN links. Must match on both ends of the bridge - "
-                    "chunk size only affects fragmentation, not decoding, so "
-                    "a mismatch just changes how many datagrams a message "
-                    "takes, not whether it can be decoded."),
+                    "WAN/VPN links. Chunk size only affects fragmentation, "
+                    "not decoding, so a mismatch between ends just changes "
+                    "how many datagrams a message takes, not whether it can "
+                    "be decoded."),
     ("Encode Images:", "When on (default), numpy image arrays are JPEG "
                        "encoded before sending (a 1080p BGR frame is ~6MB "
                        "raw vs ~100-300KB as JPEG). When off, images are "
                        "sent as raw bytes with dtype/shape metadata - only "
-                       "useful for PyNode-to-PyNode, since Node-RED has no "
-                       "numpy to reshape them with."),
+                       "useful for PyNode-to-PyNode, since a non-Python "
+                       "receiver has no numpy to reshape them with."),
     ("Include Extra Message Properties:", "When on, forwards EVERY msg "
                        "property other than payload/topic (including "
                        "underscore ones: _msgid, _timestamp_orig, "
@@ -48,28 +51,28 @@ _info.add_bullets(
 )
 _info.add_header("Protocol")
 _info.add_text(
-    "See pynode/nodes/NodeRedNode/bridge_protocol.py for the full wire "
-    "format, and pynode/nodes/NodeRedNode/nodered/ for a ready-to-import "
-    "Node-RED flow (pynode-bridge-flow.json) implementing both directions "
-    "with core nodes only.")
+    "See pynode/nodes/SocketNode/udp_protocol.py for the full wire format, "
+    "and pynode/nodes/SocketNode/interop/ for a standalone udp_probe.py "
+    "diagnostic and an example Node-RED flow that implements it.")
 _info.add_header("Notes")
 _info.add_bullets(
     ("UDP is unreliable:", "datagrams can be lost, duplicated, or reordered. "
-                           "This bridge does not retransmit or acknowledge - "
-                           "it is designed for loopback/LAN use (telemetry, "
+                           "These nodes do not retransmit or acknowledge - "
+                           "they are designed for loopback/LAN use (telemetry, "
                            "video preview, control messages) where an "
-                           "occasional dropped frame is acceptable."),
+                           "occasional dropped frame is acceptable. For "
+                           "guaranteed delivery use the TCP Out node."),
     ("No encryption or authentication:", "anyone who can reach the port can "
                        "send/receive. Do not expose it directly to an "
                        "untrusted network."),
 )
 
 
-class NodeRedOutNode(BaseNode):
-    """Sends messages to a remote UDP listener using the PNB1 bridge protocol."""
+class UdpOutNode(BaseNode):
+    """Sends messages to a remote UDP listener using the PNB1 protocol."""
 
     info = str(_info)
-    display_name = 'Node-RED Out'
+    display_name = 'UDP Out'
     icon = '📡'
     category = 'network'
     color = '#87A980'
@@ -81,7 +84,7 @@ class NodeRedOutNode(BaseNode):
     DEFAULT_CONFIG = {
         'host': '127.0.0.1',
         'port': 7401,
-        'chunk_size': str(bridge_protocol.DEFAULT_CHUNK_SIZE),
+        'chunk_size': str(udp_protocol.DEFAULT_CHUNK_SIZE),
         'encode_images': True,
         'include_msg_props': False,
     }
@@ -92,7 +95,7 @@ class NodeRedOutNode(BaseNode):
             'label': 'Host',
             'type': 'text',
             'default': DEFAULT_CONFIG['host'],
-            'help': "Destination host running Node-RED's udp-in node (or another PyNode's Node-RED In node)"
+            'help': "Destination host running the paired UDP In node (or any PNB1-speaking UDP listener)"
         },
         {
             'name': 'port',
@@ -106,10 +109,10 @@ class NodeRedOutNode(BaseNode):
             'label': 'Chunk Size',
             'type': 'select',
             'options': [
-                {'value': str(bridge_protocol.DEFAULT_CHUNK_SIZE),
-                 'label': f'{bridge_protocol.DEFAULT_CHUNK_SIZE} bytes (fast LAN, default)'},
-                {'value': str(bridge_protocol.MTU_CHUNK_SIZE),
-                 'label': f'{bridge_protocol.MTU_CHUNK_SIZE} bytes (MTU-safe WAN)'}
+                {'value': str(udp_protocol.DEFAULT_CHUNK_SIZE),
+                 'label': f'{udp_protocol.DEFAULT_CHUNK_SIZE} bytes (fast LAN, default)'},
+                {'value': str(udp_protocol.MTU_CHUNK_SIZE),
+                 'label': f'{udp_protocol.MTU_CHUNK_SIZE} bytes (MTU-safe WAN)'}
             ],
             'default': DEFAULT_CONFIG['chunk_size'],
             'help': 'Body bytes per UDP datagram. Must be a value the receiver can reassemble (any value works, this just controls fragmentation).'
@@ -130,7 +133,7 @@ class NodeRedOutNode(BaseNode):
         },
     ]
 
-    def __init__(self, node_id=None, name="node-red out"):
+    def __init__(self, node_id=None, name="udp out"):
         super().__init__(node_id, name)
         self._socket = None
         self._message_id = 0
@@ -170,12 +173,12 @@ class NodeRedOutNode(BaseNode):
 
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         if not self._socket:
-            self.report_error("Node-RED Out: UDP socket not open (node not started)")
+            self.report_error("UDP Out: UDP socket not open (node not started)")
             return
 
         host = str(self.config.get('host', self.DEFAULT_CONFIG['host']))
         port = self.get_config_int('port', self.DEFAULT_CONFIG['port'])
-        chunk_size = self.get_config_int('chunk_size', bridge_protocol.DEFAULT_CHUNK_SIZE)
+        chunk_size = self.get_config_int('chunk_size', udp_protocol.DEFAULT_CHUNK_SIZE)
         encode_images = self.get_config_bool('encode_images', True)
         include_props = self.get_config_bool('include_msg_props', False)
 
@@ -201,18 +204,18 @@ class NodeRedOutNode(BaseNode):
                     continue
                 extra_props[k] = v
 
-        self._message_id = bridge_protocol.next_message_id(self._message_id)
+        self._message_id = udp_protocol.next_message_id(self._message_id)
 
         try:
-            datagrams = bridge_protocol.build_datagrams(
+            datagrams = udp_protocol.build_datagrams(
                 self._message_id, topic, payload,
                 extra_props=extra_props,
                 chunk_size=chunk_size,
                 encode_images=encode_images,
             )
-        except bridge_protocol.EncodeError as e:
+        except udp_protocol.EncodeError as e:
             self.error_count += 1
-            self.report_error(f"Node-RED Out: failed to encode message: {e}")
+            self.report_error(f"UDP Out: failed to encode message: {e}")
             return
 
         # One report_error per burst (this message), not per datagram - a
@@ -223,7 +226,7 @@ class NodeRedOutNode(BaseNode):
                 self._socket.sendto(datagram, (host, port))
         except OSError as e:
             self.error_count += 1
-            self.report_error(f"Node-RED Out: UDP send to {host}:{port} failed: {e}")
+            self.report_error(f"UDP Out: UDP send to {host}:{port} failed: {e}")
             return
 
         self.sent_count += 1

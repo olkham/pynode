@@ -152,8 +152,8 @@ Thumbs.db
 *.json
 # ...but keep the bundled, GUI-loadable example workflows
 !pynode/static/examples/*.json
-# ...and the Node-RED-side bridge flow shipped with NodeRedNode
-!pynode/nodes/NodeRedNode/nodered/*.json
+# ...and the example Node-RED flow shipped with the SocketNode nodes
+!pynode/nodes/SocketNode/interop/*.json
 
 # PyTorch model files
 *.pt

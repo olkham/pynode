@@ -12,7 +12,7 @@
             "valueType": "json"
           }
         ],
-        "topic": "bridge/demo",
+        "topic": "socket/demo",
         "once": "",
         "repeat": "2"
       },
@@ -20,9 +20,9 @@
       "y": 80
     },
     {
-      "id": "nodered_out_1",
-      "type": "NodeRedOutNode",
-      "name": "To Node-RED (7401)",
+      "id": "udp_out_1",
+      "type": "UdpOutNode",
+      "name": "UDP Out (7401)",
       "config": {
         "host": "127.0.0.1",
         "port": 7401,
@@ -34,9 +34,9 @@
       "y": 80
     },
     {
-      "id": "nodered_in_1",
-      "type": "NodeRedInNode",
-      "name": "From Node-RED (7402)",
+      "id": "udp_in_1",
+      "type": "UdpInNode",
+      "name": "UDP In (7402)",
       "config": {
         "bind_host": "0.0.0.0",
         "port": 7402,
@@ -61,12 +61,12 @@
   "connections": [
     {
       "source": "inject_1",
-      "target": "nodered_out_1",
+      "target": "udp_out_1",
       "sourceOutput": 0,
       "targetInput": 0
     },
     {
-      "source": "nodered_in_1",
+      "source": "udp_in_1",
       "target": "debug_1",
       "sourceOutput": 0,
       "targetInput": 0

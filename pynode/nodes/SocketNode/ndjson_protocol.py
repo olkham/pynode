@@ -1,16 +1,14 @@
-"""Newline-delimited-JSON (NDJSON) framing for the TCP Node-RED bridge.
+"""Newline-delimited-JSON (NDJSON) framing for the TCP messaging nodes.
 
 One message = one JSON object on one line, terminated by ``\n``. This is the
-"simple" counterpart to the chunked-UDP ``bridge_protocol``: TCP already
+"simple" counterpart to the chunked-UDP ``udp_protocol``: TCP already
 provides ordering, reliability and unlimited message size, so the only
 framing needed is the newline (``json.dumps`` escapes any newline inside
 string values, so a raw ``\n`` can never appear inside a line).
 
-The Node-RED side needs NO custom code to receive: a core ``tcp in`` node in
-"stream of strings, delimited by \\n" mode feeding a core ``json`` node
-yields the message object directly. Sending from Node-RED needs a one-line
-function node: ``msg.payload = JSON.stringify({payload: msg.payload, topic:
-msg.topic || ''}) + "\n"; return msg;`` into a ``tcp out`` node.
+A consumer needs NO custom framing code: read the stream, split on ``\n``,
+JSON.parse each line. (A Node-RED ``tcp in`` node in "stream of strings,
+delimited by \\n" mode feeding a ``json`` node does exactly this.)
 
 Line shape
 ----------
@@ -18,7 +16,7 @@ Line shape
 omitted when empty; extra props (underscore ones included) are present when
 the sender forwards them. A line that parses to anything OTHER than an
 object with a ``"payload"`` key is treated as a bare payload (convenient
-when Node-RED sends ``msg.payload`` JSON directly).
+when a sender emits a plain JSON value per line).
 
 Binary payloads
 ---------------
@@ -30,11 +28,11 @@ JSON has no bytes type, so non-JSON payloads are wrapped in a marker object
   [...], "data": <b64 raw bytes>}``
 * bytes/bytearray             -> ``{"_pnb": "bytes", "data": <b64>}``
 
-A receiving ``NodeRedTcpInNode`` unwraps these back to numpy/bytes. On the
-Node-RED side they arrive as plain objects; decode where needed with e.g.
-``msg.payload = Buffer.from(msg.payload.data, 'base64');``. Base64 costs
-~33% size overhead - for sustained high-rate video frames prefer the UDP
-(PNB1) bridge, which sends binary natively.
+A receiving ``TcpInNode`` unwraps these back to numpy/bytes. A non-Python
+consumer sees plain objects; decode where needed (e.g. in JavaScript,
+``Buffer.from(obj.data, 'base64')``). Base64 costs ~33% size overhead - for
+sustained high-rate video frames prefer the UDP (PNB1) nodes, which send
+binary natively.
 """
 
 import base64

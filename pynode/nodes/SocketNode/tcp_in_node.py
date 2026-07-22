@@ -1,18 +1,19 @@
-"""Node-RED TCP In - receives newline-delimited JSON messages over TCP.
+"""TCP In - receives newline-delimited JSON messages over TCP.
 
-The TCP counterpart to ``NodeRedInNode`` (UDP/PNB1). Listens as a TCP
-server; each connected client (a Node-RED ``tcp out`` node in "Connect to"
-mode, another PyNode's 'Node-RED TCP Out' node, or anything that writes one
-JSON object per line) produces one emitted message per line.
+The TCP counterpart to ``UdpInNode`` (UDP/PNB1). Listens as a TCP server;
+each connected client (another PyNode's 'TCP Out' node, or anything that
+connects and writes one JSON object per line) produces one emitted message
+per line.
 
-Sending from Node-RED needs one tiny function node before ``tcp out``::
+A sender just needs to write one JSON object per line, e.g.::
 
-    msg.payload = JSON.stringify({payload: msg.payload, topic: msg.topic || ''}) + "\\n";
-    return msg;
+    {"payload": <value>, "topic": "..."}\\n
 
 A line that is a bare JSON value (not an object with a "payload" key) is
-treated as the payload itself, so even that function is optional for plain
-JSON payloads followed by a newline.
+treated as the payload itself. (For a Node-RED sender, a one-line function
+node before ``tcp out`` that does ``msg.payload =
+JSON.stringify({payload: msg.payload, topic: msg.topic || ''}) + "\\n"``
+produces this form.)
 """
 
 import socket
@@ -20,15 +21,14 @@ import threading
 from typing import Optional
 
 from pynode.nodes.base_node import BaseNode, Info
-from pynode.nodes.NodeRedNode import ndjson_protocol
+from pynode.nodes.SocketNode import ndjson_protocol
 
 _info = Info()
 _info.add_text(
     "Listens for TCP connections and emits one message per received JSON "
-    "line (NDJSON). Pair with Node-RED's core 'tcp out' node in 'Connect "
-    "to' mode (see the node's module docs / bundled README for the one-line "
-    "function that formats the line), or with a PyNode 'Node-RED TCP Out' "
-    "node.")
+    "line (NDJSON). Pair with a PyNode 'TCP Out' node, or any client that "
+    "connects and writes newline-terminated JSON objects (e.g. a Node-RED "
+    "'tcp out' node in 'Connect to' mode - see the interop README).")
 _info.add_header("Outputs")
 _info.add_bullets(
     ("Output 0:", "One message per line: an object line with a 'payload' key "
@@ -53,11 +53,11 @@ _info.add_bullets(
 )
 
 
-class NodeRedTcpInNode(BaseNode):
+class TcpInNode(BaseNode):
     """TCP server emitting one message per received NDJSON line."""
 
     info = str(_info)
-    display_name = 'Node-RED TCP In'
+    display_name = 'TCP In'
     icon = '📥'
     category = 'network'
     color = '#C7A96E'
@@ -96,7 +96,7 @@ class NodeRedTcpInNode(BaseNode):
     # forever). 64MB comfortably fits a base64'd raw 4K BGR frame.
     _MAX_LINE_BYTES = 64 * 1024 * 1024
 
-    def __init__(self, node_id=None, name="node-red tcp in"):
+    def __init__(self, node_id=None, name="tcp in"):
         super().__init__(node_id, name)
         self._server_socket = None
         self._accept_thread = None
@@ -122,7 +122,7 @@ class NodeRedTcpInNode(BaseNode):
             server.settimeout(self._ACCEPT_POLL_TIMEOUT)
         except OSError as e:
             self.report_error(
-                f"Node-RED TCP In: failed to listen on {bind_host}:{port}: {e}")
+                f"TCP In: failed to listen on {bind_host}:{port}: {e}")
             return
 
         self._server_socket = server
@@ -202,7 +202,7 @@ class NodeRedTcpInNode(BaseNode):
                 buffer.extend(data)
                 if len(buffer) > self._MAX_LINE_BYTES:
                     self.report_error(
-                        f"Node-RED TCP In: line from {addr[0]} exceeded "
+                        f"TCP In: line from {addr[0]} exceeded "
                         f"{self._MAX_LINE_BYTES} bytes without a newline; "
                         f"closing connection")
                     break
@@ -233,7 +233,7 @@ class NodeRedTcpInNode(BaseNode):
                 # One report per connection, not per bad line - a misconfigured
                 # sender (e.g. non-JSON traffic) would flood the error panel.
                 self.report_error(
-                    f"Node-RED TCP In: undecodable line from {addr[0]} ({e}); "
+                    f"TCP In: undecodable line from {addr[0]} ({e}); "
                     f"further bad lines on this connection are counted "
                     f"silently")
             return True
