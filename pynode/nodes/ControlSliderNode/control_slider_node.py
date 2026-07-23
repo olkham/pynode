@@ -37,11 +37,17 @@ _info.add_bullets(
               "integers, otherwise floats."),
     ("Value:", "Current/initial value; persisted with the workflow."),
     ("Label:", "Optional caption shown on the node card."),
+    ("Send on Change:", "When on, moving the slider emits a message (value "
+                        "at Target Path) immediately - even with no input "
+                        "wired - so the slider can act as a live source."),
 )
 _info.add_header("Tips")
 _info.add_bullets(
     ("Daisy-chain:", "Wire several sliders in series to control a compound "
-                     "value - 4 sliders -> a crop box, 2 -> an x/y point."),
+                     "value - 4 sliders -> a crop box, 2 -> an x/y point. "
+                     "Leave Send on Change OFF for this - the frames drive it."),
+    ("As a source:", "Turn Send on Change ON and leave the input unwired to "
+                     "drive a downstream value purely by dragging."),
     ("Live tuning:", "Feed a steady message stream (e.g. a camera) and the "
                      "downstream result updates as you drag."),
 )
@@ -72,6 +78,7 @@ class ControlSliderNode(BaseNode):
         'step': 0.01,
         'value': 0.5,
         'label': '',
+        'send_on_change': False,
         # A control shouldn't silently drop frames while tuning a pipeline.
         MessageKeys.DROP_MESSAGES: False,
     }
@@ -116,6 +123,14 @@ class ControlSliderNode(BaseNode):
             'default': DEFAULT_CONFIG['label'],
             'help': 'Optional caption shown on the node card',
         },
+        {
+            'name': 'send_on_change',
+            'label': 'Send on Change',
+            'type': 'checkbox',
+            'default': DEFAULT_CONFIG['send_on_change'],
+            'help': 'Emit a message every time the slider moves, even with no '
+                    'input wired (use as a live source). Redeploy to apply.',
+        },
     ]
 
     def __init__(self, node_id=None, name="slider"):
@@ -149,8 +164,33 @@ class ControlSliderNode(BaseNode):
         return self._coerce(raw)
 
     def set_value(self, value: Any):
-        """UI action: update the live slider value (applied to the next message)."""
+        """UI action: update the live slider value.
+
+        The new value is applied to the next incoming message. When
+        ``send_on_change`` is enabled it is ALSO emitted immediately as a
+        fresh message, so dragging drives downstream nodes with no input
+        wired. Called on the deployed node from the Flask action thread -
+        the same place InjectNode.inject() sends from, so ``send()`` here is
+        safe.
+        """
         self._live_value = self._coerce(value)
+        if self.get_config_bool('send_on_change', False):
+            self._emit_value()
+
+    def _emit_value(self):
+        """Emit a fresh message carrying the current value at the target path."""
+        msg = self.create_message()
+        path = str(self.config.get('path', '')).strip()
+        try:
+            if path:
+                self._set_nested_value(msg, path, self._active_value())
+            else:
+                # No path: the value is the payload.
+                msg[MessageKeys.PAYLOAD] = self._active_value()
+        except Exception as e:
+            self.report_error(f"Slider: could not set '{path}': {e}")
+            return
+        self.send(msg)
 
     def on_start(self):
         """Seed the live value from config so it is active right after deploy."""

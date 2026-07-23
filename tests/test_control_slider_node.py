@@ -130,6 +130,47 @@ def test_bad_path_reports_and_still_forwards(node_classes):
     assert errors                          # and reported
 
 
+def test_send_on_change_off_emits_nothing(node_classes):
+    """Default: moving the slider does not emit on its own (only on_input does)."""
+    sink = node_classes['sink'](name='sink')
+    node = _make(sink)  # send_on_change defaults off
+    node.set_value(0.3)
+    node.set_value(0.6)
+    assert sink.received == []
+
+
+def test_send_on_change_emits_value_message(node_classes):
+    """With send_on_change on, each move emits a fresh message with the value
+    at the target path - no input required."""
+    sink = node_classes['sink'](name='sink')
+    node = _make(sink, path='payload.threshold', send_on_change=True)
+    node.set_value(0.3)
+    assert len(sink.received) == 1
+    assert sink.received[-1]['payload']['threshold'] == 0.3
+    node.set_value(0.8)  # dragging again emits again
+    assert len(sink.received) == 2
+    assert sink.received[-1]['payload']['threshold'] == 0.8
+
+
+def test_send_on_change_empty_path_sets_payload(node_classes):
+    sink = node_classes['sink'](name='sink')
+    node = _make(sink, path='', send_on_change=True)
+    node.set_value(0.42)
+    assert sink.received[-1]['payload'] == 0.42
+
+
+def test_send_on_change_still_forwards_input(node_classes):
+    """send_on_change does not disable the passthrough path: an incoming
+    message is still stamped and forwarded independently of change-emits."""
+    sink = node_classes['sink'](name='sink')
+    node = _make(sink, path='payload.v', send_on_change=True)
+    node.set_value(0.5)                     # 1 emit
+    node.on_input({'payload': {'img': 'X'}})  # stamped + forwarded
+    assert len(sink.received) == 2
+    assert sink.received[-1]['payload']['v'] == 0.5
+    assert sink.received[-1]['payload']['img'] == 'X'
+
+
 def test_daisy_chain_builds_bbox(node_classes):
     """Four sliders in series each set one bbox index -> a full crop box,
     exactly the crop-control use case. Uses the real queued send path."""
