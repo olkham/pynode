@@ -354,6 +354,23 @@ export function updateNodeConfig(nodeId, key, value) {
             : (badge.dataset.placeholder || '');
     }
 
+    // Live-refresh an on-card control slider when its range/value/label is
+    // edited in the properties panel, so the card reflects it without a full
+    // re-render (which would drop a slider mid-interaction).
+    const slider = nodeEl && nodeEl.querySelector('.control-slider');
+    if (slider) {
+        if (key === 'value') {
+            slider.value = value;
+            const valEl = document.getElementById(`slider-val-${nodeId}`);
+            if (valEl) valEl.textContent = value;
+        } else if (key === 'min' || key === 'max' || key === 'step') {
+            slider.setAttribute(key, value);
+        } else if (key === 'label') {
+            const labelEl = document.getElementById(`slider-label-${nodeId}`);
+            if (labelEl) labelEl.textContent = value;
+        }
+    }
+
     // Update property visibility since config changed
     window.updatePropertyVisibility(nodeId);
 
