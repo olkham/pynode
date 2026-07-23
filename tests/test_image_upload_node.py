@@ -63,22 +63,32 @@ def test_upload_sends_once_by_default(node_classes):
         node.on_stop()
 
 
-def test_repeat_send_emits_at_rate(node_classes):
-    """With Repeat Send on at 20 fps, ~N messages arrive over a window and the
-    stream stops promptly on on_stop()."""
+def test_repeat_send_achieves_requested_rate(node_classes):
+    """Repeat Send must actually hit close to the requested rate, and stop
+    promptly on on_stop().
+
+    Regression guard for the pacing bug where Event.wait()/time.time()
+    (both ~15 ms granularity on Windows) dragged a requested 30 fps down to
+    ~11 fps under load. We request 30 fps and require the measured rate to
+    clear a floor (20 fps) that the old implementation could not - with
+    enough slack below 30 to stay stable on a loaded CI runner.
+    """
     sink = node_classes['sink'](name='sink')
-    node = _make_node(sink, repeat_send=True, repeat_rate=20)
+    node = _make_node(sink, repeat_send=True, repeat_rate=30)
     try:
+        window = 1.5
         node.receive_image(_jpeg_bytes(), 'pic.jpg')
-        # ~20 fps over 0.5s -> ~10 sends (1 immediate + repeats). Allow slack.
-        assert _wait_until(lambda: len(sink.received) >= 6, timeout=1.0)
-        time.sleep(0.4)
-        count_before_stop = len(sink.received)
+        t0 = time.perf_counter()
+        time.sleep(window)
+        count = len(sink.received)
         node.on_stop()
-        time.sleep(0.15)
+        elapsed = time.perf_counter() - t0
+        rate = count / elapsed
+        assert rate >= 20, f"repeat rate {rate:.1f}/s too low (requested 30)"
+
         # No sends after the thread is joined.
-        assert len(sink.received) == count_before_stop
-        assert count_before_stop >= 6
+        time.sleep(0.15)
+        assert len(sink.received) == count
     finally:
         node.on_stop()
 

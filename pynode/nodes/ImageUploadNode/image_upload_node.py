@@ -183,37 +183,40 @@ class ImageUploadNode(BaseNode):
                 target=self._repeat_loop, daemon=True)
             self._repeat_thread.start()
 
+    # Max single sleep chunk (seconds) inside the pacing wait. Keeps the loop
+    # responsive to on_stop() at low rates without hurting timing accuracy.
+    _SLEEP_CHUNK = 0.05
+
     def _repeat_loop(self):
         """Re-send the stored image at the configured rate.
 
-        Uses absolute timing to avoid drift. The interval is re-read each
-        cycle so it always reflects the current config, and the loop exits
-        when stopped or when Repeat Send is turned off.
+        Frame-paced like the camera capture loop: send, then sleep the
+        remainder of the interval. Timing uses ``time.perf_counter`` (a
+        high-resolution monotonic clock) and ``time.sleep`` (high-resolution
+        on Python 3.11+ Windows) - NOT ``time.time`` or ``Event.wait``, both
+        of which have ~15 ms granularity here and, under load, drag a
+        requested 30 fps down to ~11 fps. The interval is re-read each frame
+        so it reflects the current config, and the loop exits when stopped or
+        when Repeat Send is turned off.
         """
-        interval = self._repeat_interval()
-        if interval <= 0:
-            return
-        next_time = time.time() + interval
-
         while not self._stop_repeat.is_set() and self._repeat_enabled():
-            sleep_time = next_time - time.time()
-            if sleep_time > 0:
-                # Wait, but wake promptly on stop.
-                if self._stop_repeat.wait(sleep_time):
-                    break
-
-            if self._stop_repeat.is_set():
-                break
-
+            frame_start = time.perf_counter()
             self._send_once()
 
             interval = self._repeat_interval()
             if interval <= 0:
                 break
-            next_time += interval
-            # If we've fallen behind, resynchronise instead of bursting.
-            if next_time < time.time():
-                next_time = time.time() + interval
+
+            # Sleep until the next frame deadline, in stop-responsive chunks.
+            # deadline - now accounts for the time send() just took, so the
+            # period stays at `interval` without drift (best-effort: if a
+            # frame overruns the interval, the next fires immediately).
+            deadline = frame_start + interval
+            while not self._stop_repeat.is_set():
+                remaining = deadline - time.perf_counter()
+                if remaining <= 0:
+                    break
+                time.sleep(min(remaining, self._SLEEP_CHUNK))
 
     def handle_upload_image(self, file_bytes, filename):
         """API route handler for image upload. Called by the server."""
