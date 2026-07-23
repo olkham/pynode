@@ -382,6 +382,35 @@ function buildNodeContent(nodeData, icon, inputCount, outputCount) {
                    oninput="window.videoSeekPreview('${nodeData.id}', this.value)"
                    onchange="window.videoSeek('${nodeData.id}', this.value)" />
         `;
+    } else if (uiComponent === 'slider') {
+        // Interactive value slider (ControlSliderNode): a range input along the
+        // bottom of the node whose live value is POSTed to the deployed node
+        // (set_value action) on drag, and persisted to config on release.
+        // Range/step/value come from the node's own config so the properties
+        // panel can tune them.
+        const cfg = nodeData.config || {};
+        const pick = (k, d) => (cfg[k] !== undefined ? cfg[k]
+                                : (uiConfig[k] !== undefined ? uiConfig[k] : d));
+        const min = pick('min', 0);
+        const max = pick('max', 1);
+        const step = pick('step', 0.01);
+        const value = cfg.value !== undefined ? cfg.value : min;
+        const label = cfg.label || '';
+        const labelHtml = label
+            ? `<span class="control-slider-label" id="slider-label-${nodeData.id}">${label}</span>`
+            : '';
+        contentParts.right = `<div class="control-slider-value" id="slider-val-${nodeData.id}">${value}</div>`;
+        contentParts.below = `
+            <div class="control-slider-row">
+                ${labelHtml}
+                <input type="range" class="control-slider"
+                       id="slider-${nodeData.id}"
+                       min="${min}" max="${max}" step="${step}" value="${value}"
+                       title="Drag to set value"
+                       oninput="window.controlSliderInput('${nodeData.id}', this.value)"
+                       onchange="window.controlSliderCommit('${nodeData.id}', this.value)" />
+            </div>
+        `;
     }
     
     // Combine parts based on input/output configuration
@@ -406,9 +435,10 @@ function attachNodeEventHandlers(nodeEl, nodeData) {
     
     nodeEl.addEventListener('mousedown', (e) => {
         if (e.target.classList.contains('port')) return;
-        // Don't start a node drag when the user grabs the progress slider -
-        // let the range input handle the scrub gesture.
+        // Don't start a node drag when the user grabs a range slider (video
+        // scrub bar or a control-slider node) - let the input handle the drag.
         if (e.target.classList.contains('transport-progress')) return;
+        if (e.target.classList.contains('control-slider')) return;
         
         // Only handle left mouse button (button === 0) for node selection and dragging
         if (e.button !== 0) return;
@@ -924,6 +954,30 @@ window.videoSeek = async function(nodeId, value) {
     const sliderEl = document.getElementById(`transport-progress-${nodeId}`);
     if (sliderEl) sliderEl.dataset.seeking = 'false';
     await window.nodeAction(nodeId, 'seek', parseInt(value, 10) || 0);
+};
+
+// ControlSliderNode: push the live value to the deployed node while dragging.
+// Throttled so a drag doesn't flood the backend; the on-release commit always
+// sends the final value, so a skipped intermediate frame never sticks.
+const _controlSliderLastSent = {};
+window.controlSliderInput = function(nodeId, value) {
+    const valEl = document.getElementById(`slider-val-${nodeId}`);
+    if (valEl) valEl.textContent = value;
+    const now = performance.now();
+    if (now - (_controlSliderLastSent[nodeId] || 0) >= 40) {  // <= ~25 Hz
+        _controlSliderLastSent[nodeId] = now;
+        window.nodeAction(nodeId, 'set_value', parseFloat(value));
+    }
+};
+
+// Commit on release: guarantee the final value reaches the deployed node and
+// persist it to the node config so it saves with the workflow.
+window.controlSliderCommit = function(nodeId, value) {
+    const num = parseFloat(value);
+    const valEl = document.getElementById(`slider-val-${nodeId}`);
+    if (valEl) valEl.textContent = value;
+    window.nodeAction(nodeId, 'set_value', num);
+    if (window.updateNodeConfig) window.updateNodeConfig(nodeId, 'value', num);
 };
 
 // Toggle draw predictions enabled state
