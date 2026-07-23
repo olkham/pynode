@@ -9,11 +9,12 @@ from typing import Any, Dict
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
-_info.add_text("Extracts cropped regions from images based on bounding box coordinates from detections or manual input.")
+_info.add_text("Extracts cropped regions from images. The box can come from detections, a custom message path, or manual coordinates.")
 _info.add_header("Input")
 _info.add_bullets(
     ("payload.image:", "Source image to crop from."),
-    ("payload.detections:", "List of detections with 'bbox' field (when using detection mode)."),
+    ("payload.detections:", "List of detections with 'bbox' field (detection mode)."),
+    ("custom path:", "Any path (e.g. payload.crop) holding a box, when using path mode."),
 )
 _info.add_header("Output")
 _info.add_bullets(
@@ -36,9 +37,19 @@ _info.add_bullets(
     ("0.5:", "Center"),
     ("1.0:", "Right/Bottom edge"),
 )
+_info.add_header("Custom Path Mode")
+_info.add_text("Point 'Bounding Box Path' at a list of 4 numbers (e.g. "
+               "payload.crop) or a dict, then pick how to read them:")
+_info.add_bullets(
+    ("Format:", "x1y1x2y2 (corners), xywh (top-left+size), cxcywh "
+                "(center+size), or x1x2y1y2."),
+    ("Space:", "Normalized (0.0-1.0, scaled by the image) or Absolute (pixels)."),
+)
+_info.add_text("Four daisy-chained Slider nodes writing payload.crop[0..3] can "
+               "drive the box live.")
 _info.add_header("Properties")
 _info.add_bullets(
-    ("Bounding Box Source:", "Use detections from message or manual coordinates."),
+    ("Bounding Box Source:", "Detections, a custom message path, or manual coordinates."),
     ("Manual Coordinates:", "Normalized X1, Y1, X2, Y2 values (0.0-1.0)."),
     ("Output Mode:", "Send all crops in one message or separate messages."),
 )
@@ -61,6 +72,9 @@ class CropNode(BaseNode):
     
     DEFAULT_CONFIG = {
         'bbox_source': 'detections',
+        'bbox_path': 'payload.crop',
+        'bbox_format': 'x1y1x2y2',
+        'bbox_space': 'normalized',
         'x1': 0.0,
         'y1': 0.0,
         'x2': 0.5,
@@ -68,7 +82,7 @@ class CropNode(BaseNode):
         'output_mode': 'separate',
         'drop_messages': False
     }
-    
+
     properties = [
         {
             'name': 'bbox_source',
@@ -76,9 +90,43 @@ class CropNode(BaseNode):
             'type': 'select',
             'options': [
                 {'value': 'detections', 'label': 'From msg.payload.detections'},
+                {'value': 'path', 'label': 'From a custom message path'},
                 {'value': 'manual', 'label': 'Manual coordinates'}
             ],
             'default': DEFAULT_CONFIG['bbox_source']
+        },
+        {
+            'name': 'bbox_path',
+            'label': 'Bounding Box Path',
+            'type': 'text',
+            'default': DEFAULT_CONFIG['bbox_path'],
+            'help': "Message path to the box: a list of 4 numbers (e.g. "
+                    "payload.crop) or a dict keyed by the format's field names.",
+            'showIf': {'bbox_source': 'path'}
+        },
+        {
+            'name': 'bbox_format',
+            'label': 'Coordinate Format',
+            'type': 'select',
+            'options': [
+                {'value': 'x1y1x2y2', 'label': 'Corners: x1, y1, x2, y2'},
+                {'value': 'xywh', 'label': 'Top-left + size: x, y, w, h'},
+                {'value': 'cxcywh', 'label': 'Center + size: cx, cy, w, h'},
+                {'value': 'x1x2y1y2', 'label': 'x1, x2, y1, y2'}
+            ],
+            'default': DEFAULT_CONFIG['bbox_format'],
+            'showIf': {'bbox_source': 'path'}
+        },
+        {
+            'name': 'bbox_space',
+            'label': 'Coordinate Space',
+            'type': 'select',
+            'options': [
+                {'value': 'normalized', 'label': 'Normalized (0.0-1.0)'},
+                {'value': 'absolute', 'label': 'Absolute (pixels)'}
+            ],
+            'default': DEFAULT_CONFIG['bbox_space'],
+            'showIf': {'bbox_source': 'path'}
         },
         {
             'name': 'x1',
@@ -165,7 +213,63 @@ class CropNode(BaseNode):
             x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
         
         return x1, y1, x2, y2
-    
+
+    # Field names for a box supplied as a dict, per coordinate format.
+    _FORMAT_KEYS = {
+        'x1y1x2y2': ('x1', 'y1', 'x2', 'y2'),
+        'xywh': ('x', 'y', 'w', 'h'),
+        'cxcywh': ('cx', 'cy', 'w', 'h'),
+        'x1x2y1y2': ('x1', 'x2', 'y1', 'y2'),
+    }
+
+    def _extract_four(self, value, fmt) -> list:
+        """Pull four numbers from a list/tuple/array (positional) or a dict
+        (keyed by the format's field names). Raises ValueError on bad input."""
+        if isinstance(value, dict):
+            keys = self._FORMAT_KEYS.get(fmt, self._FORMAT_KEYS['x1y1x2y2'])
+            try:
+                return [float(value[k]) for k in keys]
+            except (KeyError, TypeError, ValueError) as e:
+                raise ValueError(f"dict needs keys {keys} for format '{fmt}': {e}")
+        try:
+            seq = list(value)
+        except TypeError:
+            raise ValueError(f"expected a list or dict of coordinates, got {type(value).__name__}")
+        if len(seq) < 4:
+            raise ValueError(f"expected 4 numbers, got {len(seq)}")
+        try:
+            return [float(seq[i]) for i in range(4)]
+        except (TypeError, ValueError) as e:
+            raise ValueError(f"non-numeric coordinate: {e}")
+
+    def _corners_from_format(self, a, b, c, d, fmt) -> tuple:
+        """Map four numbers in ``fmt`` ordering to (x1, y1, x2, y2) in the
+        same coordinate space they arrived in."""
+        if fmt == 'xywh':
+            return a, b, a + c, b + d
+        if fmt == 'cxcywh':
+            return a - c / 2.0, b - d / 2.0, a + c / 2.0, b + d / 2.0
+        if fmt == 'x1x2y1y2':
+            return a, c, b, d  # x1, x2, y1, y2 -> x1, y1, x2, y2
+        return a, b, c, d      # x1y1x2y2
+
+    def _path_bbox_to_pixels(self, value, fmt: str, space: str,
+                             img_w: int, img_h: int) -> tuple:
+        """Turn a box at a custom path into pixel (x1, y1, x2, y2).
+
+        ``fmt`` selects the coordinate ordering; ``space`` is 'normalized'
+        (0.0-1.0, scaled by the image size) or 'absolute' (already pixels).
+        Corners are sorted so a reversed/negative box still crops.
+        """
+        a, b, c, d = self._extract_four(value, fmt)
+        x1, y1, x2, y2 = self._corners_from_format(a, b, c, d, fmt)
+        if space == 'normalized':
+            x1, x2 = x1 * img_w, x2 * img_w
+            y1, y2 = y1 * img_h, y2 * img_h
+        x1, x2 = sorted((x1, x2))
+        y1, y2 = sorted((y1, y2))
+        return int(round(x1)), int(round(y1)), int(round(x2)), int(round(y2))
+
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """Process incoming image and crop based on bounding boxes."""
         payload = msg.get(MessageKeys.PAYLOAD)
@@ -207,6 +311,31 @@ class CropNode(BaseNode):
                             'detection': detection,
                             'index': i
                         })
+        elif bbox_source == 'path':
+            # Read a single box from a user-specified message path, interpreted
+            # per the configured coordinate format and space.
+            bbox_path = str(self.config.get('bbox_path', 'payload.crop')).strip()
+            fmt = self.config.get('bbox_format', 'x1y1x2y2')
+            space = self.config.get('bbox_space', 'normalized')
+
+            raw = self._get_nested_value(msg, bbox_path) if bbox_path else None
+            if raw is None:
+                self.report_error(f"No bounding box found at '{bbox_path}'")
+                return
+            try:
+                x1, y1, x2, y2 = self._path_bbox_to_pixels(raw, fmt, space, img_w, img_h)
+            except ValueError as e:
+                self.report_error(f"Invalid bounding box at '{bbox_path}': {e}")
+                return
+
+            crop = self._crop_image(image, x1, y1, x2, y2)
+            if crop is not None:
+                crops.append({
+                    MessageKeys.IMAGE.PATH: crop,
+                    'bbox': [x1, y1, x2, y2],
+                    'bbox_normalized': [x1 / img_w, y1 / img_h, x2 / img_w, y2 / img_h],
+                    'index': 0
+                })
         else:
             # Use manual coordinates (normalized 0.0-1.0)
             norm_x1 = self.get_config_float('x1', 0.0)
@@ -234,11 +363,11 @@ class CropNode(BaseNode):
         
         output_mode = self.config.get('output_mode', 'separate')
         
-        # For manual mode with single crop, output as single object not array
-        if bbox_source == 'manual' and len(crops) == 1:
+        # Single-box modes (manual / custom path) output one object, not an array
+        if bbox_source in ('manual', 'path') and len(crops) == 1:
             crop_data = crops[0]
             encoded = self._encode_image(crop_data[MessageKeys.IMAGE.PATH], input_format)
-            if encoded:
+            if encoded is not None:
                 # Single crop output
                 msg[MessageKeys.PAYLOAD] = {
                     MessageKeys.IMAGE.PATH: encoded,
@@ -252,7 +381,7 @@ class CropNode(BaseNode):
             # Send each crop as a separate message
             for crop_data in crops:
                 encoded = self._encode_image(crop_data[MessageKeys.IMAGE.PATH], input_format)
-                if encoded:
+                if encoded is not None:
                     msg_copy = msg.copy()
                     crop_info = {
                         MessageKeys.IMAGE.PATH: encoded,
@@ -273,7 +402,7 @@ class CropNode(BaseNode):
             encoded_crops = []
             for crop_data in crops:
                 encoded = self._encode_image(crop_data[MessageKeys.IMAGE.PATH], input_format)
-                if encoded:
+                if encoded is not None:
                     crop_info = {
                         MessageKeys.IMAGE.PATH: encoded,
                         'bbox': crop_data['bbox'],
