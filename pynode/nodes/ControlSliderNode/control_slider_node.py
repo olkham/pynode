@@ -148,10 +148,10 @@ class ControlSliderNode(BaseNode):
         try:
             val = float(raw)
         except (TypeError, ValueError):
-            val = self.get_config_float('value', float(DEFAULT_CONFIG['value']))
+            val = self.get_config_float('value', float(self.DEFAULT_CONFIG['value']))
 
-        lo = self.get_config_float('min', float(DEFAULT_CONFIG['min']))
-        hi = self.get_config_float('max', float(DEFAULT_CONFIG['max']))
+        lo = self.get_config_float('min', float(self.DEFAULT_CONFIG['min']))
+        hi = self.get_config_float('max', float(self.DEFAULT_CONFIG['max']))
         if lo > hi:
             lo, hi = hi, lo
         val = max(lo, min(hi, val))

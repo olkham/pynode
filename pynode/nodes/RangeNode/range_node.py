@@ -85,12 +85,12 @@ class RangeNode(BaseNode):
     def __init__(self, node_id=None, name="range"):
         super().__init__(node_id, name)
         self.configure({
-            'min_in': DEFAULT_CONFIG['min_in'],
-            'max_in': DEFAULT_CONFIG['max_in'],
-            'min_out': DEFAULT_CONFIG['min_out'],
-            'max_out': DEFAULT_CONFIG['max_out'],
-            'clamp': DEFAULT_CONFIG['clamp'],
-            'drop_messages': DEFAULT_CONFIG[MessageKeys.DROP_MESSAGES]
+            'min_in': self.DEFAULT_CONFIG['min_in'],
+            'max_in': self.DEFAULT_CONFIG['max_in'],
+            'min_out': self.DEFAULT_CONFIG['min_out'],
+            'max_out': self.DEFAULT_CONFIG['max_out'],
+            'clamp': self.DEFAULT_CONFIG['clamp'],
+            'drop_messages': self.DEFAULT_CONFIG[MessageKeys.DROP_MESSAGES]
         })
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
@@ -102,11 +102,11 @@ class RangeNode(BaseNode):
                 return
             value = float(payload)
             
-            min_in = self.get_config_float('min_in', DEFAULT_CONFIG['min_in'])
-            max_in = self.get_config_float('max_in', DEFAULT_CONFIG['max_in'])
-            min_out = self.get_config_float('min_out', DEFAULT_CONFIG['min_out'])
-            max_out = self.get_config_float('max_out', DEFAULT_CONFIG['max_out'])
-            clamp = self.get_config_bool('clamp', DEFAULT_CONFIG['clamp'])
+            min_in = self.get_config_float('min_in', self.DEFAULT_CONFIG['min_in'])
+            max_in = self.get_config_float('max_in', self.DEFAULT_CONFIG['max_in'])
+            min_out = self.get_config_float('min_out', self.DEFAULT_CONFIG['min_out'])
+            max_out = self.get_config_float('max_out', self.DEFAULT_CONFIG['max_out'])
+            clamp = self.get_config_bool('clamp', self.DEFAULT_CONFIG['clamp'])
             
             # Map value
             if max_in == min_in:
