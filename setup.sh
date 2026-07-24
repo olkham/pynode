@@ -17,10 +17,9 @@ echo "Detecting CUDA version..."
 # Check if CUDA_VERSION is set as environment variable (e.g., in Docker)
 if [ -n "$CUDA_VERSION" ]; then
     echo "CUDA $CUDA_VERSION detected from environment"
-elif command -v nvidia-smi &> /dev/null; then
-    CUDA_VERSION=$(nvidia-smi | grep "CUDA Version" | sed -n 's/.*CUDA Version: \([0-9]\+\.[0-9]\+\).*/\1/p')
+elif command -v nvidia-smi &> /dev/null && NVIDIA_SMI_OUTPUT=$(nvidia-smi 2>/dev/null) && CUDA_VERSION=$(echo "$NVIDIA_SMI_OUTPUT" | grep "CUDA Version" | sed -n 's/.*CUDA Version: \([0-9]\+\.[0-9]\+\).*/\1/p') && [ -n "$CUDA_VERSION" ]; then
     echo "CUDA $CUDA_VERSION detected from nvidia-smi"
-    
+
     # Determine PyTorch installation command based on CUDA version
     CUDA_MAJOR=$(echo $CUDA_VERSION | cut -d. -f1)
     CUDA_MINOR=$(echo $CUDA_VERSION | cut -d. -f2)
