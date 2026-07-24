@@ -39,49 +39,58 @@ class RangeNode(BaseNode):
     text_color = '#000000'
     input_count = 1
     output_count = 1
+
+    DEFAULT_CONFIG = {
+        'min_in': 0,
+        'max_in': 1,
+        'min_out': 0,
+        'max_out': 100,
+        'clamp': True,
+        MessageKeys.DROP_MESSAGES: False
+    }
     
     properties = [
         {
             'name': 'min_in',
             'label': 'Input Min',
             'type': 'number',
-            'default': 0
+            'default': DEFAULT_CONFIG['min_in']
         },
         {
             'name': 'max_in',
             'label': 'Input Max',
             'type': 'number',
-            'default': 100
+            'default': DEFAULT_CONFIG['max_in']
         },
         {
             'name': 'min_out',
             'label': 'Output Min',
             'type': 'number',
-            'default': 0
+            'default': DEFAULT_CONFIG['min_out']
         },
         {
             'name': 'max_out',
             'label': 'Output Max',
             'type': 'number',
-            'default': 1
+            'default': DEFAULT_CONFIG['max_out']
         },
         {
             'name': 'clamp',
             'label': 'Clamp to Output Range',
             'type': 'checkbox',
-            'default': True
+            'default': DEFAULT_CONFIG['clamp']
         }
     ]
     
     def __init__(self, node_id=None, name="range"):
         super().__init__(node_id, name)
         self.configure({
-            'min_in': 0,
-            'max_in': 100,
-            'min_out': 0,
-            'max_out': 1,
-            'clamp': True,
-            'drop_messages': False
+            'min_in': DEFAULT_CONFIG['min_in'],
+            'max_in': DEFAULT_CONFIG['max_in'],
+            'min_out': DEFAULT_CONFIG['min_out'],
+            'max_out': DEFAULT_CONFIG['max_out'],
+            'clamp': DEFAULT_CONFIG['clamp'],
+            'drop_messages': DEFAULT_CONFIG[MessageKeys.DROP_MESSAGES]
         })
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
@@ -93,11 +102,11 @@ class RangeNode(BaseNode):
                 return
             value = float(payload)
             
-            min_in = self.get_config_float('min_in', 0)
-            max_in = self.get_config_float('max_in', 100)
-            min_out = self.get_config_float('min_out', 0)
-            max_out = self.get_config_float('max_out', 1)
-            clamp = self.get_config_bool('clamp', True)
+            min_in = self.get_config_float('min_in', DEFAULT_CONFIG['min_in'])
+            max_in = self.get_config_float('max_in', DEFAULT_CONFIG['max_in'])
+            min_out = self.get_config_float('min_out', DEFAULT_CONFIG['min_out'])
+            max_out = self.get_config_float('max_out', DEFAULT_CONFIG['max_out'])
+            clamp = self.get_config_bool('clamp', DEFAULT_CONFIG['clamp'])
             
             # Map value
             if max_in == min_in:

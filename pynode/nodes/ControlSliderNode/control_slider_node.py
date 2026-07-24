@@ -72,7 +72,7 @@ class ControlSliderNode(BaseNode):
     actions = ['set_value']
 
     DEFAULT_CONFIG = {
-        'path': 'payload.value',
+        'path': 'msg.payload',
         'min': 0,
         'max': 1,
         'step': 0.01,
@@ -148,10 +148,10 @@ class ControlSliderNode(BaseNode):
         try:
             val = float(raw)
         except (TypeError, ValueError):
-            val = self.get_config_float('value', 0.0)
+            val = self.get_config_float('value', float(DEFAULT_CONFIG['value']))
 
-        lo = self.get_config_float('min', 0.0)
-        hi = self.get_config_float('max', 1.0)
+        lo = self.get_config_float('min', float(DEFAULT_CONFIG['min']))
+        hi = self.get_config_float('max', float(DEFAULT_CONFIG['max']))
         if lo > hi:
             lo, hi = hi, lo
         val = max(lo, min(hi, val))
