@@ -6,11 +6,13 @@ import { loadWorkflow } from './workflow.js';
 import { startDebugPolling } from './debug.js';
 import { initViewport } from './viewport.js';
 import { initMinimap } from './minimap.js';
-import { updateNodeProperty, updateNodeConfig, triggerNodeAction, triggerToggleAction, toggleNodeState, toggleGate, toggleNodeEnabled, addRule, removeRule, updateRule, addInjectProp, removeInjectProp, updateInjectProp, addChangeRule, removeChangeRule, updateChangeRule, selectFile } from './properties.js';
+import { updateNodeProperty, updateNodeConfig, applyCodeExample, undoCodeExample, triggerNodeAction, triggerToggleAction, toggleNodeState, toggleGate, toggleNodeEnabled, addRule, removeRule, updateRule, addInjectProp, removeInjectProp, updateInjectProp, addChangeRule, removeChangeRule, updateChangeRule, selectFile } from './properties.js';
 
 // Expose functions to window for inline event handlers
 window.updateNodeProperty = updateNodeProperty;
 window.updateNodeConfig = updateNodeConfig;
+window.applyCodeExample = applyCodeExample;
+window.undoCodeExample = undoCodeExample;
 window.triggerNodeAction = triggerNodeAction;
 window.triggerToggleAction = triggerToggleAction;
 window.toggleNodeState = toggleNodeState;

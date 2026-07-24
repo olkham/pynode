@@ -136,6 +136,42 @@ export function renderProperties(nodeData) {
                     html += `<option value="${option.value}" ${selected}>${option.label}</option>`;
                 });
                 html += '</select>';
+            } else if (prop.type === 'code-examples') {
+                // A dropdown of ready-made code snippets. Picking one drops its
+                // code into the target textarea (prop.target) instead of
+                // storing a config value of its own.
+                //
+                // The selection is DERIVED from the target's current code, not
+                // stored: code matching an example keeps that example's name
+                // showing, and editing the code switches the dropdown to
+                // "Custom" (see syncCodeExampleSelect).
+                const options = Array.isArray(prop.options) ? prop.options : [];
+                const currentCode = `${nodeData.config[prop.target] !== undefined ? nodeData.config[prop.target] : ''}`;
+                const matchIdx = options.findIndex(ex => ex.code === currentCode);
+                const isCustom = currentCode.trim() !== '' && matchIdx === -1;
+                const canUndo = codeExampleUndo.has(nodeData.id);
+                html += `
+                    <label class="property-label">${prop.label}</label>
+                    <div class="property-example-container">
+                        <select class="property-select property-example-select"
+                                data-example-node="${nodeData.id}"
+                                data-example-target="${prop.target}"
+                                onchange="window.applyCodeExample('${nodeData.id}', '${prop.target}', this)">
+                            <option value="" ${!isCustom && matchIdx === -1 ? 'selected' : ''}>— Select an example… —</option>
+                            <option value="__custom__" disabled ${isCustom ? 'selected' : ''}>Custom</option>
+                `;
+                options.forEach((ex, i) => {
+                    const outputsAttr = ex.outputs !== undefined ? ` data-outputs="${ex.outputs}"` : '';
+                    html += `<option value="${i}" data-code="${escapeHtml(ex.code)}"${outputsAttr} ${i === matchIdx ? 'selected' : ''}>${escapeHtml(ex.label)}</option>`;
+                });
+                html += `
+                        </select>
+                        <button class="btn btn-secondary property-example-undo"
+                                onclick="window.undoCodeExample('${nodeData.id}')"
+                                ${canUndo ? '' : 'disabled'}
+                                title="${canUndo ? 'Undo - restore the code this example replaced' : 'Nothing to undo'}">↶</button>
+                    </div>
+                `;
             } else if (prop.type === 'button') {
                 html += `
                     <button class="btn btn-primary" onclick="window.triggerNodeAction('${nodeData.id}', '${prop.action}')">${prop.label}</button>
@@ -371,11 +407,121 @@ export function updateNodeConfig(nodeId, key, value) {
         }
     }
 
+    // Keep any 'code-examples' dropdown pointed at this key in sync, so editing
+    // the code by hand switches the dropdown to "Custom".
+    syncCodeExampleSelect(nodeId, key);
+
     // Update property visibility since config changed
     window.updatePropertyVisibility(nodeId);
 
     markNodeModified(nodeId);
     setModified(true);
+}
+
+// One-step undo for 'code-examples' dropdowns: nodeId -> what applying the
+// example replaced ({target, code, outputs?}). Session-only and deliberately
+// not persisted - it exists so an accidental template pick can't silently eat
+// hand-written code. Applying another example overwrites the entry, so only
+// the most recent replacement can be restored.
+const codeExampleUndo = new Map();
+
+/**
+ * Apply a ready-made snippet from a 'code-examples' dropdown into the target
+ * textarea property (e.g. the Function node's `func`). The dropdown itself
+ * stores no config value; it just writes the chosen code into `targetProp`,
+ * and the picked example stays selected because the selection is derived from
+ * the resulting code.
+ *
+ * An example may also declare `outputs`, which is applied to the node's output
+ * count so e.g. a two-output template really gives the node two outputs.
+ * The replaced code (and output count) is stashed for undoCodeExample().
+ *
+ * @param {string} nodeId - The node ID
+ * @param {string} targetProp - The config key to write the snippet into
+ * @param {HTMLSelectElement} selectEl - The dropdown element
+ */
+export function applyCodeExample(nodeId, targetProp, selectEl) {
+    const nodeData = state.nodes.get(nodeId);
+    if (!nodeData) return;
+
+    const opt = selectEl.options[selectEl.selectedIndex];
+    // Placeholder or the (disabled) "Custom" entry: nothing to apply.
+    if (!opt || !opt.value || opt.value === '__custom__') {
+        syncCodeExampleSelect(nodeId, targetProp);
+        return;
+    }
+
+    const code = opt.dataset.code || '';
+    const outputs = opt.dataset.outputs;
+
+    // Remember what this example replaces so the undo button can restore it.
+    const undoEntry = {
+        target: targetProp,
+        code: `${nodeData.config[targetProp] !== undefined ? nodeData.config[targetProp] : ''}`
+    };
+    if (outputs !== undefined) {
+        // Only track outputs when the example actually changes it. An unset
+        // count restores to 1, the node's default.
+        undoEntry.outputs = nodeData.config.outputs !== undefined ? nodeData.config.outputs : 1;
+    }
+    codeExampleUndo.set(nodeId, undoEntry);
+
+    updateNodeConfig(nodeId, targetProp, code);
+    if (outputs !== undefined) {
+        updateNodeConfig(nodeId, 'outputs', parseInt(outputs, 10));
+    }
+
+    // Re-render so the textarea shows the new code, the Outputs field shows the
+    // new count, and the undo button becomes enabled.
+    renderProperties(nodeData);
+}
+
+/**
+ * Restore the code (and output count) that the last applied example replaced.
+ * @param {string} nodeId - The node ID
+ */
+export function undoCodeExample(nodeId) {
+    const entry = codeExampleUndo.get(nodeId);
+    const nodeData = state.nodes.get(nodeId);
+    if (!entry || !nodeData) return;
+
+    codeExampleUndo.delete(nodeId);
+    updateNodeConfig(nodeId, entry.target, entry.code);
+    if (entry.outputs !== undefined) {
+        updateNodeConfig(nodeId, 'outputs', entry.outputs);
+    }
+
+    renderProperties(nodeData);
+    showToast('Restored the previous code');
+}
+
+/**
+ * Re-derive a 'code-examples' dropdown's selection from the target property's
+ * current code, without re-rendering the panel. Called whenever the target
+ * changes, so editing a template's code switches the dropdown to "Custom" and
+ * typing an example's code back in re-selects that example.
+ * @param {string} nodeId - The node ID
+ * @param {string} targetProp - The config key the dropdown writes into
+ */
+function syncCodeExampleSelect(nodeId, targetProp) {
+    const nodeData = state.nodes.get(nodeId);
+    if (!nodeData) return;
+
+    // Scoped by node id so a config change on some other node (e.g. a slider
+    // updating in the background) can never retarget the visible panel.
+    const select = document.querySelector(
+        `.property-example-select[data-example-node="${nodeId}"][data-example-target="${targetProp}"]`);
+    if (!select) return;
+
+    const code = `${nodeData.config[targetProp] !== undefined ? nodeData.config[targetProp] : ''}`;
+    let value = code.trim() === '' ? '' : '__custom__';
+    for (const opt of select.options) {
+        if (opt.dataset.code !== undefined && opt.dataset.code === code) {
+            value = opt.value;
+            break;
+        }
+    }
+    select.value = value;
 }
 
 /**

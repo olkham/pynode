@@ -1761,6 +1761,39 @@ body {
     background: #1177bb;
 }
 
+/* Code example picker (Function node "Load an example" + its undo button) */
+.property-example-container {
+    display: flex;
+    gap: 4px;
+}
+
+.property-example-container .property-example-select {
+    flex: 1;
+    min-width: 0;
+}
+
+.property-example-undo {
+    padding: 6px 10px;
+    background: #0e639c;
+    border: none;
+    border-radius: 3px;
+    color: white;
+    cursor: pointer;
+    flex-shrink: 0;
+    font-size: 14px;
+    line-height: 1;
+}
+
+.property-example-undo:hover:not(:disabled) {
+    background: #1177bb;
+}
+
+.property-example-undo:disabled {
+    background: #3e3e42;
+    color: #7a7a7a;
+    cursor: default;
+}
+
 /* Upload progress bar */
 .upload-progress-container {
     display: flex;
