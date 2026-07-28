@@ -17,7 +17,7 @@ from typing import Any, Dict, Optional
 
 import numpy as np
 
-from pynode.nodes.base_node import BaseNode, Info, MessageKeys
+from pynode.nodes.base_node import BaseNode, FramePacer, Info, MessageKeys
 
 logger = logging.getLogger(__name__)
 
@@ -560,10 +560,12 @@ class OmronCameraNode(BaseNode):
         """Poll the frame queue at the configured rate and emit messages."""
         interval = 1.0 / max(target_fps, 1)
         encode_jpeg = self.config.get("encode_jpeg", False)
+        # Absolute-deadline pacing - see FramePacer. The JPEG encode below is
+        # the variable cost here; the naive throttle made every slow encode a
+        # permanent late penalty the fast ones could not repay.
+        pacer = FramePacer(interval, running=lambda: self.running)
 
         while self.running:
-            t_start = time.time()
-
             try:
                 frame = self._frame_queue.get(timeout=interval)
             except queue.Empty:
@@ -607,10 +609,8 @@ class OmronCameraNode(BaseNode):
             self.send(msg)
 
             # Throttle
-            elapsed = time.time() - t_start
-            leftover = interval - elapsed
-            if leftover > 0:
-                time.sleep(leftover)
+            if not pacer.wait():
+                break
 
     # ------------------------------------------------------------------
     # Cleanup

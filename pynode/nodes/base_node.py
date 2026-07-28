@@ -34,14 +34,19 @@ Fan-out is still safe automatically: when a single ``send()`` call has **more
 than one** actual recipient, every recipient gets a full ``deepcopy`` (branches
 never alias). Only the exactly-one-recipient case shares.
 
-``Info``, ``MessageKeys``/``sort_msg_keys`` and the image helpers
-(``process_image``, plus the functions behind ``BaseNode.decode_image`` /
-``BaseNode.encode_image``) live in ``pynode.nodes.info``,
-``pynode.nodes.messages`` and ``pynode.nodes.image_utils`` respectively, and
-are re-exported here so existing imports keep working::
+``Info``, ``MessageKeys``/``sort_msg_keys``, ``FramePacer`` and the image
+helpers (``process_image``, plus the functions behind
+``BaseNode.decode_image`` / ``BaseNode.encode_image``) live in
+``pynode.nodes.info``, ``pynode.nodes.messages``, ``pynode.nodes.pacing`` and
+``pynode.nodes.image_utils`` respectively, and are re-exported here so
+existing imports keep working::
 
-    from pynode.nodes.base_node import BaseNode, Info, MessageKeys, \
-        process_image, sort_msg_keys
+    from pynode.nodes.base_node import BaseNode, FramePacer, Info, \
+        MessageKeys, process_image, sort_msg_keys
+
+Any node with a capture/playback/repeat loop should pace it with
+``FramePacer`` rather than ``sleep(interval - elapsed)`` - see that class for
+why the naive form loses throughput whenever per-frame work is variable.
 """
 
 from time import time
@@ -55,6 +60,7 @@ from pynode.nodes import image_utils
 from pynode.nodes.image_utils import process_image  # noqa: F401 (re-export)
 from pynode.nodes.info import Info  # noqa: F401 (re-export)
 from pynode.nodes.messages import MessageKeys, sort_msg_keys
+from pynode.nodes.pacing import FramePacer  # noqa: F401 (re-export)
 
 # Sentinel so create_message() can distinguish "payload not given" from an
 # explicitly-passed payload=None (which must be included in the message).

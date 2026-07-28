@@ -10,7 +10,7 @@ import time
 import sys
 from pathlib import Path
 from typing import Any, Dict
-from pynode.nodes.base_node import BaseNode, Info, MessageKeys
+from pynode.nodes.base_node import BaseNode, FramePacer, Info, MessageKeys
 
 _info = Info()
 _info.add_text("Captures frames from various video sources and outputs them as messages. Supports webcams, video files, RTSP streams, image folders, and specialized cameras.")
@@ -241,10 +241,12 @@ class FrameSourceNode(BaseNode):
         """Capture frames in a loop and send them as messages."""
         frame_interval = 1.0 / fps
         encode_jpeg = self.config.get(MessageKeys.CAMERA.ENCODE_JPEG, False)
-        
+        # Absolute-deadline pacing - see FramePacer for why sleeping the
+        # remainder of a fresh interval each pass loses throughput whenever
+        # per-frame work is variable (RGBD split + optional JPEG encode here).
+        pacer = FramePacer(frame_interval, running=lambda: self.running)
+
         while self.running and self.camera and self.camera.isOpened():
-            start_time = time.time()
-            
             try:
                 ret, frame = self.camera.read()
                 
@@ -313,7 +315,5 @@ class FrameSourceNode(BaseNode):
                 self.report_error(f"Error capturing frame: {e}")
             
             # Maintain frame rate
-            elapsed = time.time() - start_time
-            sleep_time = max(0, frame_interval - elapsed)
-            if sleep_time > 0:
-                time.sleep(sleep_time)
+            if not pacer.wait():
+                break

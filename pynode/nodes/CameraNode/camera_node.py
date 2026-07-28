@@ -8,7 +8,7 @@ import sys
 import threading
 import time
 from typing import Any, Dict, List
-from pynode.nodes.base_node import BaseNode, Info, MessageKeys
+from pynode.nodes.base_node import BaseNode, FramePacer, Info, MessageKeys
 
 _info = Info()
 _info.add_text("Captures video frames from a webcam or video device using OpenCV and outputs them as messages.")
@@ -222,10 +222,12 @@ class CameraNode(BaseNode):
         """Capture frames in a loop and send them as messages."""
         frame_interval = 1.0 / fps
         encode_jpeg = self.config.get(MessageKeys.CAMERA.ENCODE_JPEG, True)
-        
+        # Absolute-deadline pacing: capture+encode cost varies frame to frame
+        # (JPEG encode especially), and sleeping the remainder of a fresh
+        # interval each pass would drop that overshoot instead of repaying it.
+        pacer = FramePacer(frame_interval, running=lambda: self.running)
+
         while self.running and self.camera and self.camera.isOpened():
-            start_time = time.time()
-            
             try:
                 ret, frame = self.camera.read()
                 
@@ -273,7 +275,5 @@ class CameraNode(BaseNode):
                 self.report_error(f"Error capturing frame: {e}")
             
             # Maintain frame rate
-            elapsed = time.time() - start_time
-            sleep_time = max(0, frame_interval - elapsed)
-            if sleep_time > 0:
-                time.sleep(sleep_time)
+            if not pacer.wait():
+                break

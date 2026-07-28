@@ -13,7 +13,7 @@ import time
 
 import numpy as np
 import cv2
-from pynode.nodes.base_node import BaseNode, Info, MessageKeys
+from pynode.nodes.base_node import BaseNode, FramePacer, Info, MessageKeys
 
 _info = Info()
 _info.add_text("Accepts image files via drag-and-drop onto the node. "
@@ -190,33 +190,26 @@ class ImageUploadNode(BaseNode):
     def _repeat_loop(self):
         """Re-send the stored image at the configured rate.
 
-        Frame-paced like the camera capture loop: send, then sleep the
-        remainder of the interval. Timing uses ``time.perf_counter`` (a
-        high-resolution monotonic clock) and ``time.sleep`` (high-resolution
-        on Python 3.11+ Windows) - NOT ``time.time`` or ``Event.wait``, both
-        of which have ~15 ms granularity here and, under load, drag a
-        requested 30 fps down to ~11 fps. The interval is re-read each frame
-        so it reflects the current config, and the loop exits when stopped or
-        when Repeat Send is turned off.
+        Frame-paced by ``FramePacer``: send, then wait out the remainder of
+        the interval against an absolute deadline, so a send that overruns is
+        repaid by the next one instead of costing a whole period. It uses
+        ``time.perf_counter``/``time.sleep`` rather than ``time.time`` or
+        ``Event.wait``, both of which have ~15 ms granularity here and, under
+        load, drag a requested 30 fps down to ~11 fps. The interval is re-read
+        each frame so it reflects the current config, and the loop exits when
+        stopped or when Repeat Send is turned off.
         """
+        pacer = FramePacer(0, running=lambda: not self._stop_repeat.is_set(),
+                           sleep_chunk=self._SLEEP_CHUNK)
         while not self._stop_repeat.is_set() and self._repeat_enabled():
-            frame_start = time.perf_counter()
             self._send_once()
 
             interval = self._repeat_interval()
             if interval <= 0:
                 break
 
-            # Sleep until the next frame deadline, in stop-responsive chunks.
-            # deadline - now accounts for the time send() just took, so the
-            # period stays at `interval` without drift (best-effort: if a
-            # frame overruns the interval, the next fires immediately).
-            deadline = frame_start + interval
-            while not self._stop_repeat.is_set():
-                remaining = deadline - time.perf_counter()
-                if remaining <= 0:
-                    break
-                time.sleep(min(remaining, self._SLEEP_CHUNK))
+            if not pacer.wait(interval):
+                break
 
     def handle_upload_image(self, file_bytes, filename):
         """API route handler for image upload. Called by the server."""
