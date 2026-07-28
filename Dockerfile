@@ -1,4 +1,4 @@
-FROM docker.io/nvidia/cuda:12.6.0-devel-ubuntu22.04
+FROM docker.io/nvidia/cuda:12.6.0-runtime-ubuntu22.04
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive
@@ -12,6 +12,7 @@ RUN apt-get update && apt-get install -y \
     python3-venv \
     git \
     wget \
+    gosu \
     gfortran \
     libgl1-mesa-glx \
     libgtk-3-0 \
@@ -44,16 +45,29 @@ WORKDIR /app
 # Copy application files
 COPY . /app/
 
-# Make scripts executable
-RUN chmod +x /app/setup.sh /app/install_nodes.sh
-
-# Run setup script
-RUN bash -c "source /app/setup.sh < /dev/null"
+# Derive the display version from git history, then remove .git to save
+# space.  SETUPTOOLS_SCM_PRETEND_VERSION keeps pip install happy (PEP 440);
+# the real version string is written to _version.py afterwards.
+RUN chmod +x /app/setup.sh /app/install_nodes.sh && \
+    RAW=$(git -C /app describe --tags --always 2>/dev/null || true) && \
+    if echo "$RAW" | grep -qE '^v?[0-9]+\.[0-9]+'; then \
+        VERSION=$(echo "$RAW" | sed 's/^v//'); \
+    elif [ -n "$RAW" ]; then \
+        VERSION="0.0.0+g${RAW}"; \
+    else \
+        VERSION="0.0.0"; \
+    fi && \
+    rm -rf /app/.git && \
+    SETUPTOOLS_SCM_PRETEND_VERSION=0.0.0 bash -c "source /app/setup.sh < /dev/null" && \
+    printf '__version__ = "%s"\n' "$VERSION" > /app/pynode/_version.py
 
 # Create a non-root user and give it ownership of the app directory
 RUN useradd --create-home --uid 1000 appuser \
     && chown -R appuser:appuser /app
-USER appuser
+
+# Entrypoint ensures bind-mounted directories are writable by appuser
+COPY docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
 
 # Expose port
 EXPOSE 5000
@@ -62,5 +76,5 @@ EXPOSE 5000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
     CMD ["/app/appenv/bin/python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/')"]
 
-# Run the application in production mode
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD ["/app/appenv/bin/python", "-m", "pynode", "--production", "--host", "0.0.0.0", "--port", "5000"]

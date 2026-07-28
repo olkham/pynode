@@ -21,7 +21,11 @@ def _resolve_version() -> str:
     try:
         from importlib.metadata import PackageNotFoundError, version
         try:
-            return version("pynode-flow")
+            v = version("pynode-flow")
+            # 0.0.0 is the placeholder used during Docker builds; skip it so
+            # the real version written to _version.py is preferred.
+            if v != "0.0.0":
+                return v
         except PackageNotFoundError:
             pass
     except Exception:

@@ -2,7 +2,7 @@
 Split Node - splits arrays or strings into separate messages.
 """
 
-from typing import Any, Dict
+from typing import Any, Dict, List
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
@@ -91,7 +91,7 @@ class SplitNode(BaseNode):
         
         split_type = self.config.get('split_type', 'auto')
         
-        items = []
+        items: List[Any] = []
         
         # Auto-detect or explicit type
         if split_type == 'auto':

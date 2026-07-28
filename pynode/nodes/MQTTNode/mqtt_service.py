@@ -142,7 +142,7 @@ class MQTTService:
         # Call _notify_error outside the lock to avoid deadlock
         if error_msg:
             self._notify_error(error_msg)
-            return False
+        return False
     
     def disconnect(self):
         """Disconnect from the MQTT broker."""

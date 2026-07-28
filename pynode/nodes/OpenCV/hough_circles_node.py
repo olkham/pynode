@@ -190,7 +190,7 @@ class HoughCirclesNode(BaseNode):
         circles_data = []
         if circles is not None:
             circles = np.uint16(np.around(circles))
-            for circle in circles[0, :]:
+            for circle in circles[0, :]:  # type: ignore[reportIndexIssue]
                 cx, cy, radius = circle
                 # Output normalized coordinates
                 circles_data.append({
@@ -210,7 +210,7 @@ class HoughCirclesNode(BaseNode):
                 else:
                     output = img.copy()
                 
-                for circle in circles[0, :]:
+                for circle in circles[0, :]:  # type: ignore[reportIndexIssue]
                     cx, cy, radius = circle
                     cv2.circle(output, (cx, cy), radius, circle_color, 2)
                     cv2.circle(output, (cx, cy), 2, (0, 0, 255), 3)  # center

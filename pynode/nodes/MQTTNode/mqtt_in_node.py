@@ -74,7 +74,7 @@ class MqttInNode(BaseNode):
         }
     ]
     
-    def __init__(self, node_id: str = None, name: str = ""):
+    def __init__(self, node_id: 'str | None' = None, name: str = ""):
         super().__init__(node_id, name)
         self._service: Optional[MQTTService] = None
         self._subscribed_topic: Optional[str] = None
@@ -128,9 +128,10 @@ class MqttInNode(BaseNode):
                 return
         
         # Subscribe to topic
-        self._subscribed_topic = self.config.get('topic', 'test/topic')
+        topic = self.config.get('topic') or 'test/topic'
+        self._subscribed_topic = topic
         qos = self.get_config_int('qos', 0)
-        self._service.subscribe(self.id, self._subscribed_topic, qos, self._on_message)
+        self._service.subscribe(self.id, topic, qos, self._on_message)
     
     def on_stop(self):
         """Unsubscribe and cleanup when workflow stops."""

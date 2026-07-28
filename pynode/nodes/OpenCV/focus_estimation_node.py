@@ -131,7 +131,7 @@ class FocusEstimationNode(BaseNode):
         Returns entropy value - sharp images have higher entropy.
         """
         # Compute histogram
-        hist = cv2.calcHist([gray], [0], None, [256], [0, 256])
+        hist = cv2.calcHist([gray], [0], None, [256], [0, 256])  # type: ignore[reportArgumentType]
         hist = hist.flatten()
         
         # Normalize histogram to get probability distribution

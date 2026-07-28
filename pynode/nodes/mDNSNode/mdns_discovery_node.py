@@ -260,7 +260,7 @@ class MDNSDiscoveryNode(BaseNode):
             # Create Zeroconf instance and browser
             self.zeroconf = Zeroconf()
             self.listener = DiscoveryListener(self)
-            self.browser = ServiceBrowser(self.zeroconf, service_type, self.listener)
+            self.browser = ServiceBrowser(self.zeroconf, service_type, self.listener)  # type: ignore[reportArgumentType]
             self.running = True
             
             # Start refresh thread if interval is set

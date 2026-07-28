@@ -1,0 +1,105 @@
+{
+  "nodes": [
+    {
+      "id": "image_upload_1",
+      "type": "ImageUploadNode",
+      "name": "Upload (repeat 10 fps)",
+      "config": {
+        "repeat_send": true,
+        "repeat_rate": 10
+      },
+      "x": 80,
+      "y": 200
+    },
+    {
+      "id": "slider_x1",
+      "type": "ControlSliderNode",
+      "name": "x1",
+      "config": {
+        "path": "payload.detections[0].bbox[0]",
+        "min": 0,
+        "max": 1,
+        "step": 0.01,
+        "value": 0.25,
+        "label": "x1"
+      },
+      "x": 320,
+      "y": 80
+    },
+    {
+      "id": "slider_y1",
+      "type": "ControlSliderNode",
+      "name": "y1",
+      "config": {
+        "path": "payload.detections[0].bbox[1]",
+        "min": 0,
+        "max": 1,
+        "step": 0.01,
+        "value": 0.25,
+        "label": "y1"
+      },
+      "x": 560,
+      "y": 80
+    },
+    {
+      "id": "slider_x2",
+      "type": "ControlSliderNode",
+      "name": "x2",
+      "config": {
+        "path": "payload.detections[0].bbox[2]",
+        "min": 0,
+        "max": 1,
+        "step": 0.01,
+        "value": 0.75,
+        "label": "x2"
+      },
+      "x": 800,
+      "y": 80
+    },
+    {
+      "id": "slider_y2",
+      "type": "ControlSliderNode",
+      "name": "y2",
+      "config": {
+        "path": "payload.detections[0].bbox[3]",
+        "min": 0,
+        "max": 1,
+        "step": 0.01,
+        "value": 0.75,
+        "label": "y2"
+      },
+      "x": 1040,
+      "y": 80
+    },
+    {
+      "id": "crop_1",
+      "type": "CropNode",
+      "name": "Crop",
+      "config": {
+        "bbox_source": "detections",
+        "output_mode": "separate"
+      },
+      "x": 1280,
+      "y": 200
+    },
+    {
+      "id": "viewer_1",
+      "type": "ImageViewerNode",
+      "name": "Cropped",
+      "config": {
+        "image_path": "payload.image",
+        "drop_messages": true
+      },
+      "x": 1520,
+      "y": 200
+    }
+  ],
+  "connections": [
+    { "source": "image_upload_1", "target": "slider_x1", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "slider_x1", "target": "slider_y1", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "slider_y1", "target": "slider_x2", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "slider_x2", "target": "slider_y2", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "slider_y2", "target": "crop_1", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "crop_1", "target": "viewer_1", "sourceOutput": 0, "targetInput": 0 }
+  ]
+}

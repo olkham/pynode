@@ -349,6 +349,7 @@ def _register_json_route(route, methods, handler_name, endpoint_name):
         _, method, error = _resolve_node_handler(node_id, handler_name)
         if error:
             return error
+        assert method is not None
         try:
             result = method()
             if result is None:
@@ -368,6 +369,8 @@ def _register_file_upload_route(route, methods, handler_name, endpoint_name, all
             # Re-shape error payload to the success/error contract used by uploads
             payload, status = error
             return jsonify({'success': False, 'error': payload.get_json()['error']}), status
+
+        assert method is not None
 
         if 'file' not in request.files:
             return jsonify({'success': False, 'error': 'No file provided'}), 400
@@ -397,9 +400,10 @@ def _register_stream_route(route, handler_name, endpoint_name):
         _, method, error = _resolve_node_handler(node_id, handler_name)
         if error:
             return error
+        assert method is not None
 
         def generate():
-            for img_data in method():
+            for img_data in method():  # type: ignore[reportGeneralTypeIssues]
                 yield (b'--frame\r\n'
                        b'Content-Type: image/jpeg\r\n\r\n' + img_data + b'\r\n')
 

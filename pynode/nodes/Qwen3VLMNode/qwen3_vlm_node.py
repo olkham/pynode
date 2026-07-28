@@ -329,7 +329,7 @@ class Qwen3VLMNode(BaseNode):
 
         try:
             detections = sv.Detections.from_vlm(
-                vlm=sv.VLM.QWEN_3_VL,
+                vlm=sv.VLM.QWEN_3_VL,  # type: ignore[reportPrivateImportUsage]
                 result=raw_response,
                 resolution_wh=pil_image.size,
             )

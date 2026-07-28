@@ -71,7 +71,7 @@ class FFTNode(BaseNode):
             
         # Compute DFT
         # cv2.dft expects float32
-        dft = cv2.dft(np.float32(gray), flags=cv2.DFT_COMPLEX_OUTPUT)
+        dft = cv2.dft(np.float32(gray), flags=cv2.DFT_COMPLEX_OUTPUT)  # type: ignore[reportArgumentType]
         dft_shift = np.fft.fftshift(dft)
         
         # Compute Magnitude Spectrum for visualization

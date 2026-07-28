@@ -17,16 +17,15 @@ echo "Detecting CUDA version..."
 # Check if CUDA_VERSION is set as environment variable (e.g., in Docker)
 if [ -n "$CUDA_VERSION" ]; then
     echo "CUDA $CUDA_VERSION detected from environment"
-elif command -v nvidia-smi &> /dev/null; then
-    CUDA_VERSION=$(nvidia-smi | grep "CUDA Version" | sed -n 's/.*CUDA Version: \([0-9]\+\.[0-9]\+\).*/\1/p')
+elif command -v nvidia-smi &> /dev/null && NVIDIA_SMI_OUTPUT=$(nvidia-smi 2>/dev/null) && CUDA_VERSION=$(echo "$NVIDIA_SMI_OUTPUT" | grep "CUDA Version" | sed -n 's/.*CUDA Version: \([0-9]\+\.[0-9]\+\).*/\1/p') && [ -n "$CUDA_VERSION" ]; then
     echo "CUDA $CUDA_VERSION detected from nvidia-smi"
-    
+
     # Determine PyTorch installation command based on CUDA version
     CUDA_MAJOR=$(echo $CUDA_VERSION | cut -d. -f1)
     CUDA_MINOR=$(echo $CUDA_VERSION | cut -d. -f2)
     
-    if [[ "$CUDA_MAJOR" -eq 13 && "$CUDA_MINOR" -eq 0 ]]; then
-        echo "Installing PyTorch with CUDA 13.0 support (highest available for CUDA 13.0)..."
+    if [[ "$CUDA_MAJOR" -ge 13 ]]; then
+        echo "Installing PyTorch with CUDA 13.0 support (highest available; forward-compatible with CUDA 13.x)..."
         pip install torch torchvision --index-url https://download.pytorch.org/whl/cu130
     elif [[ "$CUDA_MAJOR" -eq 12 && "$CUDA_MINOR" -eq 8 ]]; then
         echo "Installing PyTorch with CUDA 12.8 support..."

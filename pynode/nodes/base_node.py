@@ -630,7 +630,7 @@ class BaseNode:
         """
         return image_utils.decode_image(payload, report_error=self.report_error)
 
-    def encode_image(self, image: Any, format_type: str) -> Any:
+    def encode_image(self, image: Any, format_type: 'str | None') -> Any:
         """
         Encode numpy array image back to the original format.
 

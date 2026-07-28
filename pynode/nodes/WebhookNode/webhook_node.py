@@ -283,7 +283,7 @@ class WebhookNode(BaseNode):
         payload = self._build_payload(msg)
         
         # Make request with retries
-        last_error = None
+        last_error: Exception = Exception("Request failed")
         for attempt in range(retries + 1):
             try:
                 response = self._execute_request(

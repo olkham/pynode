@@ -11,7 +11,6 @@ __pycache__/
 *.egg-info
 dist/
 build/
-.git/
 .gitignore
 .vscode/
 .idea/

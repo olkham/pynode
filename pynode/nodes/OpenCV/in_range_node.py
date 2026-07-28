@@ -151,7 +151,7 @@ class InRangeNode(BaseNode):
         if len(img.shape) == 2:
             mask = cv2.inRange(img, lower[0], upper[0])
         else:
-            mask = cv2.inRange(img, lower, upper)
+            mask = cv2.inRange(img, lower, upper)  # type: ignore[reportArgumentType]
         
         # Apply mask to get masked image
         if len(img.shape) == 2:
