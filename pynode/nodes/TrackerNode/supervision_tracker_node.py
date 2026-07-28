@@ -220,11 +220,14 @@ class SupervisionTrackerNode(BaseNode):
                 image, fmt = self.decode_image(payload[MessageKeys.IMAGE.PATH])
                 if image is not None and fmt is not None:
                     # Use supervision annotators
+                    # Both arrays are Optional on a supervision Detections;
+                    # guard each one - zip() on a None class_id would raise.
                     labels = [
                         f"#{tracker_id} {class_id}"
                         for tracker_id, class_id
                         in zip(detections.tracker_id, detections.class_id)
-                    ] if detections.tracker_id is not None else []
+                    ] if (detections.tracker_id is not None
+                          and detections.class_id is not None) else []
                     
                     annotated_image = self.box_annotator.annotate(
                         scene=image.copy(),

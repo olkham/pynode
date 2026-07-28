@@ -214,8 +214,10 @@ def _classify_payload(payload: Any, encode_images: bool, jpeg_quality: int
 
     if isinstance(payload, np.ndarray):
         if encode_images and _is_image_like(payload):
+            # params as a tuple, not a list: OpenCV accepts either at runtime
+            # but its type stubs declare tuple[int, ...].
             ok, buf = cv2.imencode('.jpg', payload,
-                                   [int(cv2.IMWRITE_JPEG_QUALITY), int(jpeg_quality)])
+                                   (int(cv2.IMWRITE_JPEG_QUALITY), int(jpeg_quality)))
             if not ok:
                 raise EncodeError("cv2.imencode failed to encode image payload as JPEG")
             return PayloadType.JPEG, buf.tobytes(), {}, FLAG_BINARY | FLAG_JPEG

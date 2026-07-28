@@ -67,8 +67,10 @@ def encode_payload(payload: Any, encode_images: bool = True,
     if isinstance(payload, np.ndarray):
         if encode_images:
             import cv2
+            # params as a tuple, not a list: OpenCV accepts either at runtime
+            # but its type stubs declare tuple[int, ...].
             ok, buf = cv2.imencode(
-                '.jpg', payload, [cv2.IMWRITE_JPEG_QUALITY, int(jpeg_quality)])
+                '.jpg', payload, (int(cv2.IMWRITE_JPEG_QUALITY), int(jpeg_quality)))
             if not ok:
                 raise NdjsonError(
                     "cv2.imencode failed - payload is a numpy array that is "

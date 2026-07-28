@@ -232,7 +232,10 @@ class UdpInNode(BaseNode):
 
     def _emit(self, result: Dict[str, Any]):
         meta = result.get('meta') or {}
-        payload_type = meta.get('payload_type')
+        # A datagram whose metadata is missing or malformed has no payload_type;
+        # '' falls through to decode_payload's unknown-type branch, which
+        # raises DecodeError and is reported below like any other bad payload.
+        payload_type = str(meta.get('payload_type') or '')
         try:
             payload = udp_protocol.decode_payload(payload_type, result['payload_bytes'], meta)
         except udp_protocol.DecodeError as e:
