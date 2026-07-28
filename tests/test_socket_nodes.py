@@ -907,3 +907,386 @@ def test_tcp_out_reconnects_after_server_restart(node_classes):
     finally:
         out_node.on_stop()
         in_node.on_stop()
+
+
+# ===========================================================================
+# Copyable Node-RED flow snippets in the nodes' Info panels
+# ===========================================================================
+
+import html as _html  # noqa: E402
+
+from pynode.nodes.SocketNode import nodered_snippets as ns  # noqa: E402
+
+# PyNode node class -> (snippet kind, Node-RED node types the snippet must
+# contain). The snippet is named for the PyNode node it pairs with, so e.g.
+# 'udp_out' is the flow that *receives* from a UDP Out node.
+SNIPPET_EXPECTATIONS = {
+    UdpOutNode: ('udp_out', {'udp in', 'function', 'debug'}),
+    UdpInNode: ('udp_in', {'inject', 'function', 'udp out'}),
+    TcpOutNode: ('tcp_out', {'tcp in', 'json', 'function', 'debug'}),
+    TcpInNode: ('tcp_in', {'inject', 'function', 'tcp out'}),
+}
+
+
+def _copy_blocks(info_html):
+    """The decoded text of every Info.add_copy_block <pre> in ``info_html``.
+
+    Mirrors what the frontend's copy button puts on the clipboard: the
+    browser decodes the HTML entities, so the user pastes the original text.
+    """
+    return [_html.unescape(m) for m in
+            re.findall(r'<pre class="info-copy-code">(.*?)</pre>', info_html, re.S)]
+
+
+@pytest.mark.parametrize('kind,expected_types', [
+    (kind, types) for kind, types in SNIPPET_EXPECTATIONS.values()
+])
+def test_nodered_snippet_is_an_importable_flow(kind, expected_types):
+    """Each snippet must be a self-contained Node-RED flow: valid JSON, no
+    dangling wires, and no 'z' tab reference (so Node-RED imports it onto
+    whatever flow the user has open)."""
+    nodes = json.loads(ns.flow_snippet(kind, 7999))
+
+    assert isinstance(nodes, list) and nodes
+    assert nodes[0]['type'] == 'comment', "snippet should lead with its how-to comment"
+    assert '7999' in nodes[0]['info'], "comment must quote the port it was built for"
+
+    ids = {n['id'] for n in nodes}
+    assert len(ids) == len(nodes), "duplicate node ids in snippet"
+    assert expected_types <= {n['type'] for n in nodes}
+
+    for node in nodes:
+        assert 'z' not in node, f"{node['id']} still references a flow tab"
+        for port in (node.get('wires') or []):
+            for target in port:
+                assert target in ids, f"dangling wire target {target!r} in snippet {kind!r}"
+
+
+def test_nodered_snippet_port_is_rewritten():
+    """The transport node's port follows the PyNode node it is shown on, not
+    the example flow's own port pairing."""
+    for kind, _ in SNIPPET_EXPECTATIONS.values():
+        nodes = json.loads(ns.flow_snippet(kind, 7999))
+        transport = [n for n in nodes if n['type'] in ns._TRANSPORT_TYPES]
+        assert len(transport) == 1, f"snippet {kind!r} must have exactly one transport node"
+        assert transport[0]['port'] == '7999'
+
+
+def test_nodered_snippet_js_is_sliced_from_the_example_flow():
+    """Snippets must be *slices* of the example flow, not copies of it - that
+    is what keeps the JS a user copies from the Info panel in lockstep with
+    the JS the parity tests above check against udp_protocol.py."""
+    flow_funcs = {n['id']: n['func'] for n in _load_flow() if n['type'] == 'function'}
+    assert flow_funcs
+
+    seen = 0
+    for kind, _ in SNIPPET_EXPECTATIONS.values():
+        for node in json.loads(ns.flow_snippet(kind, 7999)):
+            if node['type'] == 'function':
+                assert node['id'] in flow_funcs, f"{kind!r} has a function node not in the example flow"
+                assert node['func'] == flow_funcs[node['id']]
+                seen += 1
+    assert seen >= 4, "expected every snippet to carry its example-flow function node"
+
+
+def test_node_info_offers_a_copyable_nodered_flow():
+    """Every socket node's Info panel carries exactly one copy block, and it
+    holds a valid flow whose port matches that node's default Port - so a
+    user who copies it and leaves both ends at their defaults is wired up."""
+    for node_class, (kind, expected_types) in SNIPPET_EXPECTATIONS.items():
+        blocks = _copy_blocks(node_class.info)
+        assert len(blocks) == 1, f"{node_class.__name__} should have one copy block"
+
+        nodes = json.loads(blocks[0])  # raises if the escaping round-trip broke
+        assert expected_types <= {n['type'] for n in nodes}
+
+        transport = next(n for n in nodes if n['type'] in ns._TRANSPORT_TYPES)
+        assert transport['port'] == str(node_class.DEFAULT_CONFIG['port']), (
+            f"{node_class.__name__}'s snippet port must match its default Port")
+
+
+def test_node_properties_point_at_the_info_panel():
+    """Users do not read READMEs and rarely open the Info tab unprompted, so
+    each socket node ends its properties with a hint that points there."""
+    for node_class in SNIPPET_EXPECTATIONS:
+        hints = [p for p in node_class.properties if p.get('type') == 'hint']
+        assert len(hints) == 1, f"{node_class.__name__} should have one hint property"
+        assert hints[0]['label'], "hint needs visible text"
+        assert hints[0].get('button'), "hint needs the button that opens the Info panel"
+        assert node_class.properties[-1] is hints[0], "the hint belongs at the end"
+
+
+def _unterminated_string_lines(js_src):
+    """Report JS string literals left open at the end of their line.
+
+    A JSON-escaping slip - writing "\n" in the flow file where "\\n" was
+    meant - turns an intended escape sequence into a real newline inside a
+    '...' or "..." literal. JavaScript rejects that with "Invalid or
+    unexpected token", but only when Node-RED compiles the function node,
+    long after every Python test has passed. Template literals may legally
+    span lines and are skipped; comments are skipped so apostrophes in prose
+    do not trip this.
+    """
+    offenders = []
+    quote = None          # the active ' or " (None when not inside one)
+    comment = None        # 'line' or 'block'
+    in_template = False
+    escaped = False
+
+    for lineno, line in enumerate(js_src.split('\n'), 1):
+        if comment == 'line':
+            comment = None
+        i = 0
+        while i < len(line):
+            ch = line[i]
+            if comment == 'block':
+                if line[i:i + 2] == '*/':
+                    comment = None
+                    i += 1
+            elif quote or in_template:
+                if escaped:
+                    escaped = False
+                elif ch == '\\':
+                    escaped = True
+                elif in_template and ch == '`':
+                    in_template = False
+                elif ch == quote:
+                    quote = None
+            elif line[i:i + 2] == '//':
+                break
+            elif line[i:i + 2] == '/*':
+                comment = 'block'
+                i += 1
+            elif ch in ('"', "'"):
+                quote = ch
+            elif ch == '`':
+                in_template = True
+            i += 1
+        if quote:
+            offenders.append((lineno, line))
+            quote = None  # report once per line, then keep scanning
+        escaped = False
+    return offenders
+
+
+def test_flow_json_function_string_literals_are_well_formed():
+    """Regression: 'NDJSON stringify' once shipped a raw newline inside its
+    "\\n" literal, so Node-RED refused to compile the node at all."""
+    checked = 0
+    for node in _load_flow():
+        if node['type'] != 'function':
+            continue
+        offenders = _unterminated_string_lines(node['func'])
+        assert not offenders, (
+            f"{node['name']!r} has a string literal running off the end of a "
+            f"line - Node-RED will not compile it: {offenders}")
+        checked += 1
+    assert checked >= 4, "expected every function node to be checked"
+
+
+def test_unterminated_string_detector_catches_the_original_bug():
+    """Guard the guard: the exact source that broke in Node-RED must fail."""
+    broken = 'msg.payload = JSON.stringify({a: 1}) + "\n";\nreturn msg;\n'
+    assert _unterminated_string_lines(broken)
+
+    fixed = 'msg.payload = JSON.stringify({a: 1}) + "\\n";\nreturn msg;\n'
+    assert not _unterminated_string_lines(fixed)
+
+    # Prose apostrophes in comments are not string literals.
+    assert not _unterminated_string_lines("// wire this node's output onward\n")
+
+
+def test_nodered_sender_appends_the_ndjson_line_terminator():
+    """The Node-RED -> PyNode sender must append the newline: TcpInNode only
+    emits once it sees b'\\n', so a sender that drops it leaves the
+    connection up (Node-RED shows 'Connected') and PyNode silently buffering."""
+    stringify = next(n['func'] for n in _load_flow()
+                     if n['type'] == 'function' and n.get('name') == 'NDJSON stringify')
+
+    assert '"\\n"' in stringify or "'\\n'" in stringify, (
+        "NDJSON stringify must append the two-character \\n escape")
+    assert not _unterminated_string_lines(stringify)
+
+    # What it emits must parse as a line on the PyNode side.
+    produced = json.dumps({'payload': {'hello': 'from node-red'}, 'topic': 't'}) + '\n'
+    assert produced.endswith('\n'), "no terminator means TcpInNode never emits"
+    payload, topic, _ = ndj.parse_line(produced.encode().rstrip(b'\n'))
+    assert payload == {'hello': 'from node-red'}
+    assert topic == 't'
+
+
+def test_nodered_snippet_carries_the_fixed_stringify_function():
+    """The copyable snippet is sliced from the flow, so the fix must reach the
+    Info panel too - that is where users now get this code from."""
+    nodes = json.loads(ns.flow_snippet('tcp_in', 7404))
+    stringify = next(n for n in nodes if n['type'] == 'function')
+    assert not _unterminated_string_lines(stringify['func'])
+    assert '"\\n"' in stringify['func']
+
+
+# ===========================================================================
+# Execute the shipped Node-RED JavaScript against the real nodes
+#
+# The flow file's function nodes are JavaScript no Python test can otherwise
+# exercise: a syntax error or a framing slip in them surfaces only when a
+# user pastes the flow (or an Info-panel snippet) into Node-RED. These tests
+# run that exact source under Node and wire its output into a live PyNode
+# node, proving both directions of the bridge end to end. Skipped when
+# node(1) is not installed.
+# ===========================================================================
+
+import base64  # noqa: E402
+import shutil  # noqa: E402
+import subprocess  # noqa: E402
+import tempfile  # noqa: E402
+
+NODE_BIN = shutil.which('node')
+requires_node = pytest.mark.skipif(
+    NODE_BIN is None, reason="node(1) not installed; cannot run the Node-RED JS")
+
+# Shims for the globals Node-RED injects into a function node.
+_NODE_RED_PRELUDE = """
+const node = { warn: () => {}, error: () => {}, log: () => {}, send: () => {} };
+const __store = {};
+const context = { get: (k) => __store[k], set: (k, v) => { __store[k] = v; } };
+const flow = context, global = context;
+"""
+
+
+def _flow_function_source(name):
+    return next(n['func'] for n in _load_flow()
+                if n['type'] == 'function' and n.get('name') == name)
+
+
+def _run_node(script):
+    """Run a JS script under Node and JSON-parse what it writes to stdout."""
+    with tempfile.NamedTemporaryFile('w', suffix='.js', delete=False, encoding='utf-8') as f:
+        f.write(script)
+        path = f.name
+    try:
+        result = subprocess.run([NODE_BIN, path], capture_output=True, text=True, timeout=30)
+    finally:
+        os.unlink(path)
+    assert result.returncode == 0, (
+        f"the shipped Node-RED JavaScript failed to run:\n{result.stderr}")
+    return json.loads(result.stdout)
+
+
+def _run_nodered_function(func_name, msg, emit):
+    """Run one function node's body over ``msg``; ``emit`` is a JS expression
+    over its return value ``out``."""
+    return _run_node(
+        _NODE_RED_PRELUDE
+        + "function nrFunction(msg) {\n%s\n}\n" % _flow_function_source(func_name)
+        + "const out = nrFunction(%s);\n" % json.dumps(msg)
+        + "process.stdout.write(JSON.stringify(%s));\n" % emit)
+
+
+@requires_node
+def test_nodered_ndjson_stringify_output_is_accepted_by_tcp_in(node_classes):
+    """Run the flow's 'NDJSON stringify' JS for real and push exactly what it
+    produces down a socket into a live TcpInNode.
+
+    Regression for a bug hit in Node-RED: the function would not compile
+    ("Invalid or unexpected token" - a raw newline inside its "\\n" literal),
+    and deleting the newline to silence that left the line unterminated, so
+    the socket connects (Node-RED shows 'Connected') but TcpInNode buffers
+    forever and emits nothing.
+    """
+    wire_text = _run_nodered_function(
+        'NDJSON stringify',
+        {'payload': {'hello': 'from node-red over tcp'}, 'topic': 'nodered/tcp/demo'},
+        'out.payload')
+
+    assert wire_text.endswith('\n'), (
+        "the Node-RED sender must terminate its line or TcpInNode never emits")
+
+    sink = node_classes['sink'](name='sink')
+    in_node = _make_tcp_in_node(sink)
+    client = socket.create_connection(('127.0.0.1', in_node.bound_port), timeout=5.0)
+    try:
+        client.sendall(wire_text.encode('utf-8'))
+        assert _wait_until(lambda: len(sink.received) == 1), (
+            "TcpInNode emitted nothing for the Node-RED sender's output")
+        assert sink.received[0]['payload'] == {'hello': 'from node-red over tcp'}
+        assert sink.received[0]['topic'] == 'nodered/tcp/demo'
+    finally:
+        client.close()
+        in_node.on_stop()
+
+
+@requires_node
+def test_nodered_pnb1_chunk_send_datagrams_are_accepted_by_udp_in(node_classes):
+    """The UDP send direction: run the flow's 'PNB1 chunk+send' JS and deliver
+    its datagrams, byte for byte, to a live UdpInNode."""
+    # The function ends `return [datagrams.map(...)]`: one output port,
+    # carrying an array of messages, so the datagrams are at out[0].
+    datagrams = _run_nodered_function(
+        'PNB1 chunk+send',
+        {'payload': {'hello': 'from node-red'}, 'topic': 'nodered/bridge/demo'},
+        'out[0].map(m => m.payload.toString("base64"))')
+    assert datagrams, "chunk+send produced no datagrams"
+
+    sink = node_classes['sink'](name='sink')
+    in_node = _make_in_node(sink)
+    sender = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        for chunk in datagrams:
+            sender.sendto(base64.b64decode(chunk), ('127.0.0.1', in_node.bound_port))
+        assert _wait_until(lambda: len(sink.received) == 1), (
+            "UdpInNode emitted nothing for the Node-RED sender's datagrams")
+        assert sink.received[0]['payload'] == {'hello': 'from node-red'}
+        assert sink.received[0]['topic'] == 'nodered/bridge/demo'
+    finally:
+        sender.close()
+        in_node.on_stop()
+
+
+@requires_node
+def test_nodered_pnb1_reassemble_decodes_what_udp_out_sends():
+    """The UDP receive direction: capture real datagrams off a UdpOutNode and
+    let the flow's 'PNB1 reassemble' JS decode them, one datagram per call
+    with its context carried across, exactly as Node-RED drives it."""
+    receiver = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    receiver.bind(('127.0.0.1', 0))
+    receiver.settimeout(2.0)
+    port = receiver.getsockname()[1]
+
+    out_node = _make_out_node(port, chunk_size=1400)
+    try:
+        # Big enough to need several chunks, so reassembly is exercised.
+        out_node.on_input(out_node.create_message(
+            payload={'detections': [{'i': i, 'label': 'person'} for i in range(200)]},
+            topic='pynode/detections'))
+        captured = []
+        while True:
+            try:
+                data, _ = receiver.recvfrom(65535)
+            except socket.timeout:
+                break
+            captured.append(base64.b64encode(data).decode('ascii'))
+    finally:
+        out_node.on_stop()
+        receiver.close()
+
+    assert len(captured) > 1, "expected a multi-chunk message to reassemble"
+
+    emitted = _run_node(
+        _NODE_RED_PRELUDE
+        + "function nrFunction(msg) {\n%s\n}\n" % _flow_function_source('PNB1 reassemble')
+        + "const datagrams = %s;\n" % json.dumps(captured)
+        + """
+const out = [];
+for (const b64 of datagrams) {
+    const msg = { payload: Buffer.from(b64, 'base64'), ip: '127.0.0.1', port: 40000 };
+    const result = nrFunction(msg);
+    if (result) { out.push({ topic: result.topic, payload: result.payload }); }
+}
+process.stdout.write(JSON.stringify(out));
+""")
+
+    assert len(emitted) == 1, (
+        f"PNB1 reassemble should emit exactly one message, got {len(emitted)}")
+    assert emitted[0]['topic'] == 'pynode/detections'
+    assert emitted[0]['payload']['detections'][0] == {'i': 0, 'label': 'person'}
+    assert len(emitted[0]['payload']['detections']) == 200

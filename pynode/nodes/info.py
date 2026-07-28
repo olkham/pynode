@@ -21,6 +21,7 @@ class Info:
         info.add_bullet("Input 1:", "Description of input 1")
         info.add_header("Example")
         info.add_code("Node1 → Node2").add_text("with some explanation")
+        info.add_copy_block("Config to paste elsewhere", some_long_text)
 
     The class automatically escapes text to prevent HTML injection.
     """
@@ -88,6 +89,39 @@ class Info:
     def add_code(self, code: str) -> 'Info':
         """Add inline code. Can be chained with text() for same line."""
         self._inline_buffer.append(f'<code>{self._escape(code)}</code>')
+        return self
+
+    def add_copy_block(self, label: str, code: str, note: str = '') -> 'Info':
+        """
+        Add a labelled code block with a copy-to-clipboard button.
+
+        For content the user is meant to take somewhere else (a Node-RED flow
+        to import, a config file, a command). The button is wired up by
+        delegation in the frontend (`setupInfoCopyButtons` in
+        static/js/events.js), which copies the <pre> text verbatim - so the
+        code lives in exactly one place and stays copyable even when the
+        panel content is re-rendered.
+
+        Args:
+            label: heading shown next to the Copy button.
+            code: the text to show and copy (escaped for display; the browser
+                decodes it back to the original on copy).
+            note: optional one-liner between the heading and the code, for
+                "change this before using it" style guidance.
+        """
+        self._flush_inline()
+        note_html = f'<p class="info-copy-note">{self._escape(note)}</p>' if note else ''
+        self._content.append(
+            '<div class="info-copy-block">'
+            '<div class="info-copy-bar">'
+            f'<span class="info-copy-label">{self._escape(label)}</span>'
+            '<button type="button" class="info-copy-btn" '
+            'title="Copy to clipboard">Copy</button>'
+            '</div>'
+            f'{note_html}'
+            f'<pre class="info-copy-code">{self._escape(code)}</pre>'
+            '</div>'
+        )
         return self
 
     def text(self, text: str) -> 'Info':

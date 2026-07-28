@@ -285,7 +285,7 @@
         "type": "function",
         "z": "pnbtcp000000tab1",
         "name": "NDJSON stringify",
-        "func": "// One JSON object per line; the newline is the framing. topic is optional.\nmsg.payload = JSON.stringify({payload: msg.payload, topic: msg.topic || ''}) + \"\n\";\nreturn msg;\n",
+        "func": "// One JSON object per line; the trailing newline is the framing - a\n// receiver emits nothing until it arrives, so it must not be dropped.\nmsg.payload = JSON.stringify({payload: msg.payload, topic: msg.topic || ''}) + \"\\n\";\nreturn msg;\n",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,

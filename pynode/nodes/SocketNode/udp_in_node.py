@@ -12,7 +12,11 @@ import time
 from typing import Any, Dict
 
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
-from pynode.nodes.SocketNode import udp_protocol
+from pynode.nodes.SocketNode import nodered_snippets, udp_protocol
+
+# Module level so DEFAULT_CONFIG and the Node-RED snippet in the info panel
+# below (built before the class exists) can never quote different ports.
+_DEFAULT_PORT = 7401
 
 _info = Info()
 _info.add_text(
@@ -41,11 +45,21 @@ _info.add_bullets(
                        "chunk) is silently discarded after this timeout - "
                        "it is never emitted."),
 )
+_info.add_header("Node-RED example")
+_info.add_text(
+    "Everything needed to send messages here from Node-RED: an inject node, "
+    "a function node that chunks the message into PNB1 datagrams (a plain "
+    "JavaScript mirror of udp_protocol.py - no extra Node-RED packages "
+    "required), and a 'udp out' node.")
+_info.add_copy_block(
+    "Node-RED flow - send to this node",
+    nodered_snippets.flow_snippet('udp_in', _DEFAULT_PORT),
+    nodered_snippets.HOW_TO_IMPORT)
 _info.add_header("Protocol")
 _info.add_text(
     "See pynode/nodes/SocketNode/udp_protocol.py for the full wire format, "
     "and pynode/nodes/SocketNode/interop/ for a standalone udp_probe.py "
-    "diagnostic and an example Node-RED flow that implements it.")
+    "diagnostic and the complete two-direction Node-RED flow.")
 _info.add_header("Notes")
 _info.add_bullets(
     ("UDP is unreliable:", "datagrams can be lost, duplicated, or reordered. "
@@ -73,7 +87,7 @@ class UdpInNode(BaseNode):
 
     DEFAULT_CONFIG = {
         'bind_host': '0.0.0.0',
-        'port': 7401,
+        'port': _DEFAULT_PORT,
         'reassembly_timeout': udp_protocol.DEFAULT_REASSEMBLY_TIMEOUT,
     }
 
@@ -98,6 +112,13 @@ class UdpInNode(BaseNode):
             'type': 'number',
             'default': DEFAULT_CONFIG['reassembly_timeout'],
             'help': 'Seconds to wait for all chunks of a message before dropping it'
+        },
+        {
+            'name': 'nodered_help',
+            'type': 'hint',
+            'label': "Sending from Node-RED? The Information panel has a "
+                     "ready-made Node-RED flow you can copy and import.",
+            'button': 'Open Info panel',
         },
     ]
 

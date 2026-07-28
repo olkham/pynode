@@ -21,7 +21,11 @@ import threading
 from typing import Optional
 
 from pynode.nodes.base_node import BaseNode, Info
-from pynode.nodes.SocketNode import ndjson_protocol
+from pynode.nodes.SocketNode import ndjson_protocol, nodered_snippets
+
+# Module level so DEFAULT_CONFIG and the Node-RED snippet in the info panel
+# below (built before the class exists) can never quote different ports.
+_DEFAULT_PORT = 7404
 
 _info = Info()
 _info.add_text(
@@ -42,6 +46,15 @@ _info.add_bullets(
                    "same-machine only."),
     ("Port:", "TCP port to listen on."),
 )
+_info.add_header("Node-RED example")
+_info.add_text(
+    "Everything needed to send messages here from Node-RED: an inject node, "
+    "a one-line function that adds the NDJSON framing, and a 'tcp out' node "
+    "in 'Connect to' mode.")
+_info.add_copy_block(
+    "Node-RED flow - send to this node",
+    nodered_snippets.flow_snippet('tcp_in', _DEFAULT_PORT),
+    nodered_snippets.HOW_TO_IMPORT)
 _info.add_header("Notes")
 _info.add_bullets(
     ("Multiple senders:", "up to 16 concurrent connections are accepted; "
@@ -68,7 +81,7 @@ class TcpInNode(BaseNode):
 
     DEFAULT_CONFIG = {
         'bind_host': '0.0.0.0',
-        'port': 7404,
+        'port': _DEFAULT_PORT,
     }
 
     properties = [
@@ -85,6 +98,13 @@ class TcpInNode(BaseNode):
             'type': 'number',
             'default': DEFAULT_CONFIG['port'],
             'help': 'TCP port to listen on'
+        },
+        {
+            'name': 'nodered_help',
+            'type': 'hint',
+            'label': "Sending from Node-RED? The Information panel has a "
+                     "ready-made Node-RED flow you can copy and import.",
+            'button': 'Open Info panel',
         },
     ]
 

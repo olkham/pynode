@@ -19,7 +19,11 @@ import threading
 from typing import Any, Dict
 
 from pynode.nodes.base_node import BaseNode, Info
-from pynode.nodes.SocketNode import ndjson_protocol
+from pynode.nodes.SocketNode import ndjson_protocol, nodered_snippets
+
+# Module level so DEFAULT_CONFIG and the Node-RED snippet in the info panel
+# below (built before the class exists) can never quote different ports.
+_DEFAULT_PORT = 7403
 
 _info = Info()
 _info.add_text(
@@ -45,6 +49,15 @@ _info.add_bullets(
                          "peer is unreachable. Messages arriving while "
                          "disconnected are dropped (and counted)."),
 )
+_info.add_header("Node-RED example")
+_info.add_text(
+    "Everything needed to receive these messages in Node-RED: a 'tcp in' "
+    "node in 'stream of Strings delimited by \\n' mode, a 'json' node, and a "
+    "one-line function that promotes the decoded object to the top level.")
+_info.add_copy_block(
+    "Node-RED flow - receive from this node",
+    nodered_snippets.flow_snippet('tcp_out', _DEFAULT_PORT),
+    nodered_snippets.HOW_TO_IMPORT)
 _info.add_header("Notes")
 _info.add_bullets(
     ("Reliable but blocking:", "TCP retransmits and preserves order, but a "
@@ -72,7 +85,7 @@ class TcpOutNode(BaseNode):
 
     DEFAULT_CONFIG = {
         'host': '127.0.0.1',
-        'port': 7403,
+        'port': _DEFAULT_PORT,
         'encode_images': True,
         'jpeg_quality': 80,
         'include_msg_props': False,
@@ -120,6 +133,13 @@ class TcpOutNode(BaseNode):
             'type': 'number',
             'default': DEFAULT_CONFIG['reconnect_delay'],
             'help': 'Seconds between reconnect attempts while the peer is unreachable'
+        },
+        {
+            'name': 'nodered_help',
+            'type': 'hint',
+            'label': "Receiving this in Node-RED? The Information panel has a "
+                     "ready-made Node-RED flow you can copy and import.",
+            'button': 'Open Info panel',
         },
     ]
 

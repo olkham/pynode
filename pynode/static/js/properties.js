@@ -255,8 +255,26 @@ export function renderProperties(nodeData) {
                 });
                 
                 html += '</div>';
+            } else if (prop.type === 'hint') {
+                // Static callout, no config value - points the user at help
+                // that lives elsewhere (typically a copyable example in the
+                // node's Information panel, which users never find on their
+                // own). `button` is optional; when set it opens that panel.
+                const button = prop.button
+                    ? `<button class="btn btn-secondary btn-small property-hint-btn"
+                               onclick="window.showInfoPanel()">${prop.button}</button>`
+                    : '';
+                html += `
+                    <div class="property-hint">
+                        <span class="property-hint-icon">ℹ️</span>
+                        <div class="property-hint-body">
+                            <span class="property-hint-text">${prop.label}</span>
+                            ${button}
+                        </div>
+                    </div>
+                `;
             }
-            
+
             if (prop.help) {
                 html += `<small class="property-help">${prop.help}</small>`;
             }

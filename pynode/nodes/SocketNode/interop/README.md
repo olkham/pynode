@@ -6,6 +6,16 @@ that speaks their wire format can interoperate. This folder is **one worked
 example**: a Node-RED flow that talks to them, plus a standalone diagnostic.
 Nothing here is required to use the nodes PyNode-to-PyNode.
 
+> **You may not need this file at all.** Each of the four nodes carries the
+> half of this flow it needs in its own **Information** panel (ℹ️ tab, top
+> right of the PyNode editor), with a **Copy** button - paste it into
+> Node-RED's Import dialog and you are done. Those snippets are sliced out
+> of `nodered-example-flow.json` at import time by `../nodered_snippets.py`,
+> so they are the same nodes and the same JavaScript as the flow described
+> below, with the port pre-set to match the PyNode node you copied it from.
+> Read on for the full two-direction flow, the protocol details, and the
+> troubleshooting steps.
+
 - **UDP** uses the `PNB1` wire protocol, defined once in
   `pynode/nodes/SocketNode/udp_protocol.py` (Python) and mirrored by hand in
   the two Node-RED function nodes below (JavaScript). See that module's
@@ -24,6 +34,9 @@ Nothing here is required to use the nodes PyNode-to-PyNode.
 - `../udp_probe.py` - standalone, stdlib-only UDP diagnostic (copy the single
   file anywhere): `listen` mode prints/decodes arriving PNB1 datagrams,
   `send` mode injects a test message. See Troubleshooting below.
+- `../nodered_snippets.py` - slices the flow above into the four
+  copy-and-import snippets shown in the nodes' Information panels (one per
+  node, each the half of the flow that node needs).
 - `README.md` - this file.
 
 ## Importing the flow
@@ -204,10 +217,23 @@ Work through these in order - each step isolates one link of the chain.
 - **No encryption or authentication.** Anyone who can reach the configured
   port can send to it or sniff traffic on it. Do not expose these ports
   directly to an untrusted network; tunnel over VPN/SSH if you must.
-- **This flow has not been executed against a live Node-RED instance** as
-  part of building it - it was written to match Node-RED's documented core
-  node schemas and hand-verified for constant parity against
-  `udp_protocol.py` (see
-  `tests/test_socket_nodes.py::test_flow_json_constants_match_python`).
-  Verify the node field names against your Node-RED version's editor after
-  import, before depending on this in production.
+- **The function nodes' JavaScript is executed by the test suite**, under
+  `node` (skipped if it is not installed): `NDJSON stringify` and `PNB1
+  chunk+send` are run for real and their output is fed into a live
+  `TcpInNode`/`UdpInNode`, and `PNB1 reassemble` decodes real datagrams
+  captured off a `UdpOutNode` - so a syntax error or a framing slip in them
+  fails a test instead of only failing in Node-RED. Constants are separately
+  checked against `udp_protocol.py`
+  (`tests/test_socket_nodes.py::test_flow_json_constants_match_python`).
+- **The flow as a whole has still not been imported into a live Node-RED
+  instance**, so the *node wiring and field names* are only as good as
+  Node-RED's documented core node schemas. Verify them against your
+  Node-RED version's editor after import before depending on this in
+  production.
+- **Editing the JavaScript by hand: mind the escaping.** These functions live
+  inside a JSON string, so a JS escape sequence needs a double backslash in
+  the file (`"\\n"`, not `"\n"` - the latter decodes to a real newline and
+  Node-RED then rejects the node with "Invalid or unexpected token"). And
+  the trailing `\n` in `NDJSON stringify` is the framing, not cosmetics:
+  drop it and `TcpInNode` buffers forever while Node-RED still shows
+  "Connected".

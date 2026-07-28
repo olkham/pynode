@@ -1591,6 +1591,41 @@ body {
     font-style: italic;
 }
 
+/* 'hint' property type: a static callout pointing at help elsewhere in the
+   UI (usually a copyable example in the node's Information panel). */
+.property-hint {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 10px;
+    background: #252526;
+    border: 1px solid #3e3e42;
+    border-left: 3px solid #4ec9b0;
+    border-radius: 3px;
+}
+
+.property-hint-icon {
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.property-hint-body {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+}
+
+.property-hint-text {
+    font-size: 11px;
+    line-height: 1.4;
+    color: #aaa;
+}
+
+.property-hint-btn {
+    white-space: nowrap;
+}
+
 .property-select {
     width: 100%;
     padding: 6px;
@@ -2942,5 +2977,78 @@ body {
     font-weight: 600;
     color: #4ec9b0;
     margin: 12px 0 6px 0;
+}
+
+/* Copy-to-clipboard block (Info.add_copy_block): a labelled, scrollable
+   snippet the user is meant to paste elsewhere, e.g. a Node-RED flow. */
+.info-copy-block {
+    margin: 8px 0 12px 0;
+    border: 1px solid #3e3e42;
+    border-radius: 4px;
+    background: #1e1e1e;
+    overflow: hidden;
+}
+
+.info-copy-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 8px;
+    background: #252526;
+    border-bottom: 1px solid #3e3e42;
+}
+
+.info-copy-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #ddd;
+}
+
+.info-copy-btn {
+    flex-shrink: 0;
+    padding: 3px 10px;
+    background: #3e3e42;
+    border: 1px solid #555;
+    border-radius: 3px;
+    color: #d4d4d4;
+    font-size: 11px;
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.info-copy-btn:hover {
+    background: #4e4e52;
+    color: #fff;
+}
+
+.info-copy-btn.copied {
+    background: #2d5a3d;
+    border-color: #3d7a53;
+    color: #fff;
+}
+
+.info-copy-note {
+    margin: 0 !important;
+    padding: 6px 8px;
+    font-size: 11px;
+    font-style: italic;
+    color: #999;
+    border-bottom: 1px solid #3e3e42;
+}
+
+.info-copy-code {
+    margin: 0;
+    padding: 8px;
+    /* Snippets can be long (a full Node-RED flow); cap the height so the
+       block stays scannable and the rest of the info panel stays reachable. */
+    max-height: 180px;
+    overflow: auto;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 11px;
+    line-height: 1.4;
+    color: #ce9178;
+    white-space: pre;
+    tab-size: 2;
 }
 

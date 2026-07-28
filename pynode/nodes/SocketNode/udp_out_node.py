@@ -10,7 +10,11 @@ import socket
 from typing import Any, Dict
 
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
-from pynode.nodes.SocketNode import udp_protocol
+from pynode.nodes.SocketNode import nodered_snippets, udp_protocol
+
+# Module level so DEFAULT_CONFIG and the Node-RED snippet in the info panel
+# below (built before the class exists) can never quote different ports.
+_DEFAULT_PORT = 7401
 
 _info = Info()
 _info.add_text(
@@ -49,11 +53,21 @@ _info.add_bullets(
                        "message exactly. Properties whose values are not "
                        "JSON-serializable are skipped individually."),
 )
+_info.add_header("Node-RED example")
+_info.add_text(
+    "Everything needed to receive these messages in Node-RED: a 'udp in' "
+    "node in Buffer mode plus a function node that reassembles the PNB1 "
+    "chunks (a plain JavaScript mirror of udp_protocol.py - no extra "
+    "Node-RED packages required).")
+_info.add_copy_block(
+    "Node-RED flow - receive from this node",
+    nodered_snippets.flow_snippet('udp_out', _DEFAULT_PORT),
+    nodered_snippets.HOW_TO_IMPORT)
 _info.add_header("Protocol")
 _info.add_text(
     "See pynode/nodes/SocketNode/udp_protocol.py for the full wire format, "
     "and pynode/nodes/SocketNode/interop/ for a standalone udp_probe.py "
-    "diagnostic and an example Node-RED flow that implements it.")
+    "diagnostic and the complete two-direction Node-RED flow.")
 _info.add_header("Notes")
 _info.add_bullets(
     ("UDP is unreliable:", "datagrams can be lost, duplicated, or reordered. "
@@ -83,7 +97,7 @@ class UdpOutNode(BaseNode):
 
     DEFAULT_CONFIG = {
         'host': '127.0.0.1',
-        'port': 7401,
+        'port': _DEFAULT_PORT,
         'chunk_size': str(udp_protocol.DEFAULT_CHUNK_SIZE),
         'encode_images': True,
         'include_msg_props': False,
@@ -130,6 +144,13 @@ class UdpOutNode(BaseNode):
             'type': 'checkbox',
             'default': DEFAULT_CONFIG['include_msg_props'],
             'help': 'Forward every msg property besides payload/topic (incl. _msgid, timestamps, ...) so the receiver replicates the message exactly'
+        },
+        {
+            'name': 'nodered_help',
+            'type': 'hint',
+            'label': "Receiving this in Node-RED? The Information panel has a "
+                     "ready-made Node-RED flow you can copy and import.",
+            'button': 'Open Info panel',
         },
     ]
 

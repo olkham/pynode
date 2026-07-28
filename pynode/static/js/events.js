@@ -6,9 +6,41 @@ import { deployWorkflow, deployWorkflowFull, restartWorkflow, stopWorkflow, clea
 import { clearDebug, toggleDebugPaused } from './debug.js';
 import { getConnectionAtPoint, highlightConnectionForInsert, clearConnectionHighlight, getHoveredConnection, insertNodeIntoConnection } from './connections.js';
 import { clientToCanvas, getZoom } from './viewport.js';
+import { copyText, showToast } from './ui-utils.js';
 
 // Track deploy mode: 'modified' or 'full'
 let deployMode = 'modified';
+
+// Wire up the Copy buttons a node's info HTML can contain (Python-side
+// `Info.add_copy_block`, e.g. the socket nodes' importable Node-RED flows).
+// Delegated from the panel because its whole content is replaced every time
+// the selection changes, which would discard per-button listeners.
+function setupInfoCopyButtons() {
+    const panel = document.getElementById('info-panel');
+    if (!panel) return;
+
+    panel.addEventListener('click', async (e) => {
+        const button = e.target.closest('.info-copy-btn');
+        if (!button) return;
+
+        const code = button.closest('.info-copy-block')?.querySelector('.info-copy-code');
+        if (!code) return;
+
+        const copied = await copyText(code.textContent);
+        showToast(copied ? 'Copied to clipboard' : 'Could not copy - select the text and copy manually',
+                  copied ? 'info' : 'error');
+
+        // Brief confirmation on the button itself: the toast is at the other
+        // end of the window from the button the user just clicked.
+        const original = button.textContent;
+        button.textContent = copied ? 'Copied' : 'Failed';
+        button.classList.add('copied');
+        setTimeout(() => {
+            button.textContent = original;
+            button.classList.remove('copied');
+        }, 1500);
+    });
+}
 
 // Populate the Examples submenu from the bundled manifest on first open, then
 // cache. Kept standalone (looks elements up by id) so it does not depend on the
@@ -240,6 +272,9 @@ export function setupEventListeners() {
         propertiesPanel.classList.add('hidden');
     });
     
+    // Copy buttons inside node info panels (Info.add_copy_block)
+    setupInfoCopyButtons();
+
     // Sidebar tab switching
     document.querySelectorAll('.sidebar-tab').forEach(tab => {
         tab.addEventListener('click', () => {
