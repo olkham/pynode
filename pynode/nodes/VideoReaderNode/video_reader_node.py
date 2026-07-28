@@ -5,6 +5,7 @@ controls (play/pause, stop, step) rendered on the node itself.
 
 import base64
 import os
+import queue
 import threading
 import time
 from typing import Any, Dict, Optional
@@ -163,6 +164,17 @@ class VideoReaderNode(BaseNode):
         self._playing = False
         self._play_thread: Optional[threading.Thread] = None
         self._transport_lock = threading.Lock()
+        # Prefetch pipeline (playback only): _decode_loop reads ahead into
+        # _prefetch_q, _playback_loop drains it on a fixed schedule. See
+        # _decode_loop for why the read is decoupled from the emit.
+        self._prefetch_q: Optional[queue.Queue] = None
+        self._decode_thread: Optional[threading.Thread] = None
+        # Index of the next frame the DECODER will read. Runs ahead of
+        # _frame_index (the display position) by up to _PREFETCH_DEPTH.
+        self._decode_index = 0
+        # Bumped on every seek; frames queued under an older generation are
+        # discarded by the emit loop instead of being shown after the seek.
+        self._generation = 0
         # Last position broadcast via SSE (change detection).
         self._last_sse_state = None
 
@@ -282,10 +294,13 @@ class VideoReaderNode(BaseNode):
                 else:
                     index = max(0, index)
                 if self._playing:
-                    # The playback loop reads _frame_index each iteration and
-                    # re-seeks the capture when it differs; just reposition and
-                    # let the loop emit from the new spot.
+                    # Reposition and let the pipeline pick it up: bumping the
+                    # generation makes the decoder re-seek and the emit loop
+                    # discard anything already queued from before the seek.
                     self._frame_index = index
+                    self._decode_index = index
+                    self._generation += 1
+                    self._drain_prefetch()
                     return
             # Paused/stopped: show the requested frame immediately.
             self._emit_frame_at(index)
@@ -353,7 +368,11 @@ class VideoReaderNode(BaseNode):
         self._play_thread = None
 
     def _emit_frame_at(self, index: int) -> bool:
-        """Seek to `index` (if needed), read one frame and send it."""
+        """Seek to `index` (if needed), read one frame and send it.
+
+        Used by the paused-only transport actions (step/seek/stop). Playback
+        goes through the prefetch pipeline instead - see _decode_loop.
+        """
         with self._cap_lock:
             cap = self._cap
             if cap is None or not cap.isOpened():
@@ -367,6 +386,11 @@ class VideoReaderNode(BaseNode):
             total = self._total_frames
             path = self._video_path
 
+        return self._send_frame(index, frame, total, path)
+
+    def _send_frame(self, index: int, frame, total: int,
+                    path: Optional[str]) -> bool:
+        """Build the frame message for `frame` and send it downstream."""
         if self.get_config_bool(MessageKeys.CAMERA.ENCODE_JPEG, False):
             quality = self.get_config_int(MessageKeys.CAMERA.JPEG_QUALITY, 80)
             ok, buffer = cv2.imencode('.jpg', frame,
@@ -404,8 +428,116 @@ class VideoReaderNode(BaseNode):
         self.send(msg)
         return True
 
+    # Frames decoded ahead of the emit schedule. Decode cost is bursty
+    # (measured 6-119 ms/frame on a 1080p H.264 file whose *mean* is 22 ms);
+    # a few frames of slack let the fast frames pay for the slow ones. Costs
+    # depth x frame bytes of RAM (~25 MB for 4 x 1080p BGR).
+    _PREFETCH_DEPTH = 4
+
+    # Max single sleep chunk (seconds) inside the pacing wait, so a paused/
+    # stopped transport action is honoured promptly at low frame rates.
+    _SLEEP_CHUNK = 0.05
+
+    def _put_prefetch(self, q: queue.Queue, item) -> bool:
+        """Block until `item` is queued, or playback stops. Returns whether
+        it was queued.
+
+        Never an unconditional blocking put: the emit loop can stop draining
+        at any moment (pause/stop), and the decoder must notice rather than
+        park forever on a full queue.
+        """
+        while self._playing:
+            try:
+                q.put(item, timeout=0.05)
+                return True
+            except queue.Full:
+                continue
+        return False
+
+    def _drain_prefetch(self):
+        """Discard queued frames (called on seek and when playback ends)."""
+        q = self._prefetch_q
+        if q is None:
+            return
+        while True:
+            try:
+                q.get_nowait()
+            except queue.Empty:
+                return
+
+    def _decode_loop(self, loop: bool, q: queue.Queue):
+        """Decoder thread: keep the prefetch queue topped up.
+
+        The queue is passed in rather than read off self so that a decoder
+        outliving its join timeout keeps writing to its own (now orphaned)
+        queue instead of tripping over _prefetch_q being cleared.
+
+        Decoding is decoupled from emitting because frame decode cost is
+        bursty: an I-frame can take 4x the frame budget while the P-frames
+        around it take a fraction of it. Reading inline with the pacing (the
+        previous design) gave every slow frame a permanent late penalty that
+        the fast frames could never repay, capping a 30 fps file at ~24 fps.
+        Reading ahead lets the queue absorb the spikes.
+
+        This is the only thing that touches the capture while playing.
+        """
+        gen = -1
+        # Consecutive failed reads while looping; bounded so a file that
+        # always fails to read can't spin this thread forever.
+        failures = 0
+        while self._playing:
+            with self._cap_lock:
+                cap = self._cap
+                if cap is None or not cap.isOpened():
+                    break
+
+                if gen != self._generation:
+                    # Fresh start, or a seek landed: resync to the new spot.
+                    gen = self._generation
+                    if int(cap.get(cv2.CAP_PROP_POS_FRAMES)) != self._decode_index:
+                        cap.set(cv2.CAP_PROP_POS_FRAMES, self._decode_index)
+
+                index = self._decode_index
+                if self._total_frames and index >= self._total_frames:
+                    if not loop:
+                        break
+                    index = 0
+                    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+
+                ret, frame = cap.read()
+                if not ret or frame is None:
+                    # Read failure, or the end of a file whose frame count
+                    # was unknown/wrong. Rewind rather than bumping the
+                    # generation: frames already queued are still valid and
+                    # should play out before the wrap.
+                    failures += 1
+                    if not (loop and self._total_frames) or failures > 3:
+                        break
+                    self._decode_index = 0
+                    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                    continue
+                failures = 0
+                self._decode_index = index + 1
+
+            # Hand off outside _cap_lock so a full queue never blocks the
+            # transport actions.
+            self._put_prefetch(q, (gen, index, frame))
+
+        # Sentinel: tell the emit loop no more frames are coming. Must be a
+        # blocking put - dropping it on a full queue would leave the emit
+        # loop spinning and _playing stuck True at the end of the video.
+        self._put_prefetch(q, (gen, -1, None))
+
     def _playback_loop(self):
-        """Worker thread: emit frames paced to the (native or override) FPS."""
+        """Worker thread: emit prefetched frames on a fixed schedule.
+
+        Pacing works off an absolute deadline (deadline += interval) rather
+        than sleeping `interval - elapsed` from the top of each iteration.
+        The latter silently drops the overshoot of every slow frame, so the
+        achieved rate becomes mean(max(interval, decode)) - well under the
+        target whenever decode time is spiky. Timing uses perf_counter, not
+        time.time (~15 ms granularity on Windows).
+        """
         fps = self.get_config_float(MessageKeys.CAMERA.FPS, 0)
         if fps <= 0:
             fps = self._native_fps
@@ -414,33 +546,61 @@ class VideoReaderNode(BaseNode):
         frame_interval = 1.0 / fps
         loop = self.get_config_bool(MessageKeys.VIDEO.LOOP, False)
 
-        while self._playing:
-            start_time = time.time()
+        prefetch_q: queue.Queue = queue.Queue(maxsize=self._PREFETCH_DEPTH)
+        self._prefetch_q = prefetch_q
+        with self._cap_lock:
+            self._decode_index = self._frame_index
+            self._generation += 1
+        self._decode_thread = threading.Thread(target=self._decode_loop,
+                                               args=(loop, prefetch_q),
+                                               daemon=True)
+        self._decode_thread.start()
 
-            with self._cap_lock:
-                if self._cap is None or not self._cap.isOpened():
-                    self._playing = False
-                    break
-                index = self._frame_index
-                if self._total_frames and index >= self._total_frames:
-                    if loop:
-                        index = 0
-                    else:
-                        # End of video, no loop: stop emitting; position
-                        # remains at the last frame.
-                        self._playing = False
+        try:
+            deadline = time.perf_counter()
+            while self._playing:
+                try:
+                    gen, index, frame = prefetch_q.get(timeout=0.1)
+                except queue.Empty:
+                    # Backstop for a lost sentinel: a seek landing in the
+                    # gap between the decoder exiting and this loop reading
+                    # its sentinel would drain it. Dead decoder + empty
+                    # queue means nothing more is coming, so don't spin.
+                    decoder = self._decode_thread
+                    if decoder is not None and not decoder.is_alive():
                         break
-
-            if not self._emit_frame_at(index):
-                # Read failure (or end reached without a frame count).
-                if loop and self._total_frames:
-                    with self._cap_lock:
-                        self._frame_index = 0
                     continue
-                self._playing = False
-                break
 
-            elapsed = time.time() - start_time
-            sleep_time = max(0.0, frame_interval - elapsed)
-            if sleep_time > 0:
-                time.sleep(sleep_time)
+                if frame is None:
+                    break  # decoder finished (end of video, or read failure)
+                if gen != self._generation:
+                    continue  # queued before a seek - stale, drop it
+
+                total = self._total_frames
+                path = self._video_path
+                self._frame_index = index + 1
+                self._send_frame(index, frame, total, path)
+
+                deadline += frame_interval
+                now = time.perf_counter()
+                if now - deadline > frame_interval:
+                    # More than a frame behind (decoder stall, or the machine
+                    # simply can't keep up): resync instead of emitting a
+                    # catch-up burst that would never converge.
+                    deadline = now
+
+                while self._playing:
+                    remaining = deadline - time.perf_counter()
+                    if remaining <= 0:
+                        break
+                    time.sleep(min(remaining, self._SLEEP_CHUNK))
+        finally:
+            self._playing = False
+            decoder = self._decode_thread
+            if decoder is not None and decoder.is_alive():
+                # Unblock a decoder parked on a full queue, then let it exit.
+                self._drain_prefetch()
+                decoder.join(timeout=1.0)
+            self._decode_thread = None
+            self._drain_prefetch()
+            self._prefetch_q = None

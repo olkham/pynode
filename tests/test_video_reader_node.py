@@ -227,6 +227,104 @@ class TestTransportControls:
         assert node._frame_index == 0
 
 
+class TestSeek:
+    """Playback decodes ahead into a prefetch queue, so a seek has to
+    invalidate frames that were decoded for the OLD position but not yet
+    emitted - otherwise the scrubber jumps and then plays stale frames."""
+
+    def test_seek_while_paused_emits_that_frame(self, vr):
+        node, sink = vr
+        node.seek(5)
+        assert len(sink.received) == 1
+        assert sink.received[-1][MessageKeys.PAYLOAD]['frame'] == 5
+        assert abs(_decode_mean(
+            sink.received[-1][MessageKeys.PAYLOAD][MessageKeys.IMAGE.PATH]
+        ) - 5 * STEP) < 12
+
+    def test_seek_clamps_to_video_bounds(self, vr):
+        node, sink = vr
+        node.seek(999)
+        assert sink.received[-1][MessageKeys.PAYLOAD]['frame'] == N_FRAMES - 1
+        node.seek(-4)
+        assert sink.received[-1][MessageKeys.PAYLOAD]['frame'] == 0
+
+    def test_seek_during_playback_discards_prefetched_frames(self, vr):
+        node, sink = vr
+        node.configure({MessageKeys.CAMERA.FPS: 8})  # ~125 ms/frame
+        node.play_pause()
+        assert _wait_until(lambda: len(sink.received) >= 2)
+
+        seen_before = len(sink.received)
+        node.seek(8)
+        assert _wait_until(
+            lambda: any(m[MessageKeys.PAYLOAD]['frame'] >= 8
+                        for m in sink.received[seen_before:]))
+        node.play_pause()  # pause
+
+        after = [m[MessageKeys.PAYLOAD]['frame']
+                 for m in sink.received[seen_before:]]
+        # At most one pre-seek frame may already have been in flight when the
+        # seek landed; the rest of the prefetched backlog must be dropped.
+        stale = [f for f in after if f < 8]
+        assert len(stale) <= 1, f"stale frames emitted after seek: {after}"
+        # And playback resumes contiguously from the seek target.
+        from_target = after[after.index(8):]
+        assert from_target == list(range(8, 8 + len(from_target)))
+
+    def test_seek_during_playback_keeps_playing(self, vr):
+        node, sink = vr
+        node.configure({MessageKeys.CAMERA.FPS: 10,
+                        MessageKeys.VIDEO.LOOP: True})
+        node.play_pause()
+        assert _wait_until(lambda: len(sink.received) >= 2)
+
+        node.seek(2)
+        count = len(sink.received)
+        assert node._playing is True
+        assert _wait_until(lambda: len(sink.received) > count + 2)
+        node.play_pause()
+
+
+class TestPrefetchPipeline:
+    """The decoder thread and its queue are created per playback run and must
+    not outlive it (they hold the capture lock and a few decoded frames)."""
+
+    def test_pipeline_torn_down_when_video_ends(self, vr):
+        node, sink = vr
+        node.play_pause()
+        assert _wait_until(lambda: not node._playing)
+        assert _wait_until(lambda: node._decode_thread is None)
+        assert node._prefetch_q is None
+
+    def test_pipeline_torn_down_on_pause(self, vr):
+        node, sink = vr
+        node.configure({MessageKeys.CAMERA.FPS: 10,
+                        MessageKeys.VIDEO.LOOP: True})
+        node.play_pause()
+        assert _wait_until(lambda: len(sink.received) >= 2)
+        decoder = node._decode_thread
+        assert decoder is not None and decoder.is_alive()
+
+        node.play_pause()  # pause
+        assert not decoder.is_alive()
+        assert node._decode_thread is None
+        assert node._prefetch_q is None
+
+    def test_pipeline_torn_down_on_stop_action(self, vr):
+        node, sink = vr
+        node.configure({MessageKeys.CAMERA.FPS: 10,
+                        MessageKeys.VIDEO.LOOP: True})
+        node.play_pause()
+        assert _wait_until(lambda: len(sink.received) >= 2)
+        decoder = node._decode_thread
+
+        node.stop()
+        assert not decoder.is_alive()
+        assert node._decode_thread is None
+        assert node._prefetch_q is None
+        assert node._frame_index == 0
+
+
 class TestOutputFormat:
     """VideoReaderNode.DEFAULT_CONFIG[encode_jpeg] is False: raw numpy is the
     default payload format (mirrors CameraNode's ENCODE_JPEG toggle); JPEG
