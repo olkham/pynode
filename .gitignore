@@ -196,3 +196,6 @@ checkpoints/
 output/
 output_low/
 output_not/
+
+# Working prompt / plan files (local scratch, not part of the project)
+*.prompt.md

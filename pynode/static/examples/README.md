@@ -1,8 +1,8 @@
 # Example Workflows
 
-Ten ready-to-load workflows that teach PyNode from "hello world" to a complete
-vision → logic → MQTT pipeline. No code changes needed — each file is pure
-workflow definition.
+Twelve ready-to-load workflows that teach PyNode from "hello world" to a
+complete vision → logic → MQTT pipeline. No code changes needed — each file is
+pure workflow definition.
 
 These files are bundled with the app and served at `/examples/`. The list the
 editor shows is driven by [`manifest.json`](manifest.json) — add a file **and**
@@ -14,7 +14,8 @@ a manifest entry to make a new example appear in the menu.
 2. Open the **☰ menu** (top right) and hover **Examples**.
 3. Click an example — it opens as a **new tab**.
 4. Press **Deploy** to activate it, then interact with the nodes (Inject
-   buttons, Gate toggles, viewers, the Debug panel at the bottom).
+   buttons, Gate toggles, sliders, viewers, and the **🐛 Debug** tab in the
+   right sidebar).
 
 You can also load any `.json` here via **☰ menu → Import**. The reverse works
 too: build something in the editor and use **Export** to save it as JSON —
@@ -36,6 +37,8 @@ Roughly in order of complexity:
 | 8 | `08-video-yolo-recorder.json` | Video I/O: VideoReader (⚠ pick a video file in its properties first) → YOLO → live preview + VideoWriter saving annotated video to `./output`. |
 | 9 | `09-mqtt-pub-sub.json` | MQTT loopback: Inject publishes every 5s, a subscriber on `pynode/demo/#` receives it back. Uses the broker configured in the node's Broker dropdown. |
 | 10 | `10-person-alert-mqtt.json` | Capstone: camera → YOLO → ConfidenceFilter (≥ 0.6) → LabelFilter (`person`) → alert builder → Switch (only when count > 0) → rate-limited MQTT alert + debug log. |
+| 11 | `16-socket-bridge.json` | Networking: the two halves of a bridge to another system — Inject → UDP Out (sends on 7401), and UDP In (listens on 7402) → Debug. The halves are deliberately **not** connected to each other; something else sits in the middle. Copy the matching Node-RED flow from either node's **Information** panel. |
+| 12 | `17-slider-crop.json` | Live UI controls: four Slider nodes drive x/y/width/height of a CropNode against an uploaded image, previewed in an ImageViewer as you drag. |
 
 ## Prerequisites by example
 
@@ -48,6 +51,13 @@ Roughly in order of complexity:
   properties for more FPS.
 - **8**: vision extra + a video file. Open the VideoReader node's properties
   and upload/select a file before deploying.
+- **11**: core install, plus **a peer on the other end** — on its own the Debug
+  node stays silent, because the flow is one side of a bridge. Either import
+  the Node-RED flow from a socket node's Information panel, or point the UDP
+  Out node's Port at `7402` to loop it straight back into the UDP In node on
+  the same machine.
+- **12**: core install; select an image in the ImageUpload node's properties
+  before deploying, then drag the sliders.
 - **9–10**: the mqtt extra (`pip install "pynode-flow[mqtt]"`) and a reachable
   MQTT broker. The examples reference a broker service (`192.168.1.241` in the
   dev setup); if the MQTT nodes report "No MQTT broker configured", open the

@@ -69,6 +69,20 @@
       "title": "10 · Person Alert to MQTT",
       "description": "Capstone: camera to YOLO to confidence/label filters to a rate-limited MQTT alert.",
       "requires": "vision + mqtt + webcam"
+    },
+    {
+      "id": "16-socket-bridge",
+      "file": "16-socket-bridge.json",
+      "title": "11 · UDP Socket Bridge",
+      "description": "Two halves of a bridge to another system: Inject to UDP Out (7401), and UDP In (7402) to Debug. Copy the matching Node-RED flow from either node's Info panel.",
+      "requires": "core + a peer on the other end"
+    },
+    {
+      "id": "17-slider-crop",
+      "file": "17-slider-crop.json",
+      "title": "12 · Slider-Driven Crop",
+      "description": "Four live sliders drive a crop region on an uploaded image, previewed in an Image Viewer as you drag.",
+      "requires": "core"
     }
   ]
 }
