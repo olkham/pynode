@@ -26,7 +26,9 @@ _info.add_header("Configuration")
 _info.add_bullets(
     ("Output Mode:", "Array (all slices in one message) or Split (separate messages)"),
     ("Auto Slice:", "Automatically calculate slice size based on image resolution"),
-    ("Slice Width/Height:", "Manual slice dimensions in pixels"),
+    ("Slice By:", "Tile Size (pixels) or Tile Count (nx, ny)"),
+    ("Slice Width/Height:", "Manual slice dimensions in pixels (Tile Size mode)"),
+    ("Num Slices X/Y:", "Number of columns/rows of tiles (Tile Count mode)"),
     ("Overlap Ratios:", "Overlap between adjacent slices (0-1)"),
     ("Include Full Image:", "Also include the original full image in output"),
 )
@@ -53,6 +55,9 @@ class SliceImageNode(BaseNode):
     DEFAULT_CONFIG = {
         'slice_width': 640,
         'slice_height': 640,
+        'num_slices_x': 2,
+        'num_slices_y': 2,
+        'slice_mode': 'size',
         'overlap_width_ratio': 0.2,
         'overlap_height_ratio': 0.2,
         'auto_slice': False,
@@ -80,18 +85,43 @@ class SliceImageNode(BaseNode):
             'default': False
         },
         {
+            'name': 'slice_mode',
+            'label': 'Slice By',
+            'type': 'select',
+            'options': [
+                {'value': 'size', 'label': 'Tile Size (pixels)'},
+                {'value': 'count', 'label': 'Tile Count (nx, ny)'}
+            ],
+            'default': 'size',
+            'showIf': {'auto_slice': False}
+        },
+        {
             'name': 'slice_width',
             'label': 'Slice Width (pixels)',
             'type': 'number',
             'default': 640,
-            'showIf': {'auto_slice': False}
+            'showIf': {'auto_slice': False, 'slice_mode': 'size'}
         },
         {
             'name': 'slice_height',
             'label': 'Slice Height (pixels)',
             'type': 'number',
             'default': 640,
-            'showIf': {'auto_slice': False}
+            'showIf': {'auto_slice': False, 'slice_mode': 'size'}
+        },
+        {
+            'name': 'num_slices_x',
+            'label': 'Num Slices X (columns)',
+            'type': 'number',
+            'default': 2,
+            'showIf': {'auto_slice': False, 'slice_mode': 'count'}
+        },
+        {
+            'name': 'num_slices_y',
+            'label': 'Num Slices Y (rows)',
+            'type': 'number',
+            'default': 2,
+            'showIf': {'auto_slice': False, 'slice_mode': 'count'}
         },
         {
             'name': 'overlap_width_ratio',
@@ -231,6 +261,65 @@ class SliceImageNode(BaseNode):
         
         return slice_bboxes
     
+    def _get_slice_bboxes_by_count(
+        self,
+        image_height: int,
+        image_width: int,
+        num_slices_x: int,
+        num_slices_y: int,
+        overlap_height_ratio: float,
+        overlap_width_ratio: float
+    ) -> List[List[int]]:
+        """
+        Generate slice bounding boxes for a fixed grid of nx x ny tiles.
+        
+        Tile size is derived from the requested overlap ratio so that adjacent
+        tiles overlap by that fraction, while guaranteeing exactly
+        num_slices_x * num_slices_y tiles that together cover the whole image.
+        
+        Returns list of [x_min, y_min, x_max, y_max] for each slice.
+        """
+        if overlap_height_ratio >= 1.0 or overlap_width_ratio >= 1.0:
+            raise ValueError("Overlap ratio must be less than 1.0")
+        
+        nx = max(1, int(num_slices_x))
+        ny = max(1, int(num_slices_y))
+        
+        x_starts, slice_width = self._axis_starts(image_width, nx, overlap_width_ratio)
+        y_starts, slice_height = self._axis_starts(image_height, ny, overlap_height_ratio)
+        
+        slice_bboxes = []
+        for y_min in y_starts:
+            for x_min in x_starts:
+                slice_bboxes.append([
+                    x_min,
+                    y_min,
+                    min(x_min + slice_width, image_width),
+                    min(y_min + slice_height, image_height)
+                ])
+        
+        return slice_bboxes
+    
+    def _axis_starts(self, length: int, count: int, overlap_ratio: float) -> Tuple[List[int], int]:
+        """
+        Compute evenly spaced tile start positions along one axis.
+        
+        Returns (list of start coordinates, tile size in pixels) for ``count``
+        tiles overlapping by ``overlap_ratio`` that span ``length`` pixels.
+        """
+        if count <= 1:
+            return [0], length
+        
+        # size such that: (count-1) * size * (1 - overlap) + size = length
+        denom = (count - 1) * (1.0 - overlap_ratio) + 1.0
+        slice_size = int(round(length / denom)) if denom > 0 else length
+        slice_size = max(1, min(slice_size, length))
+        
+        last_start = length - slice_size
+        starts = [int(round(i * last_start / (count - 1))) for i in range(count)]
+        
+        return starts, slice_size
+    
     def _slice_image(self, image: np.ndarray) -> List[Dict[str, Any]]:
         """
         Slice the image into tiles based on configuration.
@@ -253,21 +342,41 @@ class SliceImageNode(BaseNode):
                 }]
             overlap_width_ratio = x_overlap / slice_width if slice_width > 0 else 0.2
             overlap_height_ratio = y_overlap / slice_height if slice_height > 0 else 0.2
+            slice_bboxes = self._get_slice_bboxes(
+                image_height=height,
+                image_width=width,
+                slice_height=slice_height,
+                slice_width=slice_width,
+                overlap_height_ratio=overlap_height_ratio,
+                overlap_width_ratio=overlap_width_ratio
+            )
         else:
-            slice_width = self.get_config_int('slice_width', 640)
-            slice_height = self.get_config_int('slice_height', 640)
+            slice_mode = self.config.get('slice_mode', 'size')
             overlap_width_ratio = self.get_config_float('overlap_width_ratio', 0.2)
             overlap_height_ratio = self.get_config_float('overlap_height_ratio', 0.2)
-        
-        # Get slice bounding boxes
-        slice_bboxes = self._get_slice_bboxes(
-            image_height=height,
-            image_width=width,
-            slice_height=slice_height,
-            slice_width=slice_width,
-            overlap_height_ratio=overlap_height_ratio,
-            overlap_width_ratio=overlap_width_ratio
-        )
+            
+            if slice_mode == 'count':
+                num_slices_x = self.get_config_int('num_slices_x', 2)
+                num_slices_y = self.get_config_int('num_slices_y', 2)
+                slice_bboxes = self._get_slice_bboxes_by_count(
+                    image_height=height,
+                    image_width=width,
+                    num_slices_x=num_slices_x,
+                    num_slices_y=num_slices_y,
+                    overlap_height_ratio=overlap_height_ratio,
+                    overlap_width_ratio=overlap_width_ratio
+                )
+            else:
+                slice_width = self.get_config_int('slice_width', 640)
+                slice_height = self.get_config_int('slice_height', 640)
+                slice_bboxes = self._get_slice_bboxes(
+                    image_height=height,
+                    image_width=width,
+                    slice_height=slice_height,
+                    slice_width=slice_width,
+                    overlap_height_ratio=overlap_height_ratio,
+                    overlap_width_ratio=overlap_width_ratio
+                )
         
         slices = []
         for bbox in slice_bboxes:

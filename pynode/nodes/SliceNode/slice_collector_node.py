@@ -6,12 +6,20 @@ Designed to work with SliceImageNode in a slice-detect-merge workflow.
 from dataclasses import dataclass
 import time
 from typing import Any, Dict, List, Optional
+import numpy as np
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
+
+try:
+    import cv2
+    _HAS_CV2 = True
+except ImportError:
+    cv2 = None
+    _HAS_CV2 = False
 
 _info = Info()
 _info.add_text("Collects detection predictions from multiple image slices sent as separate messages, then merges them into a unified result.")
 _info.add_header("Inputs")
-_info.add_bullets(("Input 0:", "Individual slice prediction messages with slice metadata (from split output mode)"))
+_info.add_bullets(("Input 0:", "Slice predictions from SliceImageNode. Auto-detects 'array' mode (all slices in one message) or 'split' mode (separate messages)."))
 _info.add_header("Outputs")
 _info.add_bullets(
     ("Output 0:", "Merged predictions after all slices collected and NMS applied"),
@@ -22,9 +30,11 @@ _info.add_bullets(
     ("NMS IoU Threshold:", "Threshold for Non-Maximum Suppression"),
     ("Match Metric:", "IoU or IoS for duplicate detection matching"),
     ("Class Agnostic NMS:", "Apply NMS across all classes vs per-class"),
+    ("Reconstruct Image from Slices:", "Rebuild the original parent image by stitching the collected tiles back together"),
+    ("Draw Slice Bounds:", "Draw each slice's rectangle on the reconstructed image to visualize tile placement and overlap"),
 )
 _info.add_header("Usage")
-_info.add_text("Designed for workflows: SliceImageNode (split mode) → Inference → SliceCollectorNode")
+_info.add_text("Works with either SliceImageNode output mode. Split: SliceImageNode (split) → Split → Inference → SliceCollectorNode. Array: SliceImageNode (array) → SliceCollectorNode")
 
 @dataclass(frozen=True)
 class NodeKeys:
@@ -45,6 +55,9 @@ class NodeKeys:
     MATCH_METRIC = 'match_metric'
     CLASS_AGNOSTIC = 'class_agnostic'
     TIMEOUT = 'timeout'
+    RECONSTRUCT_IMAGE = 'reconstruct_image'
+    DRAW_SLICE_BOUNDS = 'draw_slice_bounds'
+    SLICE_IMAGE = 'slice_image'
 
 
 class SliceCollectorNode(BaseNode):
@@ -74,6 +87,8 @@ class SliceCollectorNode(BaseNode):
         NodeKeys.NMS_THRESHOLD: 0.5,
         NodeKeys.MATCH_METRIC: 'iou',
         NodeKeys.CLASS_AGNOSTIC: False,
+        NodeKeys.RECONSTRUCT_IMAGE: False,
+        NodeKeys.DRAW_SLICE_BOUNDS: False,
         MessageKeys.DROP_MESSAGES: False
     }
     
@@ -105,6 +120,19 @@ class SliceCollectorNode(BaseNode):
             'label': 'Class Agnostic NMS',
             'type': 'checkbox',
             'default': DEFAULT_CONFIG[NodeKeys.CLASS_AGNOSTIC]
+        },
+        {
+            'name': NodeKeys.RECONSTRUCT_IMAGE,
+            'label': 'Reconstruct Image from Slices',
+            'type': 'checkbox',
+            'default': DEFAULT_CONFIG[NodeKeys.RECONSTRUCT_IMAGE]
+        },
+        {
+            'name': NodeKeys.DRAW_SLICE_BOUNDS,
+            'label': 'Draw Slice Bounds',
+            'type': 'checkbox',
+            'default': DEFAULT_CONFIG[NodeKeys.DRAW_SLICE_BOUNDS],
+            'showIf': {NodeKeys.RECONSTRUCT_IMAGE: True}
         }
     ]
     
@@ -227,11 +255,14 @@ class SliceCollectorNode(BaseNode):
             del self._collections[k]
     
     def _process_collection(self, collection_id: str) -> Optional[Dict]:
-        """Process a complete collection and return merged result."""
+        """Process a complete collection (by id) and return merged result."""
         collection = self._collections.get(collection_id)
         if not collection:
             return None
-        
+        return self._merge_collection(collection)
+    
+    def _merge_collection(self, collection: Dict) -> Optional[Dict]:
+        """Merge all slices in a collection dict and return the merged result."""
         nms_threshold = self.get_config_float(NodeKeys.NMS_THRESHOLD, self.DEFAULT_CONFIG[NodeKeys.NMS_THRESHOLD])
         match_metric = self.config.get(NodeKeys.MATCH_METRIC, self.DEFAULT_CONFIG[NodeKeys.MATCH_METRIC])
         class_agnostic = self.get_config_bool(NodeKeys.CLASS_AGNOSTIC, self.DEFAULT_CONFIG[NodeKeys.CLASS_AGNOSTIC])
@@ -263,7 +294,7 @@ class SliceCollectorNode(BaseNode):
         # Sort by confidence
         final_detections = sorted(final_detections, key=lambda x: x.get(MessageKeys.CV.CONFIDENCE, 0), reverse=True)
         
-        return {
+        result = {
             MessageKeys.CV.DETECTIONS: final_detections,
             MessageKeys.CV.DETECTION_COUNT: len(final_detections),
             NodeKeys.ORIGINAL_WIDTH: collection.get(NodeKeys.ORIGINAL_WIDTH, 0),
@@ -272,12 +303,204 @@ class SliceCollectorNode(BaseNode):
             MessageKeys.CV.BBOX_FORMAT: 'xyxy',
             MessageKeys.IMAGE.PATH: collection.get(MessageKeys.IMAGE.PATH)
         }
+        
+        # Optionally rebuild the parent image from the collected tiles
+        if self.get_config_bool(NodeKeys.RECONSTRUCT_IMAGE, self.DEFAULT_CONFIG[NodeKeys.RECONSTRUCT_IMAGE]):
+            reconstructed = self._reconstruct_image(collection)
+            if reconstructed is not None:
+                result[MessageKeys.IMAGE.PATH] = reconstructed
+        
+        return result
+    
+    def _reconstruct_image(self, collection: Dict) -> Optional[Any]:
+        """
+        Rebuild the original parent image by stitching the collected slice
+        tiles back into a single canvas sized to the original image.
+        
+        Tiles are placed using their slice bbox (or offset). Overlapping
+        regions are overwritten; if a full-image slice is present it is used
+        as the base before overlaying the tiles.
+        """
+        if not _HAS_CV2:
+            self.report_error("OpenCV (cv2) is required to reconstruct the image from slices")
+            return None
+        
+        width = collection.get(NodeKeys.ORIGINAL_WIDTH, 0)
+        height = collection.get(NodeKeys.ORIGINAL_HEIGHT, 0)
+        
+        if width <= 0 or height <= 0:
+            self.report_error("Cannot reconstruct image: unknown original dimensions")
+            return None
+        
+        canvas = None
+        encode_format = None
+        tile_bounds: List[tuple] = []
+        
+        # Place the full image (if any) first, then overlay tiles on top
+        ordered_slices = sorted(
+            collection[NodeKeys.SLICES].values(),
+            key=lambda s: 0 if s.get(NodeKeys.IS_FULL_IMAGE, False) else 1
+        )
+        
+        for slice_data in ordered_slices:
+            img_payload = slice_data.get(NodeKeys.SLICE_IMAGE)
+            if img_payload is None:
+                continue
+            
+            slice_img, fmt = self.decode_image(img_payload)
+            if slice_img is None:
+                continue
+            
+            if encode_format is None:
+                encode_format = fmt
+            
+            if canvas is None:
+                if slice_img.ndim == 3:
+                    canvas = np.zeros((height, width, slice_img.shape[2]), dtype=slice_img.dtype)
+                else:
+                    canvas = np.zeros((height, width), dtype=slice_img.dtype)
+            
+            sh, sw = slice_img.shape[:2]
+            is_full_image = slice_data.get(NodeKeys.IS_FULL_IMAGE, False)
+            
+            if is_full_image:
+                x1, y1 = 0, 0
+            else:
+                bbox = slice_data.get(NodeKeys.SLICE_BBOX)
+                if bbox and len(bbox) >= 4:
+                    x1, y1 = int(bbox[0]), int(bbox[1])
+                else:
+                    offset = slice_data.get(NodeKeys.OFFSET, [0, 0])
+                    x1, y1 = int(offset[0]), int(offset[1])
+            
+            x1 = max(0, min(x1, width))
+            y1 = max(0, min(y1, height))
+            x2 = min(x1 + sw, width)
+            y2 = min(y1 + sh, height)
+            
+            if x2 <= x1 or y2 <= y1:
+                continue
+            
+            canvas[y1:y2, x1:x2] = slice_img[0:(y2 - y1), 0:(x2 - x1)]
+            
+            # Record tile bounds for optional overlay (exclude the full image)
+            if not is_full_image:
+                tile_bounds.append((x1, y1, x2, y2))
+        
+        if canvas is None:
+            return None
+        
+        # Optionally draw the slice bounds so the overlap is visible
+        if self.get_config_bool(NodeKeys.DRAW_SLICE_BOUNDS, self.DEFAULT_CONFIG[NodeKeys.DRAW_SLICE_BOUNDS]):
+            self._draw_slice_bounds(canvas, tile_bounds)
+        
+        return self.encode_image(canvas, encode_format)
+    
+    def _draw_slice_bounds(self, canvas: Any, tile_bounds: List[tuple]):
+        """
+        Draw a rectangle for each slice on the reconstructed canvas so the user
+        can see where each tile sits and how much adjacent tiles overlap.
+        """
+        if not _HAS_CV2 or not tile_bounds:
+            return
+        
+        # Cycle through distinct colors (BGR) so adjacent tiles are easy to tell apart
+        colors = [
+            (0, 255, 0),    # green
+            (0, 0, 255),    # red
+            (255, 0, 0),    # blue
+            (0, 255, 255),  # yellow
+            (255, 0, 255),  # magenta
+            (255, 255, 0),  # cyan
+        ]
+        
+        # Scale line thickness with image size for visibility on large images
+        max_dim = max(canvas.shape[0], canvas.shape[1])
+        thickness = max(1, max_dim // 500)
+        
+        for i, (x1, y1, x2, y2) in enumerate(tile_bounds):
+            color = colors[i % len(colors)]
+            # Inset by half the thickness so edge tiles' borders stay visible
+            cv2.rectangle(  # type: ignore[union-attr]
+                canvas,
+                (int(x1), int(y1)),
+                (int(x2) - 1, int(y2) - 1),
+                color,
+                thickness
+            )
+    
+    def _handle_array(self, msg: Dict[str, Any], slices: List[Any]):
+        """
+        Handle 'array' output mode from SliceImageNode where every slice arrives
+        together in a single message as a list. All slices are available at once,
+        so the collection is built and merged immediately (no buffering/timeout).
+        """
+        collection: Dict[str, Any] = {
+            NodeKeys.SLICES: {},
+            NodeKeys.ORIGINAL_WIDTH: msg.get(NodeKeys.ORIGINAL_WIDTH, 0),
+            NodeKeys.ORIGINAL_HEIGHT: msg.get(NodeKeys.ORIGINAL_HEIGHT, 0),
+            MessageKeys.IMAGE.PATH: None
+        }
+        
+        for i, item in enumerate(slices):
+            if not isinstance(item, dict):
+                continue
+            
+            item_payload = item.get(MessageKeys.PAYLOAD, {})
+            if not isinstance(item_payload, dict):
+                item_payload = {}
+            
+            offset = item.get(NodeKeys.OFFSET, item_payload.get(NodeKeys.OFFSET, [0, 0]))
+            slice_bbox = item.get(NodeKeys.BBOX,
+                                  item.get(NodeKeys.SLICE_BBOX, item_payload.get(NodeKeys.BBOX)))
+            is_full_image = item.get(NodeKeys.IS_FULL_IMAGE, item_payload.get(NodeKeys.IS_FULL_IMAGE, False))
+            slice_index = item.get(NodeKeys.SLICE_INDEX, i)
+            detections = item_payload.get(MessageKeys.CV.DETECTIONS,
+                                          item.get(MessageKeys.CV.DETECTIONS, []))
+            image = item_payload.get(MessageKeys.IMAGE.PATH, item.get(MessageKeys.IMAGE.PATH))
+            
+            ow = item.get(NodeKeys.ORIGINAL_WIDTH, item_payload.get(NodeKeys.ORIGINAL_WIDTH, 0))
+            oh = item.get(NodeKeys.ORIGINAL_HEIGHT, item_payload.get(NodeKeys.ORIGINAL_HEIGHT, 0))
+            if ow > 0:
+                collection[NodeKeys.ORIGINAL_WIDTH] = ow
+            if oh > 0:
+                collection[NodeKeys.ORIGINAL_HEIGHT] = oh
+            
+            collection[NodeKeys.SLICES][slice_index] = {
+                MessageKeys.CV.DETECTIONS: detections,
+                NodeKeys.OFFSET: offset,
+                NodeKeys.SLICE_BBOX: slice_bbox,
+                NodeKeys.SLICE_IMAGE: image,
+                NodeKeys.IS_FULL_IMAGE: is_full_image
+            }
+            
+            if is_full_image and image is not None:
+                collection[MessageKeys.IMAGE.PATH] = image
+        
+        if not collection[NodeKeys.SLICES]:
+            self.report_error("No slices found in array-mode message")
+            return
+        
+        result = self._merge_collection(collection)
+        if result:
+            out_msg = msg.copy()
+            out_msg[MessageKeys.PAYLOAD] = result
+            out_msg[MessageKeys.TOPIC] = msg.get(MessageKeys.TOPIC, 'merged_predictions')
+            out_msg.pop('parts', None)
+            self.send(out_msg)
     
     def on_input(self, msg: Dict[str, Any], input_index: int = 0):
         """
         Collect slice predictions and merge when complete.
         
-        Expected msg format (from Split of SliceImageNode output, processed by YOLO):
+        Works seamlessly with either SliceImageNode output mode:
+        
+        - 'array' mode: all slices arrive together in one message where
+          'payload' is a list of slice dicts. Merged immediately.
+        - 'split' mode: each slice arrives as its own message (buffered by
+          parent id via 'parts', merged once all slices are collected).
+        
+        Expected 'split' msg format (from Split of SliceImageNode, processed by YOLO):
         {
             'payload': {
                 'image': ...,
@@ -299,6 +522,14 @@ class SliceCollectorNode(BaseNode):
         self._cleanup_expired()
         
         payload = msg.get(MessageKeys.PAYLOAD, {})
+        
+        # Auto-detect output mode from SliceImageNode:
+        #   - 'array' mode: payload is a list of all slices in one message
+        #   - 'split' mode: payload is a single slice dict across many messages
+        if isinstance(payload, list):
+            self._handle_array(msg, payload)
+            return
+        
         parts = msg.get('parts', {})
         
         # Get collection ID (from parts or generate one)
@@ -306,9 +537,14 @@ class SliceCollectorNode(BaseNode):
         expected_count = parts.get('count', 1)
         slice_index = parts.get('index', msg.get(NodeKeys.SLICE_INDEX, 0))
         
-        # Get slice metadata (check message level first, then payload)
-        offset = msg.get( NodeKeys.OFFSET, payload.get(NodeKeys.OFFSET, [0, 0]) if isinstance(payload, dict) else [0, 0])
-        slice_bbox = msg.get(NodeKeys.BBOX, payload.get(NodeKeys.BBOX, None) if isinstance(payload, dict) else None)
+        # Get slice metadata (check message level first, then payload).
+        # SliceImageNode emits these at message level as 'slice_offset' / 'slice_bbox'.
+        offset = msg.get(NodeKeys.SLICE_OFFSET,
+                         msg.get(NodeKeys.OFFSET,
+                                 payload.get(NodeKeys.OFFSET, [0, 0]) if isinstance(payload, dict) else [0, 0]))
+        slice_bbox = msg.get(NodeKeys.SLICE_BBOX,
+                             msg.get(NodeKeys.BBOX,
+                                     payload.get(NodeKeys.BBOX, None) if isinstance(payload, dict) else None))
         is_full_image = msg.get(NodeKeys.IS_FULL_IMAGE, payload.get(NodeKeys.IS_FULL_IMAGE, False) if isinstance(payload, dict) else False)
         original_width = msg.get(NodeKeys.ORIGINAL_WIDTH, payload.get(NodeKeys.ORIGINAL_WIDTH, 0) if isinstance(payload, dict) else 0)
         original_height = msg.get(NodeKeys.ORIGINAL_HEIGHT, payload.get(NodeKeys.ORIGINAL_HEIGHT, 0) if isinstance(payload, dict) else 0)
@@ -339,6 +575,8 @@ class SliceCollectorNode(BaseNode):
         collection[NodeKeys.SLICES][slice_index] = {
             MessageKeys.CV.DETECTIONS: detections,
             NodeKeys.OFFSET: offset,
+            NodeKeys.SLICE_BBOX: slice_bbox,
+            NodeKeys.SLICE_IMAGE: image,
             NodeKeys.IS_FULL_IMAGE: is_full_image
         }
         
