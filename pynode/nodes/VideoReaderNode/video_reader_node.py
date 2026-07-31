@@ -27,7 +27,9 @@ _info.add_bullets(
 _info.add_header("Transport Controls")
 _info.add_bullets(
     ("⏮ Step back:", "Show the previous frame (while paused/stopped)."),
-    ("⏯ Play/Pause:", "Toggle playback from the current position."),
+    ("▶/⏸ Play/Pause:", "Toggle playback from the current position. The icon "
+                        "shows what the next click will do: ▶ while paused/"
+                        "stopped, ⏸ while playing."),
     ("⏹ Stop:", "Halt playback and seek back to the first frame."),
     ("⏭ Step forward:", "Show the next frame (while paused/stopped)."),
     ("Progress bar:", "Drag the slider along the bottom of the node to scrub "
@@ -76,7 +78,11 @@ class VideoReaderNode(BaseNode):
     ui_component_config = {
         'buttons': [
             {'icon': '⏮', 'action': 'step_prev', 'title': 'Step back one frame'},
-            {'icon': '⏯', 'action': 'play_pause', 'title': 'Play / Pause'},
+            # activeIcon/activeTitle are swapped in by the frontend while the
+            # node reports playing=true, so the button always shows the action
+            # the next click will take.
+            {'icon': '▶', 'action': 'play_pause', 'title': 'Play',
+             'activeIcon': '⏸', 'activeTitle': 'Pause'},
             {'icon': '⏹', 'action': 'stop', 'title': 'Stop (back to first frame)'},
             {'icon': '⏭', 'action': 'step_next', 'title': 'Step forward one frame'},
         ],

@@ -89,6 +89,7 @@ export function updateCounterDisplay(nodeId, displayText) {
 export function updateVideoPosition(nodeId, data) {
     const posEl = document.getElementById(`transport-pos-${nodeId}`);
     const sliderEl = document.getElementById(`transport-progress-${nodeId}`);
+    const playBtn = document.getElementById(`transport-btn-${nodeId}-play_pause`);
     const total = data.total > 0 ? data.total : 0;
     const frame = data.frame ?? 0;
     if (posEl) {
@@ -106,6 +107,18 @@ export function updateVideoPosition(nodeId, data) {
     if (sliderEl && sliderEl.dataset.seeking !== 'true') {
         sliderEl.max = total > 0 ? total - 1 : 0;
         sliderEl.value = frame;
+    }
+    // Show the action the next click will take: pause while playing, play
+    // while paused/stopped. The icons come from the node's button config
+    // (see the transport-controls branch in nodes.js).
+    if (playBtn && playBtn.dataset.activeIcon) {
+        const playing = !!data.playing;
+        const icon = playing ? playBtn.dataset.activeIcon : playBtn.dataset.idleIcon;
+        const title = playing ? playBtn.dataset.activeTitle : playBtn.dataset.idleTitle;
+        if (playBtn.textContent !== icon) {
+            playBtn.textContent = icon;
+        }
+        playBtn.title = title;
     }
 }
 

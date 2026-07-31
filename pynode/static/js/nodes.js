@@ -362,9 +362,18 @@ function buildNodeContent(nodeData, icon, inputCount, outputCount) {
         // Generic transport/button strip (like VideoReaderNode).
         // Buttons come from uiComponentConfig.buttons: [{icon, action, title}]
         // and each POSTs its action to /api/nodes/<id>/<action>.
-        const buttons = (uiConfig.buttons || []).map(btn =>
-            `<button class="transport-btn" onclick="window.nodeAction('${nodeData.id}', '${btn.action}')" title="${btn.title || btn.action}">${btn.icon}</button>`
-        ).join('');
+        // A button may also declare activeIcon/activeTitle: those are stashed
+        // as data attributes and swapped in while the node reports itself as
+        // running (see updateVideoPosition), so the button shows the action the
+        // next click will take rather than a static both-states glyph.
+        const buttons = (uiConfig.buttons || []).map(btn => {
+            const title = btn.title || btn.action;
+            const stateAttrs = btn.activeIcon
+                ? ` data-idle-icon="${btn.icon}" data-active-icon="${btn.activeIcon}"` +
+                  ` data-idle-title="${title}" data-active-title="${btn.activeTitle || title}"`
+                : '';
+            return `<button class="transport-btn" id="transport-btn-${nodeData.id}-${btn.action}"${stateAttrs} onclick="window.nodeAction('${nodeData.id}', '${btn.action}')" title="${title}">${btn.icon}</button>`;
+        }).join('');
         contentParts.right = `
             <div class="transport-controls">
                 ${buttons}
