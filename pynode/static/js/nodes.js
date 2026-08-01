@@ -8,6 +8,25 @@ import { refreshMinimap } from './minimap.js';
 
 const GRID_SIZE = 20;
 
+// Interactive controls rendered on a node card: inject/transport/counter-reset
+// buttons, gate toggles, range sliders (video scrub, control slider), the image
+// drop zone and the image-viewer resize grip.
+// Grabbing one of these must not start a node drag - otherwise a click that
+// wobbles a pixel nudges the node and flags the workflow as modified - and must
+// not open the properties panel on double-click.
+const NODE_INTERACTIVE_SELECTOR =
+    'button, input, select, textarea, label, a, ' +
+    '.image-drop-zone, .image-viewer-resize-handle';
+
+function isInteractiveNodeTarget(target) {
+    return !!(target && typeof target.closest === 'function' &&
+              target.closest(NODE_INTERACTIVE_SELECTOR));
+}
+
+// Pointer travel (client px) required before a node press turns into a drag,
+// so a click that shifts a pixel or two leaves the node exactly where it was.
+const DRAG_THRESHOLD_PX = 4;
+
 function clampToCanvasBounds(x, y) {
     // Keep nodes within the drawable canvas area (best-effort).
     const min = 0;
@@ -438,17 +457,18 @@ function buildNodeContent(nodeData, icon, inputCount, outputCount) {
 function attachNodeEventHandlers(nodeEl, nodeData) {
     let isDragging = false;
     let startX, startY;
+    let pressClientX = 0, pressClientY = 0;
     let hasMoved = false;
     let isUnconnectedNode = false;
     let snapAnchorPortOffset = null;
     
     nodeEl.addEventListener('mousedown', (e) => {
         if (e.target.classList.contains('port')) return;
-        // Don't start a node drag when the user grabs a range slider (video
-        // scrub bar or a control-slider node) - let the input handle the drag.
-        if (e.target.classList.contains('transport-progress')) return;
-        if (e.target.classList.contains('control-slider')) return;
-        
+        // Don't start a node drag when the user grabs an interactive control on
+        // the card (button, toggle, slider, drop zone, resize grip) - let the
+        // control handle the press so clicking it can't move the node.
+        if (isInteractiveNodeTarget(e.target)) return;
+
         // Only handle left mouse button (button === 0) for node selection and dragging
         if (e.button !== 0) return;
 
@@ -473,6 +493,9 @@ function attachNodeEventHandlers(nodeEl, nodeData) {
         const pointerCanvas = clientToCanvas(e.clientX, e.clientY);
         startX = pointerCanvas.x - nodeData.x;
         startY = pointerCanvas.y - nodeData.y;
+        // Press point in client px, used for the drag threshold below.
+        pressClientX = e.clientX;
+        pressClientY = e.clientY;
 
         // Cache the offset from node top-left to snap anchor port center (in canvas/container coords).
         // For nodes with inputs: uses input port 0
@@ -512,10 +535,7 @@ function attachNodeEventHandlers(nodeEl, nodeData) {
         // Don't open the config panel when double-clicking an interactive
         // control on the node (buttons, toggles, inputs, drop zones, resize
         // handle) - only the non-interactive node body should open it.
-        if (e.target.closest(
-            'button, input, select, textarea, label, a, ' +
-            '.image-drop-zone, .image-viewer-resize-handle'
-        )) return;
+        if (isInteractiveNodeTarget(e.target)) return;
 
         // Select the node if not already selected
         if (!state.selectedNodes.has(nodeData.id)) {
@@ -532,15 +552,18 @@ function attachNodeEventHandlers(nodeEl, nodeData) {
     
     document.addEventListener('mousemove', (e) => {
         if (!isDragging) return;
-        
+
+        // Hand tremor while clicking a node must not start a drag: an off-grid
+        // node would otherwise snap-jump on the very first pixel of movement
+        // and the workflow would be flagged modified by a plain click.
         if (!hasMoved) {
-            // Save state when movement starts
-            hasMoved = true;
-            import('./history.js').then(({ saveState }) => {
-                saveState('move node');
-            });
+            const wobbleX = e.clientX - pressClientX;
+            const wobbleY = e.clientY - pressClientY;
+            if (wobbleX * wobbleX + wobbleY * wobbleY < DRAG_THRESHOLD_PX * DRAG_THRESHOLD_PX) {
+                return;
+            }
         }
-        
+
         // Desired anchor node position from pointer (canvas coordinates)
         const pointerCanvas = clientToCanvas(e.clientX, e.clientY);
         let nextAnchorX = pointerCanvas.x - startX;
@@ -566,7 +589,19 @@ function attachNodeEventHandlers(nodeEl, nodeData) {
 
         const deltaX = nextAnchorX - nodeData.x;
         const deltaY = nextAnchorY - nodeData.y;
-        
+
+        // Pointer wobble within one grid cell leaves the snapped position
+        // unchanged - don't push history or flag the node modified for that.
+        if (deltaX === 0 && deltaY === 0) return;
+
+        if (!hasMoved) {
+            // Save state on the first move that actually shifts the node
+            hasMoved = true;
+            import('./history.js').then(({ saveState }) => {
+                saveState('move node');
+            });
+        }
+
         state.selectedNodes.forEach(selectedId => {
             const selectedNodeData = state.nodes.get(selectedId);
             const selectedNodeEl = document.getElementById(`node-${selectedId}`);
