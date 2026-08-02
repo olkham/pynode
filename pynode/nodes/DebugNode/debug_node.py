@@ -112,13 +112,24 @@ class DebugNode(BaseNode):
                 return f"<numpy array, shape={val.shape}, dtype={val.dtype}>"
             elif isinstance(val, dict):
                 return {k: truncate_values(v, maxlen) for k, v in val.items()}
-            elif isinstance(val, list):
+            elif isinstance(val, (list, tuple)):
                 return [truncate_values(v, maxlen) for v in val]
+            elif isinstance(val, (np.integer, np.floating, np.bool_)):
+                # numpy scalars are not JSON serializable
+                return val.item()
+            elif isinstance(val, str) or val is None or isinstance(val, (int, float, bool)):
+                if isinstance(val, str) and len(val) > maxlen:
+                    return val[:maxlen] + f"... [truncated, {len(val)} chars]"
+                return val
             else:
+                # Any other live object (e.g. a supervision Detections at
+                # payload.sv) must be stringified: a raw object stored here
+                # poisons json.dumps for the debug API AND kills the shared
+                # SSE stream that also carries image-viewer frames.
                 s = str(val)
                 if len(s) > maxlen:
                     return s[:maxlen] + f"... [truncated, {len(s)} chars]"
-                return val
+                return s
 
         display_output = truncate_values(output)
 
