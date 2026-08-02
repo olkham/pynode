@@ -1,6 +1,6 @@
 # Example Workflows
 
-Sixteen ready-to-load workflows that teach PyNode from "hello world" to a
+Nineteen ready-to-load workflows that teach PyNode from "hello world" to a
 complete vision → logic → MQTT pipeline. No code changes needed — each file is
 pure workflow definition.
 
@@ -43,6 +43,9 @@ Roughly in order of complexity:
 | 14 | `19-line-counter.json` | Line counting: tracked objects crossing a virtual line are counted in/out (**SV Line Counter**), one event message per crossing to the Debug panel. Draw the line on a live frame via ✏ in the node's properties. |
 | 15 | `20-zone-occupancy.json` | Region monitoring: a polygon zone (**SV Polygon Zone**) counts who is inside, flags detections `in_zone`, and emits enter/exit events. Draw the zone on a live webcam frame via ✏. |
 | 16 | `21-annotator-gallery.json` | Visualization styles: one uploaded image → YOLO → six **SV Annotate** nodes side by side (classic, rounded, corners, broadcast ellipse, privacy blur, pixelate). A live reference for what each annotator looks like. |
+| 17 | `22-heatmap.json` | Accumulation over time: SV Annotate's **Heat Map** shows where objects spend their time; a Delay (1 msg/10 s) → ImageWriter branch saves periodic snapshots. |
+| 18 | `23-privacy-blur.json` | Example **7 without the code**: LabelFilter keeps `person`, SV Annotate's Blur checkbox replaces the 20-line Gaussian-blur FunctionNode. Compare the two flows side by side. |
+| 19 | `24-detection-log.json` | Dataset recording: **SV Detection Filter** (confidence ≥ 0.5, area ≥ 400 px²) → **SV Sink** writes one CSV row per detection with track id and timestamp; the filter's rejected output feeds a second Debug. |
 
 ## Prerequisites by example
 
@@ -75,6 +78,14 @@ Roughly in order of complexity:
 - **16**: vision extra; upload an image with people/objects in the ImageUpload
   node's properties. All six styles update together at 5 fps, so property
   changes (colors, thickness, label content) show up live.
+- **17**: vision extra + a video file. The longer it runs, the stronger the
+  heat map; press the annotate node's **Reset** to start it over. Snapshots
+  land in `./output/heatmap`.
+- **18**: vision extra + webcam. Load example 7 next to it to compare the
+  FunctionNode approach with the checkbox approach.
+- **19**: vision extra + webcam. Watch `payload.sink_file` in Debug for the
+  CSV path; press the sink's **New File** to rotate the log. Tighten the
+  filter's thresholds and see rejects move to the second Debug.
 - **9–10**: the mqtt extra (`pip install "pynode-flow[mqtt]"`) and a reachable
   MQTT broker. The examples reference a broker service (`192.168.1.241` in the
   dev setup); if the MQTT nodes report "No MQTT broker configured", open the

@@ -7,13 +7,19 @@ helpers live in :mod:`pynode.nodes.supervision_utils`.
 """
 
 from .supervision_annotate_node import SupervisionAnnotateNode
+from .supervision_filter_node import SupervisionFilterNode
 from .supervision_line_counter_node import SupervisionLineCounterNode
+from .supervision_sink_node import SupervisionSinkNode
+from .supervision_smoother_node import SupervisionSmootherNode
 from .supervision_tracker_node import SupervisionTrackerNode
 from .supervision_zone_node import SupervisionZoneNode
 
 __all__ = [
     'SupervisionAnnotateNode',
+    'SupervisionFilterNode',
     'SupervisionLineCounterNode',
+    'SupervisionSinkNode',
+    'SupervisionSmootherNode',
     'SupervisionTrackerNode',
     'SupervisionZoneNode',
 ]

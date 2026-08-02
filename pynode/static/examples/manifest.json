@@ -111,6 +111,27 @@
       "title": "16 · Annotator Gallery",
       "description": "One image, one YOLO, six SV Annotate styles side by side: classic, rounded, corners, broadcast, blur, pixelate.",
       "requires": "vision"
+    },
+    {
+      "id": "22-heatmap",
+      "file": "22-heatmap.json",
+      "title": "17 · Heat Map",
+      "description": "Movement accumulates into a heat map over time; a rate-limited branch saves a snapshot every 10 seconds.",
+      "requires": "vision + a video file"
+    },
+    {
+      "id": "23-privacy-blur",
+      "file": "23-privacy-blur.json",
+      "title": "18 · Privacy Blur",
+      "description": "Example 7 without the code: LabelFilter keeps people, SV Annotate's Blur checkbox replaces the 20-line blur function.",
+      "requires": "vision + webcam"
+    },
+    {
+      "id": "24-detection-log",
+      "file": "24-detection-log.json",
+      "title": "19 · Detection Log",
+      "description": "SV Detection Filter keeps confident big boxes, SV Sink logs one CSV row per detection; rejected detections go to a second Debug.",
+      "requires": "vision + webcam"
     }
   ]
 }
