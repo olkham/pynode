@@ -7,6 +7,7 @@ import { startDebugPolling } from './debug.js';
 import { initViewport } from './viewport.js';
 import { initMinimap } from './minimap.js';
 import { updateNodeProperty, updateNodeConfig, applyCodeExample, undoCodeExample, triggerNodeAction, triggerToggleAction, toggleNodeState, toggleGate, toggleNodeEnabled, addRule, removeRule, updateRule, addInjectProp, removeInjectProp, updateInjectProp, addChangeRule, removeChangeRule, updateChangeRule, selectFile } from './properties.js';
+import { openGeometryEditor } from './geometry-editor.js';
 import { showInfoPanel } from './ui-utils.js';
 
 // Expose functions to window for inline event handlers
@@ -29,6 +30,7 @@ window.addChangeRule = addChangeRule;
 window.removeChangeRule = removeChangeRule;
 window.updateChangeRule = updateChangeRule;
 window.selectFile = selectFile;
+window.openGeometryEditor = openGeometryEditor;
 window.showInfoPanel = showInfoPanel;
 
 // Fetch the running version and show it next to the title. Best-effort:

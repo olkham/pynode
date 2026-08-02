@@ -47,6 +47,7 @@ def build_node_types_cache():
         'logic',
         'network',
         'vision',
+        'supervision',
         'analysis',
         'node probes',
         'opencv'

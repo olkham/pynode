@@ -1,0 +1,170 @@
+{
+  "nodes": [
+    {
+      "id": "upload_1",
+      "type": "ImageUploadNode",
+      "name": "Upload (repeat 5 fps)",
+      "config": {
+        "repeat_send": true,
+        "repeat_rate": 5
+      },
+      "x": 80,
+      "y": 430
+    },
+    {
+      "id": "yolo_1",
+      "type": "UltralyticsNode",
+      "name": "YOLO (no drawing)",
+      "config": {
+        "model": "yolo11n.pt",
+        "confidence": "0.3",
+        "iou": "0.45",
+        "draw_results": "false",
+        "max_det": "300",
+        "include_image": true,
+        "include_predictions": true,
+        "drop_messages": "true",
+        "device": "cpu"
+      },
+      "x": 340,
+      "y": 430
+    },
+    {
+      "id": "annotate_classic",
+      "type": "SupervisionAnnotateNode",
+      "name": "Classic",
+      "config": {
+        "annotators": ["box", "label"],
+        "color_lookup": "class",
+        "drop_messages": "true"
+      },
+      "x": 600,
+      "y": 80
+    },
+    {
+      "id": "viewer_classic",
+      "type": "ImageViewerNode",
+      "name": "Box + Label",
+      "config": { "width": 320, "height": 240, "drop_messages": true },
+      "x": 860,
+      "y": 80
+    },
+    {
+      "id": "annotate_round",
+      "type": "SupervisionAnnotateNode",
+      "name": "Rounded",
+      "config": {
+        "annotators": ["round_box", "label"],
+        "color_lookup": "class",
+        "show_confidence": false,
+        "drop_messages": "true"
+      },
+      "x": 600,
+      "y": 220
+    },
+    {
+      "id": "viewer_round",
+      "type": "ImageViewerNode",
+      "name": "Round Box",
+      "config": { "width": 320, "height": 240, "drop_messages": true },
+      "x": 860,
+      "y": 220
+    },
+    {
+      "id": "annotate_corners",
+      "type": "SupervisionAnnotateNode",
+      "name": "Corners",
+      "config": {
+        "annotators": ["box_corner", "dot"],
+        "color_lookup": "class",
+        "drop_messages": "true"
+      },
+      "x": 600,
+      "y": 360
+    },
+    {
+      "id": "viewer_corners",
+      "type": "ImageViewerNode",
+      "name": "Corners + Dot",
+      "config": { "width": 320, "height": 240, "drop_messages": true },
+      "x": 860,
+      "y": 360
+    },
+    {
+      "id": "annotate_broadcast",
+      "type": "SupervisionAnnotateNode",
+      "name": "Broadcast",
+      "config": {
+        "annotators": ["ellipse", "triangle"],
+        "color_lookup": "index",
+        "drop_messages": "true"
+      },
+      "x": 600,
+      "y": 500
+    },
+    {
+      "id": "viewer_broadcast",
+      "type": "ImageViewerNode",
+      "name": "Ellipse + Triangle",
+      "config": { "width": 320, "height": 240, "drop_messages": true },
+      "x": 860,
+      "y": 500
+    },
+    {
+      "id": "annotate_blur",
+      "type": "SupervisionAnnotateNode",
+      "name": "Privacy Blur",
+      "config": {
+        "annotators": ["blur", "box"],
+        "color_lookup": "class",
+        "drop_messages": "true"
+      },
+      "x": 600,
+      "y": 640
+    },
+    {
+      "id": "viewer_blur",
+      "type": "ImageViewerNode",
+      "name": "Blur + Box",
+      "config": { "width": 320, "height": 240, "drop_messages": true },
+      "x": 860,
+      "y": 640
+    },
+    {
+      "id": "annotate_pixelate",
+      "type": "SupervisionAnnotateNode",
+      "name": "Pixelate",
+      "config": {
+        "annotators": ["pixelate", "label"],
+        "color_lookup": "class",
+        "show_confidence": false,
+        "drop_messages": "true"
+      },
+      "x": 600,
+      "y": 780
+    },
+    {
+      "id": "viewer_pixelate",
+      "type": "ImageViewerNode",
+      "name": "Pixelate + Label",
+      "config": { "width": 320, "height": 240, "drop_messages": true },
+      "x": 860,
+      "y": 780
+    }
+  ],
+  "connections": [
+    { "source": "upload_1", "target": "yolo_1", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "yolo_1", "target": "annotate_classic", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "yolo_1", "target": "annotate_round", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "yolo_1", "target": "annotate_corners", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "yolo_1", "target": "annotate_broadcast", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "yolo_1", "target": "annotate_blur", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "yolo_1", "target": "annotate_pixelate", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "annotate_classic", "target": "viewer_classic", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "annotate_round", "target": "viewer_round", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "annotate_corners", "target": "viewer_corners", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "annotate_broadcast", "target": "viewer_broadcast", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "annotate_blur", "target": "viewer_blur", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "annotate_pixelate", "target": "viewer_pixelate", "sourceOutput": 0, "targetInput": 0 }
+  ]
+}

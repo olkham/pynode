@@ -1,6 +1,6 @@
 # Example Workflows
 
-Twelve ready-to-load workflows that teach PyNode from "hello world" to a
+Sixteen ready-to-load workflows that teach PyNode from "hello world" to a
 complete vision → logic → MQTT pipeline. No code changes needed — each file is
 pure workflow definition.
 
@@ -39,6 +39,10 @@ Roughly in order of complexity:
 | 10 | `10-person-alert-mqtt.json` | Capstone: camera → YOLO → ConfidenceFilter (≥ 0.6) → LabelFilter (`person`) → alert builder → Switch (only when count > 0) → rate-limited MQTT alert + debug log. |
 | 11 | `16-socket-bridge.json` | Networking: the two halves of a bridge to another system — Inject → UDP Out (sends on 7401), and UDP In (listens on 7402) → Debug. The halves are deliberately **not** connected to each other; something else sits in the middle. Copy the matching Node-RED flow from either node's **Information** panel. |
 | 12 | `17-slider-crop.json` | Live UI controls: four Slider nodes drive x/y/width/height of a CropNode against an uploaded image, previewed in an ImageViewer as you drag. |
+| 13 | `18-track-trace.json` | Object tracking: VideoReader (⚠ pick a video file first) → YOLO (drawing off) → **SV Tracker** assigns persistent IDs → **SV Annotate** draws boxes, `#id` labels and trace ribbons colored per track. |
+| 14 | `19-line-counter.json` | Line counting: tracked objects crossing a virtual line are counted in/out (**SV Line Counter**), one event message per crossing to the Debug panel. Draw the line on a live frame via ✏ in the node's properties. |
+| 15 | `20-zone-occupancy.json` | Region monitoring: a polygon zone (**SV Polygon Zone**) counts who is inside, flags detections `in_zone`, and emits enter/exit events. Draw the zone on a live webcam frame via ✏. |
+| 16 | `21-annotator-gallery.json` | Visualization styles: one uploaded image → YOLO → six **SV Annotate** nodes side by side (classic, rounded, corners, broadcast ellipse, privacy blur, pixelate). A live reference for what each annotator looks like. |
 
 ## Prerequisites by example
 
@@ -58,6 +62,19 @@ Roughly in order of complexity:
   the same machine.
 - **12**: core install; select an image in the ImageUpload node's properties
   before deploying, then drag the sliders.
+- **13**: vision extra + a video file (open the VideoReader's properties and
+  pick one). Best with moving people or vehicles so the traces have somewhere
+  to go. Press the tracker's **Reset** button when the video loops.
+- **14**: vision extra + a video file with things crossing a line (street
+  footage is ideal). After deploying, open the line node's properties and press
+  **✏ Draw on frame** to drag the counting line onto the actual scene — it
+  applies live and resets the counts.
+- **15**: vision extra + webcam. Deploy, then draw the zone on a live frame
+  (**✏ Draw on frame** in the zone node's properties, right-click to undo a
+  corner). Walk in and out of the zone and watch enter/exit events in Debug.
+- **16**: vision extra; upload an image with people/objects in the ImageUpload
+  node's properties. All six styles update together at 5 fps, so property
+  changes (colors, thickness, label content) show up live.
 - **9–10**: the mqtt extra (`pip install "pynode-flow[mqtt]"`) and a reachable
   MQTT broker. The examples reference a broker service (`192.168.1.241` in the
   dev setup); if the MQTT nodes report "No MQTT broker configured", open the

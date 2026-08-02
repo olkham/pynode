@@ -1,0 +1,87 @@
+{
+  "nodes": [
+    {
+      "id": "video_1",
+      "type": "VideoReaderNode",
+      "name": "Video (pick a file)",
+      "config": {
+        "source": "",
+        "fps": 0,
+        "loop": true,
+        "jpeg_quality": 80
+      },
+      "x": 80,
+      "y": 160
+    },
+    {
+      "id": "yolo_1",
+      "type": "UltralyticsNode",
+      "name": "YOLO (no drawing)",
+      "config": {
+        "model": "yolo11n.pt",
+        "confidence": "0.3",
+        "iou": "0.45",
+        "draw_results": "false",
+        "max_det": "300",
+        "include_image": true,
+        "include_predictions": true,
+        "drop_messages": "true",
+        "device": "cpu"
+      },
+      "x": 340,
+      "y": 160
+    },
+    {
+      "id": "tracker_1",
+      "type": "SupervisionTrackerNode",
+      "name": "SV Tracker",
+      "config": {
+        "track_thresh": "0.25",
+        "track_buffer": "30",
+        "match_thresh": "0.8",
+        "min_consecutive_frames": "2",
+        "frame_rate": "30",
+        "drop_messages": "true"
+      },
+      "x": 600,
+      "y": 160
+    },
+    {
+      "id": "annotate_1",
+      "type": "SupervisionAnnotateNode",
+      "name": "Box + Label + Trace",
+      "config": {
+        "annotators": ["box", "label", "trace"],
+        "color_lookup": "track",
+        "thickness": "auto",
+        "text_scale": "auto",
+        "show_class": true,
+        "show_confidence": false,
+        "show_track_id": true,
+        "trace_length": "50",
+        "drop_messages": "true"
+      },
+      "x": 860,
+      "y": 160
+    },
+    {
+      "id": "viewer_1",
+      "type": "ImageViewerNode",
+      "name": "Tracked",
+      "config": {
+        "width": 480,
+        "height": 360,
+        "image_path": "payload.image",
+        "drop_messages": true
+      },
+      "x": 1120,
+      "y": 160
+    }
+  ],
+  "connections": [
+    { "source": "video_1", "target": "yolo_1", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "yolo_1", "target": "tracker_1", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "tracker_1", "target": "annotate_1", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "annotate_1", "target": "viewer_1", "sourceOutput": 0, "targetInput": 0 }
+  ]
+}

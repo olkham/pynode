@@ -83,6 +83,34 @@
       "title": "12 · Slider-Driven Crop",
       "description": "Four live sliders drive a crop region on an uploaded image, previewed in an Image Viewer as you drag.",
       "requires": "core"
+    },
+    {
+      "id": "18-track-trace",
+      "file": "18-track-trace.json",
+      "title": "13 · Track & Trace",
+      "description": "Video to YOLO to SV Tracker to SV Annotate: persistent track IDs with colored trace ribbons following each object.",
+      "requires": "vision + a video file"
+    },
+    {
+      "id": "19-line-counter",
+      "file": "19-line-counter.json",
+      "title": "14 · Line Counter",
+      "description": "Tracked objects crossing a virtual line are counted in/out, with one event message per crossing. Draw the line on a live frame from the node's properties.",
+      "requires": "vision + a video file"
+    },
+    {
+      "id": "20-zone-occupancy",
+      "file": "20-zone-occupancy.json",
+      "title": "15 · Zone Occupancy",
+      "description": "A polygon zone counts who is inside and emits enter/exit events. Draw the zone on a live webcam frame from the node's properties.",
+      "requires": "vision + webcam"
+    },
+    {
+      "id": "21-annotator-gallery",
+      "file": "21-annotator-gallery.json",
+      "title": "16 · Annotator Gallery",
+      "description": "One image, one YOLO, six SV Annotate styles side by side: classic, rounded, corners, broadcast, blur, pixelate.",
+      "requires": "vision"
     }
   ]
 }

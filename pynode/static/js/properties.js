@@ -80,6 +80,26 @@ export function renderProperties(nodeData) {
                            placeholder="${placeholder}"
                            onchange="window.updateNodeConfig('${nodeData.id}', '${prop.name}', this.value)">
                 `;
+            } else if (prop.type === 'geometry') {
+                // Text value plus a "Draw on frame" button that opens the
+                // geometry editor modal (geometry-editor.js). geometryType is
+                // 'line' or 'polygon'.
+                const value = nodeData.config[prop.name] !== undefined ? nodeData.config[prop.name] : (prop.default || '');
+                const geometryType = prop.geometryType || 'polygon';
+                html += `
+                    <label class="property-label">${prop.label}</label>
+                    <div class="property-geometry-container">
+                        <input type="text" class="property-input property-geometry-input"
+                               id="prop-geometry-${nodeData.id}-${prop.name}"
+                               value='${String(value).replace(/'/g, "&#39;")}'
+                               onchange="window.updateNodeConfig('${nodeData.id}', '${prop.name}', this.value)">
+                        <button class="btn btn-secondary property-geometry-btn"
+                                onclick="window.openGeometryEditor('${nodeData.id}', '${prop.name}', '${geometryType}')"
+                                title="Draw the ${geometryType} on the node's latest frame">
+                            ✏ Draw on frame
+                        </button>
+                    </div>
+                `;
             } else if (prop.type === 'link-channel') {
                 // Same as 'text', plus a <datalist> of known channel names (Link
                 // In/Out nodes) so users can pick an existing channel instead of
