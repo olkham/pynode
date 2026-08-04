@@ -31,6 +31,13 @@ _info.add_bullets(
     ("Repeat Rate (fps):", "How many times per second to re-send (e.g. 1 = "
                            "once per second, 20 = 20 fps)."),
 )
+_info.add_header("Send Now")
+_info.add_bullets(
+    ("Send button:", "Click the button on the node to send the uploaded "
+                     "image on demand. Set Repeat Rate to 0 (or leave Repeat "
+                     "Send off) and trigger the image through your flow "
+                     "whenever you want."),
+)
 _info.add_header("Outputs")
 _info.add_bullets(
     ("Output 0:", "Message with the uploaded image in payload. Emitted once "
@@ -54,7 +61,12 @@ class ImageUploadNode(BaseNode):
     ui_component = 'image-drop'
     ui_component_config = {
         'tooltip': 'Drop an image here',
+        'send_action': 'send_now',
+        'send_tooltip': 'Send uploaded image',
     }
+
+    # UI-triggerable actions (see BaseNode.actions)
+    actions = ['send_now']
 
     DEFAULT_CONFIG = {
         'repeat_send': False,
@@ -120,6 +132,15 @@ class ImageUploadNode(BaseNode):
         msg = self._build_message()
         if msg is not None:
             self.send(msg)
+
+    def send_now(self):
+        """UI action: send the currently uploaded image on demand.
+
+        Lets a user trigger the image through their flow whenever they click
+        the button, independent of Repeat Send.
+        """
+        self._send_once()
+        return {'sent': self._image_data is not None}
 
     def receive_image(self, image_bytes: bytes, filename: str = ""):
         """

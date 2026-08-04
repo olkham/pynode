@@ -374,9 +374,14 @@ function buildNodeContent(nodeData, icon, inputCount, outputCount) {
         const text = raw ? `${prefix}${raw}` : placeholder;
         contentParts.right = `<div class="node-config-badge" id="config-badge-${nodeData.id}" data-key="${key}" data-prefix="${prefix}" data-placeholder="${placeholder}">${text}</div>`;
     } else if (uiComponent === 'image-drop') {
-        // Drop zone indicator on the left (like ImageUploadNode)
+        // Drop zone indicator on the left (like ImageUploadNode), with an
+        // inject-style button that sends the uploaded image on demand.
         const tooltip = uiConfig.tooltip || 'Drop an image here';
-        contentParts.left = `<div class="image-drop-zone" id="drop-${nodeData.id}" title="${tooltip}">📂</div>`;
+        const sendAction = uiConfig.send_action;
+        const sendBtn = sendAction
+            ? `<button class="inject-btn" onclick="window.nodeAction('${nodeData.id}', '${sendAction}')" title="${uiConfig.send_tooltip || 'Send'}">▶</button>`
+            : '';
+        contentParts.left = `${sendBtn}<div class="image-drop-zone" id="drop-${nodeData.id}" title="${tooltip}">📂</div>`;
     } else if (uiComponent === 'transport-controls') {
         // Generic transport/button strip (like VideoReaderNode).
         // Buttons come from uiComponentConfig.buttons: [{icon, action, title}]

@@ -174,3 +174,31 @@ def test_bad_image_reports_error_and_sends_nothing(node_classes):
         assert node._repeat_thread is None
     finally:
         node.on_stop()
+
+
+def test_send_now_emits_uploaded_image_on_demand(node_classes):
+    """send_now re-emits the stored image each call, independent of repeat."""
+    sink = node_classes['sink'](name='sink')
+    node = _make_node(sink, repeat_send=False, repeat_rate=0)
+    try:
+        node.receive_image(_jpeg_bytes(), 'pic.jpg')
+        assert _wait_until(lambda: len(sink.received) == 1)
+
+        assert node.send_now() == {'sent': True}
+        assert node.send_now() == {'sent': True}
+        assert _wait_until(lambda: len(sink.received) == 3)
+        assert node._repeat_thread is None
+    finally:
+        node.on_stop()
+
+
+def test_send_now_without_upload_sends_nothing(node_classes):
+    """send_now before any upload is a no-op and reports nothing sent."""
+    sink = node_classes['sink'](name='sink')
+    node = _make_node(sink)
+    try:
+        assert node.send_now() == {'sent': False}
+        time.sleep(0.1)
+        assert sink.received == []
+    finally:
+        node.on_stop()
