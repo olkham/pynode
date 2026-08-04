@@ -222,7 +222,20 @@ class Qwen3VLMNode(BaseNode):
             return True
 
         model_name = self.config.get("model_name", "Qwen/Qwen3-VL-2B-Instruct")
+        # Validate against hardware actually present: a workflow saved on a
+        # machine with more (or different) GPUs would otherwise hand an
+        # absent device straight to device_map and fail on load.
         device = self.config.get("device", "cpu")
+        try:
+            from pynode.nodes.InferenceNode.InferenceEngine.device_detection import (
+                validate_device,
+            )
+            device, device_warning = validate_device(device)
+            if device_warning:
+                logger.warning(device_warning)
+                self.report_error(device_warning)
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning("Device validation failed: %s", exc)
 
         token = self.config.get("hf_token", "").strip() or None
 

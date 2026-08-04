@@ -148,13 +148,22 @@ export function renderProperties(nodeData) {
             } else if (prop.type === 'select') {
                 html += `
                     <label class="property-label">${prop.label}</label>
-                    <select class="property-select" 
+                    <select class="property-select"
                             onchange="window.updateNodeConfig('${nodeData.id}', '${prop.name}', this.value); window.updatePropertyVisibility('${nodeData.id}')">
                 `;
                 prop.options.forEach(option => {
                     const selected = nodeData.config[prop.name] === option.value ? 'selected' : '';
                     html += `<option value="${option.value}" ${selected}>${option.label}</option>`;
                 });
+                // A saved value not among the current options (e.g. a device
+                // from another machine's hardware) would otherwise silently
+                // render as the first option while the stale value stays in
+                // the config - show it explicitly instead.
+                const savedValue = nodeData.config[prop.name];
+                if (savedValue !== undefined && savedValue !== '' &&
+                    !prop.options.some(option => option.value === savedValue)) {
+                    html += `<option value="${escapeHtml(String(savedValue))}" selected>${escapeHtml(String(savedValue))} (saved value - unavailable here)</option>`;
+                }
                 html += '</select>';
             } else if (prop.type === 'code-examples') {
                 // A dropdown of ready-made code snippets. Picking one drops its

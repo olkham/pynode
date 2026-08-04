@@ -96,17 +96,25 @@ class UltralyticsNode(BaseNode):
         return devices
 
     def _resolve_configured_device(self) -> str:
-        """Return the configured device with plain 'intel:gpu' resolved to the
-        first detected GPU (e.g. 'intel:gpu.0') so OpenVINO targets a real
-        device instead of falling back to AUTO on multi-GPU systems."""
+        """Return the configured device validated against hardware actually
+        present: plain 'intel:gpu' resolves to the first detected Intel GPU
+        (e.g. 'intel:gpu.0'), and a device that does not exist on this
+        machine (hardware change, or a workflow imported from another
+        machine) is swapped for the closest present one. The warning for a
+        swap is reported once at model-load time in _load_model."""
+        device, _warning = self._validated_device()
+        return device
+
+    def _validated_device(self):
+        """(device, warning) from validate_device, tolerating import errors."""
         device = self.config.get('device', 'cpu')
         try:
             from pynode.nodes.InferenceNode.InferenceEngine.device_detection import (
-                resolve_intel_device,
+                validate_device,
             )
-            return resolve_intel_device(device)
+            return validate_device(device)
         except Exception:
-            return device
+            return device, None
     
     # Property schema for the properties panel
     @classmethod
@@ -211,7 +219,10 @@ class UltralyticsNode(BaseNode):
             # Ultralytics never downloads weights into the process CWD.
             model_name = model_paths.resolve_model_path(
                 self.config.get('model', 'yolov8n.pt'))
-            device = self._resolve_configured_device()
+            device, device_warning = self._validated_device()
+            if device_warning:
+                logger.warning(device_warning)
+                self.report_error(device_warning)
 
             if isinstance(device, str) and device.lower().startswith('intel:'):
                 # Intel OpenVINO path: torch's model.to() does not understand

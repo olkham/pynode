@@ -226,6 +226,9 @@ class InferenceNode(BaseNode):
         self._current_engine_type = None
         self._current_model_path = None
         self._current_device = None
+        # Device actually in use after hardware validation (may differ from
+        # the configured device when that hardware is absent on this machine)
+        self._active_device = None
     
     def _get_engine_factory(self):
         """Get the inference engine factory (lazy import)."""
@@ -267,30 +270,46 @@ class InferenceNode(BaseNode):
         factory = self._get_engine_factory()
         if factory is None:
             return False
-        
+
+        # Validate the configured device against hardware actually present
+        # (saved workflows can reference devices from another machine)
+        active_device = device
+        try:
+            from pynode.nodes.InferenceNode.InferenceEngine.device_detection import (
+                validate_device,
+            )
+            active_device, device_warning = validate_device(device)
+            if device_warning:
+                logger.warning(device_warning)
+                self.report_error(device_warning)
+        except Exception as e:
+            logger.warning(f"Device validation failed: {e}")
+
         try:
             # Create the engine instance
-            logger.info(f"Creating {engine_type} engine with model: {model_path}, device: {device}")
+            logger.info(f"Creating {engine_type} engine with model: {model_path}, device: {active_device}")
             self.engine = factory.create(
                 engine_type=engine_type,
                 model_path=model_path,
-                device=device
+                device=active_device
             )
-            
+
             # Load the model
-            if not self.engine.load(model_path, device):
+            if not self.engine.load(model_path, active_device):
                 self.report_error(f"Failed to load model: {model_path}")
                 self.engine = None
                 self._engine_loaded = False
                 return False
             
-            # Update state
+            # Update state (_current_device stays the CONFIGURED value so the
+            # needs_reload comparison against config doesn't churn)
             self._engine_loaded = True
             self._current_engine_type = engine_type
             self._current_model_path = model_path
             self._current_device = device
-            
-            logger.info(f"Successfully loaded {engine_type} engine on {device}")
+            self._active_device = active_device
+
+            logger.info(f"Successfully loaded {engine_type} engine on {active_device}")
             return True
             
         except Exception as e:
@@ -422,7 +441,7 @@ class InferenceNode(BaseNode):
             
             # Add engine info to payload
             payload_out['engine_type'] = self._current_engine_type
-            payload_out['device'] = self._current_device
+            payload_out['device'] = self._active_device or self._current_device
             
             # Preserve original message properties and update payload
             msg[MessageKeys.PAYLOAD] = payload_out
