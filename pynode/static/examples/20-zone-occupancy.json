@@ -1,0 +1,112 @@
+{
+  "nodes": [
+    {
+      "id": "camera_1",
+      "type": "CameraNode",
+      "name": "Webcam",
+      "config": {
+        "device_index": 0,
+        "fps": 10,
+        "width": 640,
+        "height": 480,
+        "encode_jpeg": false,
+        "jpeg_quality": 75
+      },
+      "x": 80,
+      "y": 160
+    },
+    {
+      "id": "yolo_1",
+      "type": "UltralyticsNode",
+      "name": "YOLO (no drawing)",
+      "config": {
+        "model": "yolo11n.pt",
+        "confidence": "0.3",
+        "iou": "0.45",
+        "draw_results": "false",
+        "max_det": "300",
+        "include_image": true,
+        "include_predictions": true,
+        "drop_messages": "true",
+        "device": "cpu"
+      },
+      "x": 340,
+      "y": 160
+    },
+    {
+      "id": "tracker_1",
+      "type": "SupervisionTrackerNode",
+      "name": "SV Tracker",
+      "config": {
+        "track_thresh": "0.25",
+        "track_buffer": "30",
+        "match_thresh": "0.8",
+        "min_consecutive_frames": "2",
+        "frame_rate": "10",
+        "drop_messages": "true"
+      },
+      "x": 600,
+      "y": 160
+    },
+    {
+      "id": "zone_1",
+      "type": "SupervisionZoneNode",
+      "name": "Watch zone",
+      "config": {
+        "polygon": "[[120,120],[520,120],[520,420],[120,420]]",
+        "anchor": "bottom_center",
+        "filter_to_zone": false,
+        "draw": "true",
+        "opacity": "0.15",
+        "drop_messages": "true"
+      },
+      "x": 860,
+      "y": 160
+    },
+    {
+      "id": "annotate_1",
+      "type": "SupervisionAnnotateNode",
+      "name": "Box + Label",
+      "config": {
+        "annotators": ["box", "label"],
+        "color_lookup": "track",
+        "show_confidence": false,
+        "drop_messages": "true"
+      },
+      "x": 1120,
+      "y": 160
+    },
+    {
+      "id": "viewer_1",
+      "type": "ImageViewerNode",
+      "name": "Zone",
+      "config": {
+        "width": 480,
+        "height": 360,
+        "image_path": "payload.image",
+        "drop_messages": true
+      },
+      "x": 1380,
+      "y": 160
+    },
+    {
+      "id": "debug_events",
+      "type": "DebugNode",
+      "name": "Enter / exit events",
+      "config": {
+        "console": false,
+        "complete": "payload"
+      },
+      "x": 1120,
+      "y": 320
+    }
+  ],
+  "connections": [
+    { "source": "camera_1", "target": "yolo_1", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "yolo_1", "target": "tracker_1", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "tracker_1", "target": "zone_1", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "zone_1", "target": "annotate_1", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "annotate_1", "target": "viewer_1", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "zone_1", "target": "debug_events", "sourceOutput": 1, "targetInput": 0 }
+  ]
+}

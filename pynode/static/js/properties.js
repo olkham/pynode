@@ -80,6 +80,26 @@ export function renderProperties(nodeData) {
                            placeholder="${placeholder}"
                            onchange="window.updateNodeConfig('${nodeData.id}', '${prop.name}', this.value)">
                 `;
+            } else if (prop.type === 'geometry') {
+                // Text value plus a "Draw on frame" button that opens the
+                // geometry editor modal (geometry-editor.js). geometryType is
+                // 'line' or 'polygon'.
+                const value = nodeData.config[prop.name] !== undefined ? nodeData.config[prop.name] : (prop.default || '');
+                const geometryType = prop.geometryType || 'polygon';
+                html += `
+                    <label class="property-label">${prop.label}</label>
+                    <div class="property-geometry-container">
+                        <input type="text" class="property-input property-geometry-input"
+                               id="prop-geometry-${nodeData.id}-${prop.name}"
+                               value='${String(value).replace(/'/g, "&#39;")}'
+                               onchange="window.updateNodeConfig('${nodeData.id}', '${prop.name}', this.value)">
+                        <button class="btn btn-secondary property-geometry-btn"
+                                onclick="window.openGeometryEditor('${nodeData.id}', '${prop.name}', '${geometryType}')"
+                                title="Draw the ${geometryType} on the node's latest frame">
+                            ✏ Draw on frame
+                        </button>
+                    </div>
+                `;
             } else if (prop.type === 'link-channel') {
                 // Same as 'text', plus a <datalist> of known channel names (Link
                 // In/Out nodes) so users can pick an existing channel instead of
@@ -128,13 +148,22 @@ export function renderProperties(nodeData) {
             } else if (prop.type === 'select') {
                 html += `
                     <label class="property-label">${prop.label}</label>
-                    <select class="property-select" 
+                    <select class="property-select"
                             onchange="window.updateNodeConfig('${nodeData.id}', '${prop.name}', this.value); window.updatePropertyVisibility('${nodeData.id}')">
                 `;
                 prop.options.forEach(option => {
                     const selected = nodeData.config[prop.name] === option.value ? 'selected' : '';
                     html += `<option value="${option.value}" ${selected}>${option.label}</option>`;
                 });
+                // A saved value not among the current options (e.g. a device
+                // from another machine's hardware) would otherwise silently
+                // render as the first option while the stale value stays in
+                // the config - show it explicitly instead.
+                const savedValue = nodeData.config[prop.name];
+                if (savedValue !== undefined && savedValue !== '' &&
+                    !prop.options.some(option => option.value === savedValue)) {
+                    html += `<option value="${escapeHtml(String(savedValue))}" selected>${escapeHtml(String(savedValue))} (saved value - unavailable here)</option>`;
+                }
                 html += '</select>';
             } else if (prop.type === 'code-examples') {
                 // A dropdown of ready-made code snippets. Picking one drops its

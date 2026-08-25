@@ -84,10 +84,29 @@ Messages are dicts in Node-RED style: `payload`, `topic`, `_msgid`, plus extras.
 | `ImageViewerNode` | 1→0 | `width`: 320; `height`: 240; `image_path`: "payload.image"; `drop_messages`: true |
 | `VideoWriterNode` | 1→0 | `path`: "./output"; `filename`: "video_{counter}"; `codec`: `mp4v`\|`avc1`\|`xvid`...; `framerate`: 30.0; `width`/`height`; `auto_resolution`: bool (match input); `clip_length`: 0 (=unlimited); `naming_mode`: "counter"; `counter_digits`: 4 |
 
-Other vision nodes: `DrawPredictionsNode`, `CropNode`, `TrackerNode`,
+Other vision nodes: `DrawPredictionsNode`, `CropNode`,
 `ImageFormatNode`, `SliceNode`, `BBoxMetricsNode`, `PolygonMetricsNode`,
 `InferenceNode` (multi-backend), `FrameSourceNode` (multi-source camera lib) —
 read their `DEFAULT_CONFIG`/`properties` in `pynode/nodes/<Name>/` before use.
+
+### Supervision
+Nodes built on the `supervision` library (`[vision]` extra). They register even
+without it installed, reporting an error and passing messages through.
+
+| Type | Ports | Config |
+|---|---|---|
+| `SupervisionTrackerNode` | 1→1 | `track_thresh`: "0.25"; `track_buffer`: "30" (frames a lost track is kept, scaled by `frame_rate`); `match_thresh`: "0.8" (IoU); `min_consecutive_frames`: "1" (raise to 2-3 to kill ghost tracks); `frame_rate`: "30" (**set to the real source fps**). Adds `track_id` to each detection plus `payload.tracks`/`track_count`. Has a `reset` action — a new object needs 2 frames before it is reported. **Does not draw** — wire an `SupervisionAnnotateNode` after it. |
+| `SupervisionAnnotateNode` | 1→1 | `annotators`: list from `box round_box box_corner ellipse circle triangle dot color label percentage_bar blur pixelate background_overlay trace heatmap` (applied in a fixed order: pixel effects → shapes → labels; default `["box","label"]`); `color_lookup`: `class`\|`track`\|`index` (`track` falls back to `class` without ids); `thickness`/`text_scale`: "auto" (resolution-scaled) or a number; `show_class`/`show_confidence`/`show_track_id`: bool (label content); `trace_length`: "30". `trace` needs a `SupervisionTrackerNode` upstream; `heatmap` accumulates over time. `reset` action clears trace/heatmap state. |
+| `SupervisionLineCounterNode` | 1→**2** | `line`: "x1,y1,x2,y2" (image px; the GUI has a draw-on-frame editor); `anchors`: `corners`\|`center`\|`bottom_center`; `min_crossing_frames`: "1"; `draw`: "true"/"false". **Needs tracked detections** (SV Tracker upstream). Output 0 = every msg + `payload.line_in`/`line_out`/`line_in_by_class`/`line_out_by_class` and the line drawn; **output 1 = one msg per crossing** `{event:'line_crossing', direction, track_id, class_id, class_name, bbox, in_count, out_count}`. Actions: `reset` (zero counts), `set_geometry` (live line update, resets counts). |
+| `SupervisionZoneNode` | 1→**2** | `polygon`: JSON "[[x,y],...]" (image px; draw-on-frame editor in GUI); `anchor`: `bottom_center`\|`center`\|`top_center`; `filter_to_zone`: bool (drop outside detections); `draw`: "true"/"false"; `opacity`: "0.15". Output 0 = every msg + `payload.zone_count` and `in_zone` on each detection; **output 1 = enter/exit events** (needs track ids) `{event:'enter'\|'exit', track_id, class_id, class_name, bbox, zone_count}`. Actions: `reset` (event state), `set_geometry` (live polygon update). |
+| `SupervisionSmootherNode` | 1→1 | `length`: "5" (frames averaged per box). Smooths bbox jitter; **needs track ids** (SV Tracker upstream) — place between tracker and annotate/zones. Untracked input passes through with one warning. `reset` action clears history. |
+| `SupervisionFilterNode` | 1→**2** | All criteria optional (empty = off): `min_confidence`/`max_confidence`; `allow_classes`/`deny_classes` (comma names or numeric ids); `min_area`/`max_area` (px²); `min_aspect`/`max_aspect` (w/h); `top_k`; `dedupe`: `off`\|`nms`\|`nmm` + `dedupe_threshold`: "0.5" + `overlap_metric`: `iou`\|`ios` + `class_agnostic`: bool. Output 0 = kept, output 1 = rejected by criteria (both always fire; NMS/NMM-suppressed are dropped, not rejected). |
+| `SupervisionSinkNode` | 1→1 | `format`: `csv` (row per detection, safe for long runs)\|`json` (in-memory, written on stop/rotate); `path`: "./output"; `filename`: base → `<base>_<YYYYmmdd-HHMMSS>.<ext>`. Row = xyxy, class_id, confidence, tracker_id, class_name, frame, timestamp. Empty frames advance the frame counter but write no rows; the file opens on the first detection. Passes msgs through with `payload.sink_file`/`sink_rows`. `new_file` action rotates. |
+
+Detections travel as `payload.detections` (list of dicts, read by every core
+node) and, alongside it, `payload.sv` — the live `sv.Detections` object, which
+also carries masks and tracker ids. Use `pynode/nodes/supervision_utils.py`
+(`to_sv` / `write_back`) rather than converting by hand.
 
 ### Network
 | Type | Ports | Config |
@@ -164,12 +183,15 @@ app = create_app({'WORKFLOWS_DIR': os.path.join(td, 'wf'),
                   'WORKFLOW_FILE': os.path.join(td, 'wf', 'workflow.json'),
                   'UPLOAD_BASE_DIR': os.path.join(td, 'up'), 'TESTING': True})
 client = app.test_client()
-data = json.load(open('pynode/static/examples/01-hello-world.json'))
-r = client.post('/api/workflow', json=data)
+# A fresh app has NO workflows - create one first, then import into it.
+r = client.post('/api/workflows', json={'name': 'validate'})
+wf_id = r.get_json()['id']
+data = json.load(open('pynode/static/examples/01-hello-world.json', encoding='utf-8'))
+r = client.post(f'/api/workflow?workflow={wf_id}', json=data)
 assert r.status_code == 201, r.get_json()
 manager = app.extensions['workflow_manager']
 with manager.state_lock:
-    eng = next(iter(manager.working_engines.values()))
+    eng = manager.working_engines[wf_id]
     unknown = [n.type for n in eng.nodes.values() if getattr(n, '_is_unknown_node', False)]
 assert not unknown, f"unknown node types: {unknown}"
 manager.shutdown()

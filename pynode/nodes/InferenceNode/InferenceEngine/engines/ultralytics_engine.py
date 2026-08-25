@@ -31,13 +31,16 @@ except ImportError:
         from base_engine import BaseInferenceEngine
 
 try:
-    from ..device_detection import resolve_intel_device, to_openvino_device_name
+    from ..device_detection import (
+        resolve_intel_device, to_openvino_device_name, validate_device)
 except ImportError:
     try:
-        from InferenceEngine.device_detection import resolve_intel_device, to_openvino_device_name
+        from InferenceEngine.device_detection import (
+            resolve_intel_device, to_openvino_device_name, validate_device)
     except ImportError:
         # Standalone: inference_engine_dir was inserted into sys.path above
-        from device_detection import resolve_intel_device, to_openvino_device_name
+        from device_detection import (
+            resolve_intel_device, to_openvino_device_name, validate_device)
 
 
 from ultralytics import YOLO
@@ -133,10 +136,13 @@ class UltralyticsEngine(BaseInferenceEngine):
         if device is None:
             device = self.device
 
-        # Resolve a plain 'intel:gpu' (e.g. from saved workflow configs) to the
-        # first detected GPU ('intel:gpu.0') so multi-GPU systems target a real
-        # OpenVINO device instead of the nonexistent 'GPU' -> AUTO fallback.
-        device = resolve_intel_device(device)
+        # Resolve a plain 'intel:gpu' to the first detected Intel GPU and swap
+        # devices that are not present on this machine (hardware change, or a
+        # workflow imported from another machine) for the closest present one.
+        device, device_warning = validate_device(device)
+        if device_warning:
+            logger.warning(device_warning)
+            self.use_openvino = device.lower().startswith('intel:')
 
         if model_file is None:
             model_file = self.model_path

@@ -32,7 +32,7 @@ Install only the node groups you need:
 
 | Extra | Installs | Nodes it enables |
 |-------|----------|------------------|
-| `vision` | ultralytics, torch, torchvision, supervision | UltralyticsNode, TrackerNode, DrawPredictionsNode, … |
+| `vision` | ultralytics, torch, torchvision, supervision | UltralyticsNode, DrawPredictionsNode, the Supervision nodes, … |
 | `mqtt` | paho-mqtt | MQTTNode |
 | `camera` | framesource[full] | FrameSourceNode |
 | `inference` | onnxruntime (+ `vision`) | InferenceNode |

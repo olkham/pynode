@@ -29,7 +29,8 @@ carries its own documentation in the editor's **Information** panel (ℹ️ tab)
 | **Output** | Image Viewer, Image Writer, Video Writer, Message Writer, Roboflow Upload |
 | **Logic** | Switch (route on conditions), Gate, Sync, Auto Sync |
 | **Network** | MQTT In / Out, UDP In / Out, TCP In / Out, REST Endpoint, Webhook, mDNS Broadcast / Discovery |
-| **Vision** | YOLO, Inference, Tracker, Supervision Tracker, Crop, Slice Image / Slice Collector, Draw Predictions, Confidence Filter, Label Filter, Merge Predictions, Image Format, Qwen3-VL, vLLM |
+| **Vision** | YOLO, Inference, Crop, Slice Image / Slice Collector, Draw Predictions, Confidence Filter, Label Filter, Merge Predictions, Image Format, Qwen3-VL, vLLM |
+| **Supervision** | SV Tracker (ByteTrack), SV Annotate (15 visual styles: boxes, labels, traces, heat maps, privacy blur/pixelate), SV Line Counter (in/out crossing counts + events), SV Polygon Zone (occupancy, enter/exit events) — zone geometry drawn directly on a live frame — SV Smoother (de-jitter boxes), SV Detection Filter (confidence/class/area/aspect/top-K + NMS/NMM), SV Sink (CSV/JSON detection logging) |
 | **Analysis** | BBox Metrics, Polygon Metrics, Point in Shape |
 | **OpenCV** | ~28 image-processing nodes: Blur, Threshold, Morphology, Edge Detector, Find Contours, Perspective, Resize, Rotate, Colormap, Histogram, FFT, Template Match, RealSense Depth, and more |
 | **Node Probes** | Rate Probe, Queue Length Probe, Counter |

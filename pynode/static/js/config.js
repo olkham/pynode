@@ -8,6 +8,7 @@ export const NODE_CATEGORIES = {
     'output': { title: 'Output', nodes: [] },
     'network': { title: 'Network', nodes: [] },
     'vision': { title: 'Vision', nodes: [] },
+    'supervision': { title: 'Supervision', nodes: [] },
     'logic': { title: 'Logic', nodes: [] },
     'system': { title: 'System', nodes: [] },
     'custom': { title: 'Custom', nodes: [] }

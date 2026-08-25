@@ -17,6 +17,7 @@ EXPECTED_CATEGORY_ORDER = [
     'logic',
     'network',
     'vision',
+    'supervision',
     'analysis',
     'node probes',
     'opencv',

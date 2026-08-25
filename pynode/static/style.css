@@ -3170,3 +3170,106 @@ body {
     tab-size: 2;
 }
 
+
+/* --- Geometry editor modal (SV Line Counter / SV Polygon Zone) --------- */
+/* Modeled on .mqtt-service-modal; the canvas shows the node's last frame. */
+
+.geometry-editor-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10001;
+}
+
+.geometry-editor-content {
+    background: #252526;
+    border: 1px solid #3e3e42;
+    border-radius: 8px;
+    max-width: 92vw;
+    max-height: 92vh;
+    overflow: auto;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    padding-bottom: 4px;
+}
+
+.geometry-editor-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid #3e3e42;
+}
+
+.geometry-editor-header h3 {
+    margin: 0;
+    font-size: 15px;
+    color: #cccccc;
+}
+
+.geometry-editor-close {
+    background: transparent;
+    border: none;
+    color: #888;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+}
+
+.geometry-editor-close:hover {
+    color: #d4d4d4;
+}
+
+.geometry-editor-hint {
+    padding: 8px 16px;
+    font-size: 12px;
+    color: #9a9a9a;
+}
+
+.geometry-editor-canvas {
+    display: block;
+    margin: 0 16px;
+    border: 1px solid #3e3e42;
+    cursor: crosshair;
+    background: #1e1e22;
+}
+
+.geometry-editor-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+}
+
+.geometry-editor-status {
+    font-size: 12px;
+    color: #9a9a9a;
+}
+
+.geometry-editor-actions {
+    display: flex;
+    gap: 8px;
+}
+
+/* 'geometry' property row: text input + Draw button side by side */
+.property-geometry-container {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.property-geometry-input {
+    flex: 1;
+    min-width: 0;
+}
+
+.property-geometry-btn {
+    white-space: nowrap;
+    flex-shrink: 0;
+}

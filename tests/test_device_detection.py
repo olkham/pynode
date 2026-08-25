@@ -18,18 +18,40 @@ class _FakeCore:
     """Stand-in for openvino.Core with a configurable device list."""
 
     devices = ['CPU']
+    names = {}
 
     @property
     def available_devices(self):
         return list(type(self).devices)
 
+    def get_property(self, device, prop):
+        # KeyError for unnamed devices mirrors a property query failing;
+        # device_detection must tolerate it per-device.
+        return type(self).names[device]
 
-def _install_fake_openvino(monkeypatch, devices):
+
+def _install_fake_openvino(monkeypatch, devices, names=None):
     """Install a fake 'openvino' module exposing Core().available_devices."""
     fake = types.ModuleType('openvino')
     _FakeCore.devices = devices
+    _FakeCore.names = names or {}
     fake.Core = _FakeCore
     monkeypatch.setitem(sys.modules, 'openvino', fake)
+
+
+def _install_fake_torch(monkeypatch, cuda_available, device_count=1):
+    """Install a fake 'torch' module with a configurable CUDA state."""
+    fake = types.ModuleType('torch')
+    fake.cuda = types.SimpleNamespace(
+        is_available=lambda: cuda_available,
+        device_count=lambda: device_count,
+    )
+    monkeypatch.setitem(sys.modules, 'torch', fake)
+
+
+def _remove_torch(monkeypatch):
+    """Make 'import torch' fail."""
+    monkeypatch.setitem(sys.modules, 'torch', None)
 
 
 def _remove_openvino(monkeypatch):
@@ -42,6 +64,7 @@ def _remove_openvino(monkeypatch):
 def _reset_device_cache(monkeypatch):
     """Each test starts (and leaves) with an empty enumeration cache."""
     monkeypatch.setattr(device_detection, '_device_cache', None)
+    monkeypatch.setattr(device_detection, '_device_names', {})
     yield
 
 
@@ -275,6 +298,128 @@ class TestUltralyticsEngineDeviceNormalization:
         eng = UltralyticsEngine(device='cuda:0')
         assert eng.device == 'cuda:0'
         assert eng.use_openvino is False
+
+
+class TestIntelGpuVendorFiltering:
+    """OpenVINO's GPU plugin enumerates every OpenCL GPU, so a machine with
+    an NVIDIA card lists it as e.g. GPU.1 - it must not be offered or
+    targeted as an OpenVINO device."""
+
+    NAMES = {
+        'CPU': '13th Gen Intel(R) Core(TM) i9-13900K',
+        'GPU.0': 'Intel(R) UHD Graphics 770 (iGPU)',
+        'GPU.1': 'NVIDIA TITAN RTX (dGPU)',
+    }
+
+    def test_non_intel_gpu_excluded_from_options(self, monkeypatch):
+        _install_fake_openvino(monkeypatch, ['CPU', 'GPU.0', 'GPU.1'], self.NAMES)
+        values = [o['value'] for o in device_detection.get_intel_device_options()]
+        assert 'intel:gpu.0' in values
+        assert 'intel:gpu.1' not in values
+
+    def test_label_carries_device_name(self, monkeypatch):
+        _install_fake_openvino(monkeypatch, ['CPU', 'GPU.0', 'GPU.1'], self.NAMES)
+        options = device_detection.get_intel_device_options()
+        gpu0 = next(o for o in options if o['value'] == 'intel:gpu.0')
+        assert 'UHD Graphics 770' in gpu0['label']
+
+    def test_unnamed_gpus_are_kept(self, monkeypatch):
+        # Names not queryable (older openvino): keep every GPU, as before
+        _install_fake_openvino(monkeypatch, ['CPU', 'GPU.0', 'GPU.1'])
+        values = [o['value'] for o in device_detection.get_intel_device_options()]
+        assert 'intel:gpu.0' in values and 'intel:gpu.1' in values
+
+    def test_resolve_skips_non_intel_gpu(self, monkeypatch):
+        names = {'GPU.0': 'NVIDIA TITAN RTX (dGPU)',
+                 'GPU.1': 'Intel(R) Arc(TM) A770 Graphics (dGPU)'}
+        _install_fake_openvino(monkeypatch, ['CPU', 'GPU.0', 'GPU.1'], names)
+        assert device_detection.resolve_intel_device('intel:gpu') == 'intel:gpu.1'
+
+
+class TestValidateDevice:
+    def test_cpu_always_valid(self, monkeypatch):
+        _remove_openvino(monkeypatch)
+        _remove_torch(monkeypatch)
+        assert device_detection.validate_device('cpu') == ('cpu', None)
+        assert device_detection.validate_device('intel:cpu') == ('intel:cpu', None)
+
+    def test_cuda_valid_when_present(self, monkeypatch):
+        _install_fake_torch(monkeypatch, cuda_available=True, device_count=2)
+        assert device_detection.validate_device('cuda:1') == ('cuda:1', None)
+
+    def test_cuda_index_out_of_range_uses_first(self, monkeypatch):
+        _install_fake_torch(monkeypatch, cuda_available=True, device_count=1)
+        device, warning = device_detection.validate_device('cuda:1')
+        assert device == 'cuda:0'
+        assert warning and 'cuda:1' in warning
+
+    def test_cuda_on_cpu_only_torch_falls_back(self, monkeypatch):
+        _install_fake_torch(monkeypatch, cuda_available=False)
+        device, warning = device_detection.validate_device('cuda:0')
+        assert device == 'cpu'
+        assert warning and 'CPU-only' in warning
+
+    def test_cuda_without_torch_falls_back(self, monkeypatch):
+        _remove_torch(monkeypatch)
+        device, warning = device_detection.validate_device('cuda:0')
+        assert device == 'cpu'
+        assert warning and 'PyTorch is not installed' in warning
+
+    def test_intel_gpu_present_is_valid(self, monkeypatch):
+        _install_fake_openvino(monkeypatch, ['CPU', 'GPU.0', 'GPU.1'])
+        assert device_detection.validate_device('intel:gpu.1') == ('intel:gpu.1', None)
+
+    def test_plain_intel_gpu_resolves_without_warning(self, monkeypatch):
+        _install_fake_openvino(monkeypatch, ['CPU', 'GPU.0'])
+        assert device_detection.validate_device('intel:gpu') == ('intel:gpu.0', None)
+
+    def test_missing_intel_gpu_index_substitutes_existing(self, monkeypatch):
+        _install_fake_openvino(monkeypatch, ['CPU', 'GPU.0'])
+        device, warning = device_detection.validate_device('intel:gpu.1')
+        assert device == 'intel:gpu.0'
+        assert warning and 'intel:gpu.1' in warning
+
+    def test_index_now_owned_by_non_intel_gpu_substitutes(self, monkeypatch):
+        # Hardware-change scenario: GPU.1 used to be an Intel card; after a
+        # GPU swap the index belongs to an NVIDIA card OpenVINO enumerates
+        # via OpenCL but cannot compile models for.
+        names = {'GPU.0': 'Intel(R) UHD Graphics 770 (iGPU)',
+                 'GPU.1': 'NVIDIA TITAN RTX (dGPU)'}
+        _install_fake_openvino(monkeypatch, ['CPU', 'GPU.0', 'GPU.1'], names)
+        device, warning = device_detection.validate_device('intel:gpu.1')
+        assert device == 'intel:gpu.0'
+        assert warning and 'NVIDIA TITAN RTX' in warning
+
+    def test_no_intel_gpu_falls_back_to_cuda(self, monkeypatch):
+        _install_fake_openvino(monkeypatch, ['CPU'])
+        _install_fake_torch(monkeypatch, cuda_available=True, device_count=1)
+        device, warning = device_detection.validate_device('intel:gpu.0')
+        assert device == 'cuda:0'
+        assert warning
+
+    def test_no_intel_gpu_no_cuda_falls_back_to_cpu(self, monkeypatch):
+        _install_fake_openvino(monkeypatch, ['CPU'])
+        _remove_torch(monkeypatch)
+        device, warning = device_detection.validate_device('intel:gpu')
+        assert device == 'cpu'
+        assert warning
+
+    def test_missing_npu_falls_back(self, monkeypatch):
+        _install_fake_openvino(monkeypatch, ['CPU', 'GPU.0'])
+        _remove_torch(monkeypatch)
+        device, warning = device_detection.validate_device('intel:npu')
+        assert device == 'cpu'
+        assert warning
+
+    def test_present_npu_is_valid(self, monkeypatch):
+        _install_fake_openvino(monkeypatch, ['CPU', 'NPU'])
+        assert device_detection.validate_device('intel:npu') == ('intel:npu', None)
+
+    def test_unverifiable_devices_pass_through(self, monkeypatch):
+        _remove_openvino(monkeypatch)
+        assert device_detection.validate_device('intel:gpu.1') == ('intel:gpu.1', None)
+        assert device_detection.validate_device('mps') == ('mps', None)
+        assert device_detection.validate_device('') == ('', None)
 
 
 class TestToOpenvinoDeviceName:

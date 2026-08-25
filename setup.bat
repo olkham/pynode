@@ -5,13 +5,27 @@ echo PyNode Setup Script
 echo ========================================
 echo.
 
+REM Reuse an existing environment instead of recreating it, so this script can
+REM be re-run to pick up new hardware or dependencies. Recreating is not just
+REM redundant: 'python -m venv' overwrites appenv\Scripts\python.exe, which
+REM Windows locks while ANY process is using it - a running PyNode server, an
+REM IDE language server pointed at this interpreter, or the shell you are in
+REM if the venv is already activated. That fails with 'Permission denied'.
+if exist "appenv\Scripts\python.exe" (
+    echo Found existing virtual environment: appenv
+    for /f "delims=" %%i in ('appenv\Scripts\python.exe --version 2^>^&1') do set PYTHON_VERSION=%%i
+    echo Reusing it ^(!PYTHON_VERSION!^). Delete the appenv folder first if you want a clean rebuild.
+    set PYTHON_PATH=appenv\Scripts\python.exe
+    goto venv_ready
+)
+
 REM Check if Python path was provided as argument
 if "%~1"=="" (
     REM No argument provided, ask user
     echo No Python path specified.
     echo.
     set /p PYTHON_PATH="Enter the full path to Python executable (or press Enter to use 'python' from PATH): "
-    
+
     if "!PYTHON_PATH!"=="" (
         set PYTHON_PATH=python
         echo Using 'python' from system PATH
@@ -47,10 +61,12 @@ if %errorlevel% equ 0 (
     echo * > appenv\.gitignore
 ) else (
     echo ERROR: Failed to create virtual environment
+    echo If appenv already exists, close anything using it ^(PyNode server, IDE^) and retry.
     pause
     exit /b 1
 )
 
+:venv_ready
 echo.
 echo Activating virtual environment...
 call appenv\Scripts\activate.bat
@@ -59,7 +75,13 @@ python -m pip install --upgrade pip
 
 echo.
 echo Checking for CUDA and installing PyTorch with appropriate CUDA support...
-REM Check for CUDA version using nvcc first, then nvidia-smi as fallback
+REM Detect the CUDA version: prefer the toolkit (nvcc) when installed, else
+REM ask the NVIDIA driver via nvidia-smi. The PyTorch wheels bundle their
+REM own CUDA runtime, so a recent driver alone is enough for GPU support -
+REM the CUDA toolkit is NOT required.
+set CUDA_VERSION=
+set CUDA_MAJOR=
+set CUDA_MINOR=
 nvcc --version >nul 2>&1
 if %errorlevel% equ 0 (
     REM Extract CUDA version from nvcc output
@@ -67,29 +89,29 @@ if %errorlevel% equ 0 (
     for /f "tokens=5 delims=, " %%i in ('nvcc --version ^| findstr "release"') do set CUDA_VERSION=%%i
     REM Remove 'V' prefix if present
     set CUDA_VERSION=!CUDA_VERSION:V=!
-    REM Extract major.minor
+)
+if defined CUDA_VERSION goto cuda_version_done
+REM No toolkit - parse the CUDA version header the driver reports
+REM (older drivers print "CUDA Version: X.Y", newer "CUDA UMD Version: X.Y")
+for /f "usebackq delims=" %%i in (`python -c "import re,shutil,subprocess; p=shutil.which('nvidia-smi'); out=subprocess.run([p],capture_output=True,text=True).stdout if p else ''; m=re.search('CUDA (UMD )?Version: *([0-9]+[.][0-9]+)', out); print(m.group(2) if m else '')"`) do set CUDA_VERSION=%%i
+:cuda_version_done
+if defined CUDA_VERSION (
     for /f "tokens=1,2 delims=." %%a in ("!CUDA_VERSION!") do (
         set CUDA_MAJOR=%%a
         set CUDA_MINOR=%%b
     )
-    echo Detected CUDA !CUDA_MAJOR!.!CUDA_MINOR!
+    echo Detected CUDA !CUDA_VERSION!
 ) else (
-    REM Fallback to nvidia-smi if nvcc not found
-    nvidia-smi --query-gpu=driver_version --format=csv,noheader,nounits >nul 2>&1
-    if %errorlevel% equ 0 (
-        REM If nvidia-smi works, assume CUDA is available but use CPU version as safe fallback
-        echo CUDA drivers detected via nvidia-smi, but CUDA toolkit not found.
-        echo Installing CPU-only PyTorch. For GPU support, install CUDA toolkit.
-        set CUDA_SUFFIX=
-    ) else (
-        echo No CUDA installation detected. Installing CPU-only PyTorch.
-        set CUDA_SUFFIX=
-    )
+    echo No CUDA support detected. Installing CPU-only PyTorch.
 )
 
 REM Set PyTorch index URL based on CUDA version
+set PYTORCH_INDEX_URL=https://download.pytorch.org/whl/cpu
 if defined CUDA_MAJOR (
-    if !CUDA_MAJOR! EQU 12 (
+    if !CUDA_MAJOR! GEQ 13 (
+        set PYTORCH_INDEX_URL=https://download.pytorch.org/whl/cu130
+        echo Installing PyTorch with CUDA 13.0 support...
+    ) else if !CUDA_MAJOR! EQU 12 (
         if !CUDA_MINOR! EQU 6 (
             set PYTORCH_INDEX_URL=https://download.pytorch.org/whl/cu126
             echo Installing PyTorch with CUDA 12.6 support...
@@ -100,27 +122,33 @@ if defined CUDA_MAJOR (
             set PYTORCH_INDEX_URL=https://download.pytorch.org/whl/cu129
             echo Installing PyTorch with CUDA 12.9 support...
         ) else (
-            set PYTORCH_INDEX_URL=https://download.pytorch.org/whl/cu121
-            echo CUDA !CUDA_VERSION! detected. Using CUDA 12.1 PyTorch wheels as fallback...
+            REM CUDA 12 guarantees minor-version compatibility: cu126 wheels
+            REM run on any 12.x driver
+            set PYTORCH_INDEX_URL=https://download.pytorch.org/whl/cu126
+            echo CUDA !CUDA_VERSION! detected. Using CUDA 12.6 PyTorch wheels...
         )
     ) else if !CUDA_MAJOR! EQU 11 (
         set PYTORCH_INDEX_URL=https://download.pytorch.org/whl/cu118
         echo Installing PyTorch with CUDA 11.8 support...
     ) else (
-        set PYTORCH_INDEX_URL=
         echo Unsupported CUDA version !CUDA_VERSION!. Installing CPU-only PyTorch.
     )
-) else (
-    set PYTORCH_INDEX_URL=
-    echo Installing CPU-only PyTorch.
+)
+
+REM pip will NOT swap an already-installed torch for a different build flavor
+REM (an installed 2.x+cpu still satisfies the requirement 'torch'), so when
+REM re-running setup after a GPU change compare the installed flavor with the
+REM target and uninstall first if they differ.
+set TARGET_TORCH_BUILD=!PYTORCH_INDEX_URL:*whl/=!
+set INSTALLED_TORCH_BUILD=
+for /f "usebackq delims=" %%i in (`python -c "import importlib.util as u; m=u.find_spec('torch') and __import__('torch'); print('' if not m else (m.__version__.split('+',1)[1] if '+' in m.__version__ else ('cu'+m.version.cuda.replace('.','') if m.version.cuda else 'cpu')))"`) do set INSTALLED_TORCH_BUILD=%%i
+if defined INSTALLED_TORCH_BUILD if not "!INSTALLED_TORCH_BUILD!"=="!TARGET_TORCH_BUILD!" (
+    echo Installed PyTorch build [!INSTALLED_TORCH_BUILD!] does not match target [!TARGET_TORCH_BUILD!] - replacing it...
+    pip uninstall -y torch torchvision
 )
 
 REM Install PyTorch and torchvision with appropriate CUDA support
-if defined PYTORCH_INDEX_URL (
-    pip install torch torchvision --index-url %PYTORCH_INDEX_URL%
-) else (
-    pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
-)
+pip install torch torchvision --index-url !PYTORCH_INDEX_URL!
 
 echo.
 echo Installing PyNode in editable mode with all extras...

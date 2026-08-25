@@ -40,7 +40,12 @@ def debug_stream():
                 try:
                     # Wait for data from broadcast thread
                     data = q.get(timeout=1.0)
-                    yield f'data: {json.dumps(data)}\n\n'
+                    # default=str: one non-JSON-serializable value (a numpy
+                    # scalar, a live supervision object, ...) must degrade to
+                    # its repr, not raise - a raise here closes the stream
+                    # that carries ALL live UI updates (debug AND viewer
+                    # frames) for this client.
+                    yield f'data: {json.dumps(data, default=str)}\n\n'
                 except queue.Empty:
                     # Send keepalive
                     yield 'data: {"type": "keepalive"}\n\n'

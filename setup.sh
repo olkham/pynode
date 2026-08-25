@@ -1,8 +1,17 @@
 #!/bin/bash
 
-# Create virtual environment
-echo "Creating virtual environment..."
-python3 -m venv appenv
+# Create the virtual environment, or reuse an existing one so this script can
+# be re-run to pick up new hardware or dependencies. Recreating is not just
+# redundant: 'venv' rewrites appenv/bin/python, which fails while a process is
+# using it (a running PyNode server, an IDE language server, or this shell if
+# the venv is already activated).
+if [ -x "appenv/bin/python" ]; then
+    echo "Found existing virtual environment: appenv"
+    echo "Reusing it ($(appenv/bin/python --version 2>&1)). Delete the appenv folder first if you want a clean rebuild."
+else
+    echo "Creating virtual environment..."
+    python3 -m venv appenv
+fi
 
 # Activate virtual environment
 echo "Activating virtual environment..."
@@ -12,44 +21,58 @@ source appenv/bin/activate
 echo "Upgrading pip..."
 pip install --upgrade pip
 
-# Detect CUDA version and install appropriate PyTorch
+# Detect CUDA version and pick the matching PyTorch wheel index
 echo "Detecting CUDA version..."
+TORCH_INDEX=""
 # Check if CUDA_VERSION is set as environment variable (e.g., in Docker)
 if [ -n "$CUDA_VERSION" ]; then
     echo "CUDA $CUDA_VERSION detected from environment"
-elif command -v nvidia-smi &> /dev/null && NVIDIA_SMI_OUTPUT=$(nvidia-smi 2>/dev/null) && CUDA_VERSION=$(echo "$NVIDIA_SMI_OUTPUT" | grep "CUDA Version" | sed -n 's/.*CUDA Version: \([0-9]\+\.[0-9]\+\).*/\1/p') && [ -n "$CUDA_VERSION" ]; then
+elif command -v nvidia-smi &> /dev/null && NVIDIA_SMI_OUTPUT=$(nvidia-smi 2>/dev/null) && CUDA_VERSION=$(echo "$NVIDIA_SMI_OUTPUT" | sed -n 's/.*CUDA \(UMD \)\?Version: \([0-9]\+\.[0-9]\+\).*/\2/p' | head -n 1) && [ -n "$CUDA_VERSION" ]; then
     echo "CUDA $CUDA_VERSION detected from nvidia-smi"
+fi
 
-    # Determine PyTorch installation command based on CUDA version
+if [ -n "$CUDA_VERSION" ]; then
     CUDA_MAJOR=$(echo $CUDA_VERSION | cut -d. -f1)
     CUDA_MINOR=$(echo $CUDA_VERSION | cut -d. -f2)
-    
+
     if [[ "$CUDA_MAJOR" -ge 13 ]]; then
         echo "Installing PyTorch with CUDA 13.0 support (highest available; forward-compatible with CUDA 13.x)..."
-        pip install torch torchvision --index-url https://download.pytorch.org/whl/cu130
+        TORCH_INDEX=https://download.pytorch.org/whl/cu130
     elif [[ "$CUDA_MAJOR" -eq 12 && "$CUDA_MINOR" -eq 8 ]]; then
         echo "Installing PyTorch with CUDA 12.8 support..."
-        pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+        TORCH_INDEX=https://download.pytorch.org/whl/cu128
     elif [[ "$CUDA_MAJOR" -eq 12 && "$CUDA_MINOR" -eq 6 ]]; then
         echo "Installing PyTorch with CUDA 12.6 support..."
-        pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126
+        TORCH_INDEX=https://download.pytorch.org/whl/cu126
     elif [[ "$CUDA_MAJOR" -eq 12 ]]; then
         echo "Installing PyTorch with CUDA 12.1 support..."
-        pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+        TORCH_INDEX=https://download.pytorch.org/whl/cu121
     elif [[ "$CUDA_VERSION" == "11.8"* ]]; then
         echo "Installing PyTorch with CUDA 11.8 support..."
-        pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
+        TORCH_INDEX=https://download.pytorch.org/whl/cu118
     else
         echo "Installing PyTorch with CUDA 11.8 support (default)..."
-        pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
+        TORCH_INDEX=https://download.pytorch.org/whl/cu118
     fi
 elif [ -d "/usr/local/cuda" ]; then
     echo "CUDA toolkit found but version could not be determined. Installing PyTorch with CUDA 12.1 support..."
-    pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+    TORCH_INDEX=https://download.pytorch.org/whl/cu121
 else
     echo "CUDA not detected. Installing CPU-only PyTorch..."
-    pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+    TORCH_INDEX=https://download.pytorch.org/whl/cpu
 fi
+
+# pip will NOT swap an already-installed torch for a different build flavor
+# (an installed 2.x+cpu still satisfies the requirement 'torch'), so when
+# re-running setup after a GPU change compare the installed flavor with the
+# target and uninstall first if they differ.
+TARGET_TORCH_BUILD="${TORCH_INDEX##*/}"
+INSTALLED_TORCH_BUILD=$(python -c "import importlib.util as u; m=u.find_spec('torch') and __import__('torch'); print('' if not m else (m.__version__.split('+',1)[1] if '+' in m.__version__ else ('cu'+m.version.cuda.replace('.','') if m.version.cuda else 'cpu')))" 2>/dev/null)
+if [ -n "$INSTALLED_TORCH_BUILD" ] && [ "$INSTALLED_TORCH_BUILD" != "$TARGET_TORCH_BUILD" ]; then
+    echo "Installed PyTorch build ($INSTALLED_TORCH_BUILD) does not match target ($TARGET_TORCH_BUILD) - replacing it..."
+    pip uninstall -y torch torchvision
+fi
+pip install torch torchvision --index-url "$TORCH_INDEX"
 
 # Install PyNode in editable mode with all extras (dependencies are declared
 # in pyproject.toml; torch/torchvision installed above are reused as-is)

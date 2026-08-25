@@ -1,0 +1,108 @@
+{
+  "nodes": [
+    {
+      "id": "camera_1",
+      "type": "CameraNode",
+      "name": "Webcam",
+      "config": {
+        "device_index": 0,
+        "fps": 5,
+        "width": 640,
+        "height": 480,
+        "encode_jpeg": false,
+        "jpeg_quality": 75
+      },
+      "x": 80,
+      "y": 160
+    },
+    {
+      "id": "yolo_1",
+      "type": "UltralyticsNode",
+      "name": "YOLO (no drawing)",
+      "config": {
+        "model": "yolo11n.pt",
+        "confidence": "0.25",
+        "iou": "0.45",
+        "draw_results": "false",
+        "max_det": "300",
+        "include_image": true,
+        "include_predictions": true,
+        "drop_messages": "true",
+        "device": "cpu"
+      },
+      "x": 340,
+      "y": 160
+    },
+    {
+      "id": "tracker_1",
+      "type": "SupervisionTrackerNode",
+      "name": "SV Tracker",
+      "config": {
+        "track_thresh": "0.25",
+        "track_buffer": "30",
+        "match_thresh": "0.8",
+        "min_consecutive_frames": "2",
+        "frame_rate": "5",
+        "drop_messages": "true"
+      },
+      "x": 600,
+      "y": 160
+    },
+    {
+      "id": "filter_1",
+      "type": "SupervisionFilterNode",
+      "name": "Confident + big enough",
+      "config": {
+        "min_confidence": "0.5",
+        "min_area": "400",
+        "dedupe": "off",
+        "drop_messages": "true"
+      },
+      "x": 860,
+      "y": 160
+    },
+    {
+      "id": "sink_1",
+      "type": "SupervisionSinkNode",
+      "name": "Log to CSV",
+      "config": {
+        "format": "csv",
+        "path": "./output",
+        "filename": "detections",
+        "drop_messages": "true"
+      },
+      "x": 1120,
+      "y": 160
+    },
+    {
+      "id": "debug_log",
+      "type": "DebugNode",
+      "name": "Logged (see sink_file)",
+      "config": {
+        "console": false,
+        "complete": "payload"
+      },
+      "x": 1380,
+      "y": 160
+    },
+    {
+      "id": "debug_rejected",
+      "type": "DebugNode",
+      "name": "Rejected by filter",
+      "config": {
+        "console": false,
+        "complete": "payload"
+      },
+      "x": 1120,
+      "y": 320
+    }
+  ],
+  "connections": [
+    { "source": "camera_1", "target": "yolo_1", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "yolo_1", "target": "tracker_1", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "tracker_1", "target": "filter_1", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "filter_1", "target": "sink_1", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "sink_1", "target": "debug_log", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "filter_1", "target": "debug_rejected", "sourceOutput": 1, "targetInput": 0 }
+  ]
+}
