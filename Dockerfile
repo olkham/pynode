@@ -1,9 +1,11 @@
-FROM docker.io/nvidia/cuda:12.6.0-runtime-ubuntu22.04
+FROM docker.io/nvidia/cuda:12.8.1-runtime-ubuntu22.04
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
-ENV CUDA_VERSION=12.6
+# cu128 PyTorch wheels are the first to ship Blackwell (sm_120, e.g. RTX 50xx)
+# kernels; older cu126 builds raise "no kernel image is available".
+ENV CUDA_VERSION=12.8
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
