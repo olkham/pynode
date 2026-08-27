@@ -2574,6 +2574,37 @@ body {
     font-family: 'Consolas', 'Monaco', monospace;
 }
 
+.change-rule-list-row {
+    padding-left: 56px;  /* line up under the path input, past the row label */
+}
+
+.change-rule-list-toggle {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: #888;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.change-rule-list-toggle input {
+    margin: 0;
+    cursor: pointer;
+}
+
+.change-rule-key {
+    flex: 1 1 80px;
+    min-width: 60px;
+    padding: 6px;
+    background: #3e3e42;
+    border: 1px solid #555;
+    border-radius: 3px;
+    color: #d4d4d4;
+    font-size: 12px;
+    font-family: 'Consolas', 'Monaco', monospace;
+}
+
 .change-rule-to-path {
     flex: 1;
     padding: 6px;

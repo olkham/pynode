@@ -5,7 +5,7 @@ Similar to Node-RED's change node.
 
 import json
 import re
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional, Tuple
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
@@ -24,6 +24,18 @@ _info.add_bullets(
     ("Change:", "Search and replace text within a property."),
     ("Delete:", "Remove a property from the message."),
     ("Move:", "Move a property to a different location."),
+)
+_info.add_header("Lists")
+_info.add_text(
+    "Tick 'is list' on a rule when the property holds a list of objects, and "
+    "give the key to work on. The rule then applies to that key in every item, "
+    "however many there are - for example relabelling each detection:"
+)
+_info.add_code("in msg.payload.detections - is list, key class_name - search 2, replace drone").end()
+_info.add_text(
+    "Search-and-replace works on substrings of text values. A value that is "
+    "not text (a number, a boolean) is replaced only when the search matches "
+    "the whole value, and the replacement keeps the type you selected."
 )
 
 
@@ -52,6 +64,9 @@ class ChangeNode(BaseNode):
     ui_component = 'change-rules-editor'
     ui_component_config = {
         'operations': ['set', 'change', 'move', 'delete'],
+        # Per-rule list mode: apply the rule to `key` inside every item of the
+        # list at the rule's path (see _rule_targets).
+        'list_fields': ['isList', 'key'],
         'value_types': [
             {'value': 'str', 'label': 'String'},
             {'value': 'num', 'label': 'Number'},
@@ -131,6 +146,87 @@ class ChangeNode(BaseNode):
         
         return False
     
+    def _rule_targets(self, msg: Dict, rule: Dict, path: str) -> List[Tuple[Optional[Dict], str]]:
+        """Work out the places a rule applies to.
+
+        Normally that is one place: the property path itself. With ``isList``
+        set, the path must hold a list, and the rule applies to ``key`` inside
+        every object in it - the way to rewrite a field on all detections
+        without knowing how many there are.
+
+        Args:
+            msg: The message being modified.
+            rule: The rule definition.
+            path: The rule's property path.
+
+        Returns:
+            ``(container, key)`` pairs. ``container`` is None for a plain
+            property path, in which case ``key`` is that path.
+        """
+        if not rule.get('isList', rule.get('is_list', False)):
+            return [(None, path)]
+
+        key = str(rule.get('key', rule.get('itemKey', '')) or '').strip()
+        if not key:
+            self.report_error(f"List rule on {path} needs an item key")
+            return []
+
+        items = self._get_nested_value(msg, path)
+        if not isinstance(items, (list, tuple)):
+            self.report_error(f"List rule on {path}: not a list")
+            return []
+
+        return [(item, key) for item in items if isinstance(item, dict)]
+
+    def _target_get(self, msg: Dict, target: Tuple[Optional[Dict], str]) -> Any:
+        """Read a target - a message path, or a key inside a list item."""
+        container, key = target
+        if container is None:
+            return self._get_nested_value(msg, key)
+        return container.get(key)
+
+    def _target_set(self, msg: Dict, target: Tuple[Optional[Dict], str], value: Any) -> None:
+        """Write a target."""
+        container, key = target
+        if container is None:
+            self._set_nested_value(msg, key, value)
+        else:
+            container[key] = value
+
+    def _target_delete(self, msg: Dict, target: Tuple[Optional[Dict], str]) -> bool:
+        """Remove a target, reporting whether anything was there."""
+        container, key = target
+        if container is None:
+            return self._delete_nested_value(msg, key)
+        if key in container:
+            del container[key]
+            return True
+        return False
+
+    def _apply_change(self, msg: Dict, target: Tuple[Optional[Dict], str],
+                      search: Any, search_type: str,
+                      replacement_text: str, replacement_value: Any) -> None:
+        """Search and replace inside one target.
+
+        Text is replaced by substring (or regex). Anything else - a number, a
+        boolean - has no substring to work on, so it is replaced only when the
+        search matches the whole value, and it takes the typed replacement.
+        """
+        current = self._target_get(msg, target)
+        if current is None:
+            return
+
+        if isinstance(current, str):
+            if search_type == 'regex':
+                try:
+                    self._target_set(msg, target, re.sub(str(search), replacement_text, current))
+                except re.error:
+                    self.report_error(f"Invalid regex pattern: {search}")
+            else:
+                self._target_set(msg, target, current.replace(str(search), replacement_text))
+        elif not isinstance(current, (dict, list, tuple)) and str(current) == str(search):
+            self._target_set(msg, target, replacement_value)
+
     def _resolve_value(self, msg: Dict, value: Any, value_type: str) -> Any:
         """
         Resolve a value based on its type.
@@ -189,6 +285,11 @@ class ChangeNode(BaseNode):
             property_path = rule.get('path', rule.get('p', rule.get('property', f'msg.{MessageKeys.PAYLOAD}')))
             
             try:
+                # One target for a plain path; one per list item in list mode.
+                targets = self._rule_targets(msg, rule, property_path)
+                if not targets:
+                    continue
+
                 if rule_type == 'set':
                     # Set property to a value
                     value = rule.get('value', rule.get('to', ''))
@@ -206,7 +307,8 @@ class ChangeNode(BaseNode):
                     else:
                         resolved_value = self._resolve_value(msg, value, value_type)
                     
-                    self._set_nested_value(msg, property_path, resolved_value)
+                    for target in targets:
+                        self._target_set(msg, target, resolved_value)
                     
                 elif rule_type == 'change':
                     # Search and replace within a property
@@ -215,39 +317,36 @@ class ChangeNode(BaseNode):
                     replace = rule.get('replace', rule.get('to', ''))
                     replace_type = rule.get('replaceType', rule.get('tot', 'str'))
                     
-                    current_value = self._get_nested_value(msg, property_path)
-                    
-                    # Resolve replace value
+                    # Resolve the replacement twice over: the text form drives
+                    # substring and regex replacement, the typed form replaces a
+                    # whole non-text value (see _apply_change).
                     if replace_type == 'path':
-                        replace_value = self._get_nested_value(msg, 'msg.' + str(replace) if not str(replace).startswith('msg.') else replace)
+                        replacement_value = self._get_nested_value(msg, 'msg.' + str(replace) if not str(replace).startswith('msg.') else replace)
                     else:
-                        replace_value = str(replace)
+                        replacement_value = self._resolve_value(msg, replace, replace_type)
+                    replacement_text = str(replacement_value) if replacement_value is not None else ''
                     
-                    if current_value is not None:
-                        if isinstance(current_value, str):
-                            if search_type == 'regex':
-                                try:
-                                    new_value = re.sub(search, str(replace_value) if replace_value else '', current_value)
-                                    self._set_nested_value(msg, property_path, new_value)
-                                except re.error as e:
-                                    self.report_error(f"Invalid regex pattern: {search}")
-                            else:
-                                new_value = current_value.replace(str(search), str(replace_value) if replace_value else '')
-                                self._set_nested_value(msg, property_path, new_value)
+                    for target in targets:
+                        self._apply_change(msg, target, search, search_type,
+                                           replacement_text, replacement_value)
                     
                 elif rule_type == 'delete':
                     # Delete a property
-                    self._delete_nested_value(msg, property_path)
+                    for target in targets:
+                        self._target_delete(msg, target)
                     
                 elif rule_type == 'move':
-                    # Move property to another location
+                    # Move property to another location. In list mode the
+                    # destination is a key inside the same item.
                     to_path = rule.get('toPath', rule.get('to', rule.get('toProperty', '')))
                     
                     if to_path:
-                        current_value = self._get_nested_value(msg, property_path)
-                        if current_value is not None:
-                            self._set_nested_value(msg, to_path, current_value)
-                            self._delete_nested_value(msg, property_path)
+                        for target in targets:
+                            container, _ = target
+                            current_value = self._target_get(msg, target)
+                            if current_value is not None:
+                                self._target_set(msg, (container, to_path), current_value)
+                                self._target_delete(msg, target)
                             
             except Exception as e:
                 self.report_error(f"Error applying rule {rule_type} on {property_path}: {str(e)}")

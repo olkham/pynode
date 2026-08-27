@@ -1041,6 +1041,24 @@ function renderChangeRuleItem(nodeId, propName, rule, index) {
     const replace = rule.replace || '';
     const searchType = rule.searchType || 'str';
     const replaceType = rule.replaceType || 'str';
+    // List mode: the path holds a list of objects and the rule applies to
+    // `key` inside every one of them (e.g. class_name on each detection).
+    const isList = rule.isList === true || rule.isList === 'true';
+    const itemKey = rule.key || '';
+    const listRow = `
+            <div class="change-rule-row change-rule-list-row">
+                <label class="change-rule-list-toggle" title="Apply this rule to every object in the list">
+                    <input type="checkbox" ${isList ? 'checked' : ''}
+                           onchange="window.updateChangeRule('${nodeId}', '${propName}', ${index}, 'isList', this.checked)">
+                    is list
+                </label>
+                ${isList ? `
+                <span class="change-rule-to">key</span>
+                <input type="text" class="change-rule-key" placeholder="class_name"
+                       value="${escapeHtml(itemKey)}"
+                       onchange="window.updateChangeRule('${nodeId}', '${propName}', ${index}, 'key', this.value)">
+                ` : ''}
+            </div>`;
     
     let html = `
         <div class="change-rule-item" data-rule-index="${index}">
@@ -1065,6 +1083,7 @@ function renderChangeRuleItem(nodeId, propName, rule, index) {
                 </select>
                 ${renderChangeValueInput(nodeId, propName, index, value, valueType)}
             </div>
+            ${listRow}
         `;
     } else if (ruleType === 'change') {
         html += `
@@ -1074,6 +1093,7 @@ function renderChangeRuleItem(nodeId, propName, rule, index) {
                        value="${path}"
                        onchange="window.updateChangeRule('${nodeId}', '${propName}', ${index}, 'path', this.value)">
             </div>
+            ${listRow}
             <div class="change-rule-row">
                 <span class="change-rule-label">search</span>
                 <select class="change-rule-search-type" onchange="window.updateChangeRule('${nodeId}', '${propName}', ${index}, 'searchType', this.value)">
@@ -1100,6 +1120,7 @@ function renderChangeRuleItem(nodeId, propName, rule, index) {
                        value="${path}"
                        onchange="window.updateChangeRule('${nodeId}', '${propName}', ${index}, 'path', this.value)">
             </div>
+            ${listRow}
         `;
     } else if (ruleType === 'move') {
         const toPath = rule.toPath || '';
@@ -1109,10 +1130,11 @@ function renderChangeRuleItem(nodeId, propName, rule, index) {
                        value="${path}"
                        onchange="window.updateChangeRule('${nodeId}', '${propName}', ${index}, 'path', this.value)">
                 <span class="change-rule-to">to</span>
-                <input type="text" class="change-rule-to-path" placeholder="msg.newPayload" 
+                <input type="text" class="change-rule-to-path" placeholder="${isList ? 'new_key' : 'msg.newPayload'}" 
                        value="${toPath}"
                        onchange="window.updateChangeRule('${nodeId}', '${propName}', ${index}, 'toPath', this.value)">
             </div>
+            ${listRow}
         `;
     }
     
@@ -1246,8 +1268,9 @@ export function updateChangeRule(nodeId, propName, ruleIndex, field, value) {
         rules[ruleIndex][field] = value;
         nodeData.config[propName] = rules;
         
-        // Re-render if type changed to update inputs
-        if (field === 'type' || field === 'valueType') {
+        // Re-render if type changed to update inputs, or if list mode was
+        // toggled (that shows/hides the item key input).
+        if (field === 'type' || field === 'valueType' || field === 'isList') {
             renderProperties(nodeData);
         }
         
