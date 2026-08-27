@@ -9,6 +9,7 @@ import logging
 import numpy as np
 from typing import Any, Dict, Optional
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
+from pynode.nodes.detection_utils import CANONICAL_BBOX_FORMAT, normalized_detection
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +18,11 @@ _info.add_text("Draws detection results (bounding boxes and labels) on images.")
 _info.add_header("Inputs")
 _info.add_bullets(
     ("Input 0:", "Message with payload.predictions (from YOLO or Inference) and payload.image (base64)"),
+)
+_info.add_text(
+    "Boxes are read in whatever format the producer labelled them with "
+    "(payload.bbox_format, or bbox_format on the detection itself) and "
+    "converted to xyxy before drawing."
 )
 _info.add_header("Outputs")
 _info.add_bullets(
@@ -264,16 +270,21 @@ class DrawPredictionsNode(BaseNode):
         show_confidence = self.get_config_bool('show_confidence', True)
         show_class = self.get_config_bool('show_class', True)
 
+        # Producers label their boxes differently (Ultralytics emits xyxy, the
+        # ONNX engine centre-based boxes under top_class/top_score), so take the
+        # payload-level format as the default and let each detection override it.
+        default_bbox_format = CANONICAL_BBOX_FORMAT
+        if isinstance(payload, dict):
+            default_bbox_format = payload.get(MessageKeys.CV.BBOX_FORMAT) or CANONICAL_BBOX_FORMAT
+
         # Draw each detection/track
         for i, det in enumerate(detections):
             try:
-                bbox = det.get('bbox', [0, 0, 0, 0])
-                if isinstance(bbox, np.ndarray):
-                    bbox = bbox.tolist()
-                x1, y1, x2, y2 = bbox
-                class_id = det.get('class_id', 0)
-                class_name = det.get('class_name', 'unknown')
-                confidence = det.get('confidence', 0.0)
+                det = normalized_detection(det, default_bbox_format)
+                x1, y1, x2, y2 = det['bbox'] if det.get('bbox') is not None else (0, 0, 0, 0)
+                class_id = det['class_id']
+                class_name = det['class_name']
+                confidence = det['confidence']
                 track_id = det.get('track_id', None)
 
                 x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)

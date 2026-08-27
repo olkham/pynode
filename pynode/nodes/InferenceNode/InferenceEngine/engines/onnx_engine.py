@@ -61,6 +61,15 @@ class OnnxEngine(BaseInferenceEngine):
             # Try CUDA provider first
             providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']
             provider_options = None
+            # On Windows the CUDA/cuDNN DLLs are only on the search path once torch
+            # (or the nvidia-* wheels) has been loaded, so ask onnxruntime to pull
+            # them in explicitly instead of silently falling back to CPU. This still
+            # requires the CUDA major of onnxruntime-gpu to match the torch build:
+            # torch cu12x needs onnxruntime-gpu < 1.27, cu13x needs >= 1.27.
+            try:
+                ort.preload_dlls()
+            except Exception as e:  # onnxruntime < 1.21, or DLLs already resolved
+                self.logger.debug(f"onnxruntime preload_dlls unavailable: {e}")
         elif 'gpu' in device_lower:
             providers = ['OpenVINOExecutionProvider', 'CUDAExecutionProvider', 'CPUExecutionProvider']
             provider_options = [{'device_type': 'GPU'}, {'device_type': 'GPU'}, {'device_type': 'CPU'}]
@@ -70,6 +79,14 @@ class OnnxEngine(BaseInferenceEngine):
 
         try:
             self.session = ort.InferenceSession(model_file, providers=providers, provider_options=provider_options)
+
+            active_providers = self.session.get_providers()
+            if 'cuda' in device_lower and 'CUDAExecutionProvider' not in active_providers:
+                self.logger.warning(
+                    f"CUDA was requested but onnxruntime is running on {active_providers}. "
+                    "The installed onnxruntime-gpu build likely targets a different CUDA "
+                    "major version than the installed torch/CUDA runtime."
+                )
 
             # Inspect inputs/outputs
             inputs = self.session.get_inputs()
@@ -104,7 +121,10 @@ class OnnxEngine(BaseInferenceEngine):
             self.model_path = model_file
             self.device = device
             self.is_loaded = True
-            self.logger.info(f"Loaded ONNX model: {model_file} (input={self.input_shape}, output={out_shape})")
+            self.logger.info(
+                f"Loaded ONNX model: {model_file} (input={self.input_shape}, "
+                f"output={out_shape}, providers={active_providers})"
+            )
             return True
         except Exception as e:
             self.logger.error(f"Failed to load ONNX model: {e}")

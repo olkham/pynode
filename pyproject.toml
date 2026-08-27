@@ -68,6 +68,9 @@ camera = [
     "framesource[full]",
 ]
 # InferenceNode extra backends (ONNX Runtime); torch/ultralytics via [vision]
+# CPU wheel by default. For CUDA, uninstall it and install onnxruntime-gpu with a
+# CUDA major matching torch (cu12x -> <1.27, cu13x -> >=1.27); the two wheels share
+# a package directory and must never be installed side by side.
 inference = [
     "pynode-flow[vision]",
     "onnxruntime",

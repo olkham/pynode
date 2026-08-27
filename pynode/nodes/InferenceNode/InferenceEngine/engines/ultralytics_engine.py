@@ -620,7 +620,9 @@ except Exception as e:
                     elif hasattr(boxes, 'xywh'):
                         # Center coordinates format
                         bbox = boxes.xywh[i].cpu().numpy().tolist()
-                        bbox_format = "xywh"  # [x_center, y_center, width, height]
+                        # 'xywh' would be read as COCO top-left+size elsewhere in
+                        # PyNode; these are centre-based, so say so.
+                        bbox_format = "cxcywh"  # [x_center, y_center, width, height]
                     else:
                         bbox = []
                         bbox_format = "unknown"

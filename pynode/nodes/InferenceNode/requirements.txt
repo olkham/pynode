@@ -8,5 +8,9 @@ ultralytics
 onnxruntime
 
 # Optional GPU support (uncomment if using CUDA)
-onnxruntime-gpu
+# Do NOT keep onnxruntime and onnxruntime-gpu installed at the same time - they
+# share the same package directory and clobber each other. Uninstall the CPU
+# wheel first, and match the CUDA major of the build to the installed torch:
+#   torch cu12x -> onnxruntime-gpu<1.27      torch cu13x -> onnxruntime-gpu>=1.27
+# onnxruntime-gpu
 torch

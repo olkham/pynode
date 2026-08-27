@@ -10,6 +10,7 @@ import os
 import numpy as np
 from typing import Any, Dict, List, Optional
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
+from pynode.nodes.detection_utils import CANONICAL_BBOX_FORMAT, normalized_detections
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +21,8 @@ _info.add_bullets(("Input 0:", "Image message with 'image' field (base64 or nump
 _info.add_header("Outputs")
 _info.add_bullets(
     ("Output 0:", "Detection results with optional annotated image"),
+    ("payload.detections:", "List of detections with class_id, class_name, confidence, bbox"),
+    ("payload.bbox_format:", "Always 'xyxy' - engine-native formats are converted here"),
 )
 _info.add_header("Configuration")
 _info.add_bullets(
@@ -431,10 +434,21 @@ class InferenceNode(BaseNode):
             if include_predictions:
                 # Extract predictions from json_results
                 if isinstance(json_results, dict):
-                    payload_out['detections'] = json_results.get('predictions', [])
-                    payload_out['detection_count'] = json_results.get('num_detections', 0)
+                    # Engines report boxes in their own native format (the ONNX
+                    # engine centre-based, Ultralytics xyxy) under their own key
+                    # names. Normalize here, at the node boundary, so every
+                    # downstream node sees one schema - and so the bbox_format
+                    # advertised below is actually true. A custom engine may
+                    # declare its format once at result level; a per-detection
+                    # bbox_format still wins over it.
+                    detections = normalized_detections(
+                        json_results.get('predictions', []),
+                        json_results.get('bbox_format', CANONICAL_BBOX_FORMAT),
+                    )
+                    payload_out['detections'] = detections
+                    payload_out['detection_count'] = json_results.get('num_detections', len(detections))
                     payload_out['task_type'] = self._standardize_task_string(json_results.get('task_type', 'detections'))
-                    payload_out['bbox_format'] = 'xyxy'
+                    payload_out['bbox_format'] = CANONICAL_BBOX_FORMAT
                 else:
                     payload_out['detections'] = []
                     payload_out['detection_count'] = 0
