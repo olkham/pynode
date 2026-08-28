@@ -56,6 +56,9 @@ class ImageViewerNode(BaseNode):
         'image_path': f'{MessageKeys.PAYLOAD}.{MessageKeys.IMAGE.PATH}'
     }
     
+    # Editor UI for this node's custom property type (see BaseNode.ui_assets).
+    ui_assets = {'js': ['ui/stream-url.js']}
+
     properties = [
         {
             'name': MessageKeys.IMAGE.WIDTH,

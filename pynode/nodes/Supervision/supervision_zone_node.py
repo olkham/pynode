@@ -80,6 +80,9 @@ class SupervisionZoneNode(BaseNode):
         'opacity': '0.15',
     }
 
+    # Editor UI for this node's custom property type (see BaseNode.ui_assets).
+    ui_assets = {'js': ['ui/geometry.js']}
+
     properties = [
         {
             'name': 'polygon',

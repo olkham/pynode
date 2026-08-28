@@ -4,12 +4,16 @@
 // place the geometry by clicking:
 //   line:    click start, click end (2 points)
 //   polygon: click each corner, then "Save" (>= 3 points); right-click undoes
-// Saving writes the value into the working config via window.updateNodeConfig
-// (persists across redeploys) AND POSTs the node's set_geometry action so a
-// deployed node applies it live, mirroring the ControlSliderNode pattern.
+// Saving hands the value back through the caller's `onSave` (which persists it
+// to the working config, so it survives redeploys) AND POSTs the node's
+// set_geometry action so a deployed node applies it live, mirroring the
+// ControlSliderNode pattern.
+//
+// A shared service, not a node's own UI: the modal is generic frame-drawing
+// machinery. The `geometry` property editor that opens it lives with the node
+// that declares it, in pynode/nodes/Supervision/ui/.
 
-import { API_BASE } from './config.js';
-import { state } from './state.js';
+import { API_BASE } from '../../config.js';
 
 let overlay = null;         // lazily created modal root
 let ctx = null;             // 2d context of the canvas
@@ -141,12 +145,10 @@ function serialize() {
 async function save() {
     if (!session) return;
     const value = serialize();
-    const { nodeId, propName } = session;
+    const { nodeId, onSave } = session;
 
     // Persist into the working config (survives reload / redeploy) ...
-    window.updateNodeConfig(nodeId, propName, value);
-    const input = document.getElementById(`prop-geometry-${nodeId}-${propName}`);
-    if (input) input.value = value;
+    onSave(value);
 
     // ... and push live to the deployed node, if there is one.
     try {
@@ -203,11 +205,17 @@ function parseExisting(raw, geometryType) {
     return [];
 }
 
-export async function openGeometryEditor(nodeId, propName, geometryType) {
+/**
+ * Open the draw-on-frame modal.
+ *
+ * @param {object} args
+ * @param {string} args.nodeId - node whose frame is drawn on
+ * @param {string} args.geometryType - 'line' or 'polygon'
+ * @param {string} args.value - the geometry already stored, if any
+ * @param {(value: string) => void} args.onSave - receives the serialized geometry
+ */
+export async function openGeometryEditor({ nodeId, geometryType, value: raw, onSave }) {
     if (!overlay) buildOverlay();
-
-    const nodeData = state.nodes.get(nodeId);
-    const raw = nodeData ? nodeData.config[propName] : '';
 
     const frame = await fetchFrame(nodeId);
     const w = frame ? frame.w : FALLBACK_W;
@@ -215,7 +223,7 @@ export async function openGeometryEditor(nodeId, propName, geometryType) {
     const scale = Math.min(CANVAS_MAX_W / w, CANVAS_MAX_H / h, 1);
 
     session = {
-        nodeId, propName, geometryType,
+        nodeId, geometryType, onSave,
         points: parseExisting(raw, geometryType),
         img: frame ? frame.img : null,
         scale, w, h,

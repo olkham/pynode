@@ -46,6 +46,9 @@ class MqttInNode(BaseNode):
         'qos': '0'
     }
     
+    # Editor UI for this node's custom property type (see BaseNode.ui_assets).
+    ui_assets = {'js': ['ui/mqtt-service.js']}
+
     properties = [
         {
             'name': 'serviceId',

@@ -60,28 +60,13 @@ class ChangeNode(BaseNode):
     input_count = 1
     output_count = 1
     
-    # Custom UI component for rule editing
-    ui_component = 'change-rules-editor'
-    ui_component_config = {
-        'operations': ['set', 'change', 'move', 'delete'],
-        # Per-rule list mode: apply the rule to `key` inside every item of the
-        # list at the rule's path (see _rule_targets).
-        'list_fields': ['isList', 'key'],
-        'value_types': [
-            {'value': 'str', 'label': 'String'},
-            {'value': 'num', 'label': 'Number'},
-            {'value': 'bool', 'label': 'Boolean'},
-            {'value': 'json', 'label': 'JSON'},
-            {'value': 'msg', 'label': 'msg.'},
-            {'value': 'flow', 'label': 'flow.'},
-            {'value': 'global', 'label': 'global.'}
-        ]
-    }
-    
     DEFAULT_CONFIG = {
         'rules': []
     }
     
+    # Editor UI for this node's custom property type (see BaseNode.ui_assets).
+    ui_assets = {'js': ['ui/change-rules.js']}
+
     properties = [
         {
             'name': 'rules',

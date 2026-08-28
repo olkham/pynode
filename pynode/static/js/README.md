@@ -8,8 +8,8 @@ The frontend has been restructured into modular ES6 modules for better maintaina
 static/
 ├── index.html              # Main HTML file
 ├── style.css               # All styles
-├── app.js                  # Legacy monolithic file (can be removed)
 └── js/                     # Modular JavaScript
+    ├── auth.js             # Optional API-key support (classic script, loads first)
     ├── main.js             # Application entry point
     ├── config.js           # Configuration and constants
     ├── state.js            # State management
@@ -18,10 +18,24 @@ static/
     ├── nodes.js            # Node creation and rendering
     ├── connections.js      # Connection management
     ├── selection.js        # Node selection logic
-    ├── properties.js       # Properties panel
+    ├── clipboard.js        # Copy/cut/paste of nodes
+    ├── history.js          # Undo/redo
+    ├── viewport.js         # Pan/zoom
+    ├── minimap.js          # Canvas minimap
+    ├── properties.js       # Properties panel (generic engine)
     ├── workflow.js         # Workflow import/export/deploy
+    ├── workflows.js        # Multi-workflow tabs
     ├── debug.js            # Debug panel and SSE
-    └── events.js           # Event handlers
+    ├── events.js           # Event handlers
+    └── node-ui/            # Editor UI that node types ship themselves
+        ├── README.md       # The contract - read this before adding one
+        ├── registry.js     # propertyType -> editor
+        ├── loader.js       # Imports each node's declared modules at startup
+        ├── context.js      # The object handed to an editor
+        ├── dom.js          # h() / esc() helpers (editors' only core import)
+        └── services/       # Machinery shared by several nodes' editors
+            ├── geometry-editor.js
+            └── mqtt-brokers.js
 ```
 
 ## Module Overview
@@ -68,11 +82,20 @@ static/
 - Deselection
 
 ### `properties.js` - Properties Panel
-- Property panel rendering
-- Node property updates
-- Node config updates
-- Gate toggle (special case)
-- Action triggers (inject, etc.)
+- A generic engine over the property schema each node class declares
+- Renders the built-in property types (text, password, number, checkbox,
+  textarea, select, button, toggle, file, multiselect, hint)
+- Node config updates, enabled toggle, action triggers, `showIf` visibility
+- Anything else is looked up in the node-UI registry, where the node's own
+  module registered an editor for it - node-specific rendering does NOT live
+  here
+
+### `node-ui/` - Node-supplied editor UI
+A node type that needs a custom editor ships it in its own folder
+(`pynode/nodes/<Node>/ui/*.js`, declared via the class's `ui_assets`), served
+from `/node-ui/` and imported at startup. See
+[node-ui/README.md](node-ui/README.md) for the contract, the context object,
+and the rules for writing one.
 
 ### `workflow.js` - Workflow Operations
 - Load workflow from API
@@ -105,13 +128,16 @@ static/
 - Clear separation of concerns
 
 ### Window Globals
-Some functions are exposed to `window` for inline event handlers in dynamically generated HTML:
+A few functions are exposed to `window` for the inline handlers in the
+properties panel's remaining string-built rows:
 - `updateNodeProperty()`
 - `updateNodeConfig()`
 - `triggerNodeAction()`
 - `toggleGate()`
 
-This is necessary because the properties panel HTML is generated dynamically with inline `onchange` handlers.
+Node-supplied editors under `node-ui/` attach real listeners and need nothing
+here, which is why this list no longer grows with every node. The on-card
+widgets in `nodes.js` still use inline handlers.
 
 ## Benefits of New Structure
 
@@ -124,11 +150,11 @@ This is necessary because the properties panel HTML is generated dynamically wit
 
 ## Migration Notes
 
-- The old `app.js` is no longer used
 - All functionality is preserved
-- No API changes required
-- Works with existing backend
 - Module loading is automatic via `type="module"` in HTML
+- `properties.js` no longer carries per-node editors; those moved into node
+  folders (see `node-ui/`). On-card widgets (`nodes.js`'s `uiComponent` chain)
+  and their SSE updaters in `debug.js` have NOT moved yet.
 
 ## Future Improvements
 

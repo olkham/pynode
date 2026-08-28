@@ -2,6 +2,7 @@
 import { API_BASE, NODE_CATEGORIES } from './config.js';
 import { state, setNodeTypes } from './state.js';
 import { categoryLabel } from './ui-utils.js';
+import { loadNodeUiAssets } from './node-ui/loader.js';
 
 // Collapsed-state of categories, keyed by lowercase category value and
 // persisted in localStorage. On very first load (no stored state) large
@@ -42,6 +43,9 @@ export async function loadNodeTypes() {
         const response = await fetch(`${API_BASE}/node-types`);
         const types = await response.json();
         setNodeTypes(types);  // Use the setter to build both array and map
+        // Pull in the editor UI node types ship with themselves, before
+        // anything can render a properties panel that needs one.
+        await loadNodeUiAssets(types);
         renderNodePalette();
         setupPaletteSearch();
     } catch (error) {

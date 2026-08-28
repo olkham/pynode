@@ -1,12 +1,13 @@
 """API blueprints for the PyNode Flask server."""
 
+from pynode.api.node_ui import node_ui_bp
 from pynode.api.nodes import nodes_bp
 from pynode.api.services import services_bp
 from pynode.api.sse import sse_bp
 from pynode.api.uploads import uploads_bp
 from pynode.api.workflows import workflows_bp
 
-ALL_BLUEPRINTS = (workflows_bp, nodes_bp, services_bp, uploads_bp, sse_bp)
+ALL_BLUEPRINTS = (workflows_bp, nodes_bp, services_bp, uploads_bp, sse_bp, node_ui_bp)
 
 
 def register_blueprints(app):

@@ -134,6 +134,16 @@ class BaseNode:
     # 'throttle' (optional): minimum interval in seconds between broadcasts (None = every cycle).
     sse_handlers: List[Dict[str, Any]] = []
 
+    # Editor UI files this node type ships, as paths relative to the node's
+    # own folder. They are served (outside /api/, so no API key is needed to
+    # load them) and pulled into the editor at startup; a JS module registers
+    # the property editor for the custom `type` this node declares in
+    # `properties`. See pynode/static/js/node-ui/README.md for the contract.
+    # Format: {'js': ['ui/thing.js'], 'css': ['ui/thing.css']}
+    # Paths that escape the node folder, do not exist, or are not .js/.css are
+    # dropped with a warning - a broken UI file never stops the server.
+    ui_assets: Dict[str, List[str]] = {}
+
     def __init__(self, node_id: Optional[str] = None, name: str = ""):
         """
         Initialize a base node.

@@ -95,6 +95,9 @@ class SupervisionLineCounterNode(BaseNode):
         'draw': 'true',
     }
 
+    # Editor UI for this node's custom property type (see BaseNode.ui_assets).
+    ui_assets = {'js': ['ui/geometry.js']}
+
     properties = [
         {
             'name': 'line',

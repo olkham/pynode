@@ -56,6 +56,9 @@ class InjectNode(BaseNode):
     # UI-triggerable actions (see BaseNode.actions)
     actions = ['inject']
 
+    # Editor UI for this node's custom property type (see BaseNode.ui_assets).
+    ui_assets = {'js': ['ui/inject-props.js']}
+
     properties = [
         {
             'name': 'props',

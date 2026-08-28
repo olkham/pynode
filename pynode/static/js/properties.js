@@ -1,12 +1,18 @@
 ﻿// Properties panel
+//
+// A generic engine over the property schema each node class declares. The
+// built-in types below are the ones many nodes share; anything else is looked
+// up in the node-UI registry, where a node's own module registered an editor
+// for it (see js/node-ui/README.md). Node-specific rendering does not live
+// here.
 import { state, markNodeModified, setModified, getNodeType } from './state.js';
 import { API_BASE } from './config.js';
 import { updateNodeOutputCount, updateNodeInputCount } from './nodes.js';
 import { updateConnections } from './connections.js';
 import { showToast } from './ui-utils.js';
-// Side-effect import: registers the window.* handlers used by the
-// `mqtt-service` property below (loadMqttServices, openMqttBrokerDialog, ...).
-import './mqtt-services.js';
+import { getPropertyEditor } from './node-ui/registry.js';
+import { createPropertyContext } from './node-ui/context.js';
+import { esc as escapeHtml } from './node-ui/dom.js';
 
 // Helper function to check if property should be shown
 function shouldShowProperty(showIf, config) {
@@ -36,11 +42,16 @@ export function renderProperties(nodeData) {
     }
     
     const isEnabled = nodeData.enabled !== undefined ? nodeData.enabled : true;
+
+    // Editors registered by node UI modules are mounted as real elements after
+    // the panel's HTML lands; each one reserves a slot as the HTML is built.
+    destroyMountedEditors();
+    const pendingEditors = [];
     
     let html = `
         <div class="property-group">
             <label class="property-label">Name</label>
-            <input type="text" class="property-input" value="${nodeData.name}" 
+            <input type="text" class="property-input" value="${escapeHtml(nodeData.name)}"
                    onchange="window.updateNodeProperty('${nodeData.id}', 'name', this.value)">
         </div>
         <div class="property-group property-enabled-row">
@@ -76,54 +87,29 @@ export function renderProperties(nodeData) {
                 html += `
                     <label class="property-label">${prop.label}</label>
                     <input type="text" class="property-input"
-                           value="${value}"
-                           placeholder="${placeholder}"
+                           value="${escapeHtml(value)}"
+                           placeholder="${escapeHtml(placeholder)}"
                            onchange="window.updateNodeConfig('${nodeData.id}', '${prop.name}', this.value)">
                 `;
-            } else if (prop.type === 'geometry') {
-                // Text value plus a "Draw on frame" button that opens the
-                // geometry editor modal (geometry-editor.js). geometryType is
-                // 'line' or 'polygon'.
+            } else if (prop.type === 'password') {
+                // Secret-shaped text (Qwen3VLMNode's HuggingFace token). Same
+                // storage as 'text'; masked on screen, and kept out of the
+                // browser's autofill.
                 const value = nodeData.config[prop.name] !== undefined ? nodeData.config[prop.name] : (prop.default || '');
-                const geometryType = prop.geometryType || 'polygon';
                 html += `
                     <label class="property-label">${prop.label}</label>
-                    <div class="property-geometry-container">
-                        <input type="text" class="property-input property-geometry-input"
-                               id="prop-geometry-${nodeData.id}-${prop.name}"
-                               value='${String(value).replace(/'/g, "&#39;")}'
-                               onchange="window.updateNodeConfig('${nodeData.id}', '${prop.name}', this.value)">
-                        <button class="btn btn-secondary property-geometry-btn"
-                                onclick="window.openGeometryEditor('${nodeData.id}', '${prop.name}', '${geometryType}')"
-                                title="Draw the ${geometryType} on the node's latest frame">
-                            ✏ Draw on frame
-                        </button>
-                    </div>
-                `;
-            } else if (prop.type === 'link-channel') {
-                // Same as 'text', plus a <datalist> of known channel names (Link
-                // In/Out nodes) so users can pick an existing channel instead of
-                // retyping it. <datalist> never restricts input, so free-text
-                // entry keeps working. The datalist is populated after render by
-                // populateLinkChannelDatalists().
-                const value = nodeData.config[prop.name] !== undefined ? nodeData.config[prop.name] : (prop.default || '');
-                const placeholder = prop.placeholder || prop.default || '';
-                const listId = `link-channel-list-${nodeData.id}-${prop.name}`;
-                html += `
-                    <label class="property-label">${prop.label}</label>
-                    <input type="text" class="property-input"
-                           value="${value}"
-                           placeholder="${placeholder}"
-                           list="${listId}"
+                    <input type="password" class="property-input"
+                           value="${escapeHtml(value)}"
+                           placeholder="${escapeHtml(prop.placeholder || '')}"
+                           autocomplete="off"
                            onchange="window.updateNodeConfig('${nodeData.id}', '${prop.name}', this.value)">
-                    <datalist id="${listId}"></datalist>
                 `;
             } else if (prop.type === 'number') {
                 const value = nodeData.config[prop.name] !== undefined ? nodeData.config[prop.name] : (prop.default || 0);
                 html += `
                     <label class="property-label">${prop.label}</label>
                     <input type="number" class="property-input" 
-                           value="${value}"
+                           value="${escapeHtml(value)}"
                            onchange="window.updateNodeConfig('${nodeData.id}', '${prop.name}', parseFloat(this.value))">
                 `;
             } else if (prop.type === 'checkbox') {
@@ -142,8 +128,8 @@ export function renderProperties(nodeData) {
                 html += `
                     <label class="property-label">${prop.label}</label>
                     <textarea class="property-input property-textarea" 
-                              placeholder="${placeholder}"
-                              onchange="window.updateNodeConfig('${nodeData.id}', '${prop.name}', this.value)">${value}</textarea>
+                              placeholder="${escapeHtml(placeholder)}"
+                              onchange="window.updateNodeConfig('${nodeData.id}', '${prop.name}', this.value)">${escapeHtml(value)}</textarea>
                 `;
             } else if (prop.type === 'select') {
                 html += `
@@ -165,42 +151,6 @@ export function renderProperties(nodeData) {
                     html += `<option value="${escapeHtml(String(savedValue))}" selected>${escapeHtml(String(savedValue))} (saved value - unavailable here)</option>`;
                 }
                 html += '</select>';
-            } else if (prop.type === 'code-examples') {
-                // A dropdown of ready-made code snippets. Picking one drops its
-                // code into the target textarea (prop.target) instead of
-                // storing a config value of its own.
-                //
-                // The selection is DERIVED from the target's current code, not
-                // stored: code matching an example keeps that example's name
-                // showing, and editing the code switches the dropdown to
-                // "Custom" (see syncCodeExampleSelect).
-                const options = Array.isArray(prop.options) ? prop.options : [];
-                const currentCode = `${nodeData.config[prop.target] !== undefined ? nodeData.config[prop.target] : ''}`;
-                const matchIdx = options.findIndex(ex => ex.code === currentCode);
-                const isCustom = currentCode.trim() !== '' && matchIdx === -1;
-                const canUndo = codeExampleUndo.has(nodeData.id);
-                html += `
-                    <label class="property-label">${prop.label}</label>
-                    <div class="property-example-container">
-                        <select class="property-select property-example-select"
-                                data-example-node="${nodeData.id}"
-                                data-example-target="${prop.target}"
-                                onchange="window.applyCodeExample('${nodeData.id}', '${prop.target}', this)">
-                            <option value="" ${!isCustom && matchIdx === -1 ? 'selected' : ''}>— Select an example… —</option>
-                            <option value="__custom__" disabled ${isCustom ? 'selected' : ''}>Custom</option>
-                `;
-                options.forEach((ex, i) => {
-                    const outputsAttr = ex.outputs !== undefined ? ` data-outputs="${ex.outputs}"` : '';
-                    html += `<option value="${i}" data-code="${escapeHtml(ex.code)}"${outputsAttr} ${i === matchIdx ? 'selected' : ''}>${escapeHtml(ex.label)}</option>`;
-                });
-                html += `
-                        </select>
-                        <button class="btn btn-secondary property-example-undo"
-                                onclick="window.undoCodeExample('${nodeData.id}')"
-                                ${canUndo ? '' : 'disabled'}
-                                title="${canUndo ? 'Undo - restore the code this example replaced' : 'Nothing to undo'}">↶</button>
-                    </div>
-                `;
             } else if (prop.type === 'button') {
                 html += `
                     <button class="btn btn-primary" onclick="window.triggerNodeAction('${nodeData.id}', '${prop.action}')">${prop.label}</button>
@@ -232,8 +182,8 @@ export function renderProperties(nodeData) {
                     <label class="property-label">${prop.label}</label>
                     <div class="property-file-container">
                         <input type="text" class="property-input property-file-path" 
-                               value="${value}"
-                               placeholder="${placeholder}"
+                               value="${escapeHtml(value)}"
+                               placeholder="${escapeHtml(placeholder)}"
                                onchange="window.updateNodeConfig('${nodeData.id}', '${prop.name}', this.value)">
                         <button class="btn btn-secondary property-file-btn" onclick="window.selectFile('${nodeData.id}', '${prop.name}', '${accept}', '${uploadRoute}')">
                             <i class="fas fa-folder-open"></i>
@@ -244,57 +194,6 @@ export function renderProperties(nodeData) {
                             <div class="upload-progress-fill" id="${fileId}-fill"></div>
                         </div>
                         <span class="upload-progress-text" id="${fileId}-text">0%</span>
-                    </div>
-                `;
-            } else if (prop.type === 'mqtt-service') {
-                // MQTT broker selector - compact select of existing brokers plus
-                // a single "Manage brokers…" button that opens the consolidated
-                // broker editor (pick/create/edit/test/save/delete in one place).
-                const currentServiceId = nodeData.config[prop.name] || '';
-                html += `
-                    <label class="property-label">${prop.label}</label>
-                    <div class="property-service-container">
-                        <select class="property-select property-service-select"
-                                id="mqtt-service-${nodeData.id}"
-                                data-node-id="${nodeData.id}"
-                                data-prop-name="${prop.name}"
-                                onchange="window.onMqttServiceSelect('${nodeData.id}', '${prop.name}', this.value)">
-                            <option value="">-- Select broker --</option>
-                        </select>
-                        <button class="btn btn-secondary property-service-btn property-service-manage"
-                                onclick="window.openMqttBrokerDialog('${nodeData.id}', '${prop.name}')"
-                                title="Add, edit, test or delete broker connections">
-                            Manage brokers…
-                        </button>
-                    </div>
-                `;
-                // Load services after rendering
-                setTimeout(() => window.loadMqttServices(nodeData.id, prop.name, currentServiceId), 0);
-            } else if (prop.type === 'rules') {
-                html += renderRulesEditor(nodeData.id, prop.name, nodeData.config[prop.name] || []);
-            } else if (prop.type === 'injectProps') {
-                html += renderInjectPropsEditor(nodeData.id, prop.name, nodeData.config[prop.name] || []);
-            } else if (prop.type === 'changeRules') {
-                html += renderChangeRulesEditor(nodeData.id, prop.name, nodeData.config[prop.name] || []);
-            } else if (prop.type === 'streamUrl') {
-                // Read-only stream URL that opens in new tab
-                const streamUrl = `${window.location.origin}/api/nodes/${nodeData.id}/stream`;
-                html += `
-                    <label class="property-label">${prop.label}</label>
-                    <div class="property-stream-url-container">
-                        <input type="text" class="property-input property-stream-url" 
-                               value="${streamUrl}" readonly
-                               onclick="this.select()">
-                        <button class="btn btn-secondary property-stream-btn" 
-                                onclick="window.open('${streamUrl}', '_blank')"
-                                title="Open stream in new tab">
-                            ↗️
-                        </button>
-                        <button class="btn btn-secondary property-stream-btn" 
-                                onclick="navigator.clipboard.writeText('${streamUrl}'); window.showToast && window.showToast('URL copied!')"
-                                title="Copy URL">
-                            🗐
-                        </button>
                     </div>
                 `;
             } else if (prop.type === 'multiselect') {
@@ -338,6 +237,25 @@ export function renderProperties(nodeData) {
                         </div>
                     </div>
                 `;
+            } else if (getPropertyEditor(prop.type)) {
+                // A node-supplied editor. Reserve an empty slot now; the
+                // element is mounted into it after innerHTML lands, below.
+                const slotId = `prop-slot-${nodeData.id}-${prop.name}`;
+                pendingEditors.push({ slotId, prop });
+                html += `<div class="property-editor-slot" id="${slotId}"></div>`;
+            } else {
+                // Say so, loudly. A property type nothing renders used to
+                // produce an empty div - invisible on screen, and how a
+                // declared-but-never-implemented type could survive unnoticed.
+                console.error(
+                    `[node-ui] ${nodeData.type}: no editor registered for property type ` +
+                    `'${prop.type}' (property '${prop.name}').`);
+                html += `
+                    <label class="property-label">${prop.label}</label>
+                    <div class="property-missing-editor">
+                        No editor registered for property type <code>${escapeHtml(prop.type)}</code>
+                    </div>
+                `;
             }
 
             if (prop.help) {
@@ -350,14 +268,84 @@ export function renderProperties(nodeData) {
     
     panel.innerHTML = html;
 
+    mountPendingEditors(nodeData, pendingEditors);
+
     // Update property visibility based on current config
     window.updatePropertyVisibility(nodeData.id);
+}
 
-    // Populate channel suggestions for any 'link-channel' property (Link
-    // In/Out nodes): fetches server-known channels and merges in channels
-    // typed into Link nodes elsewhere in the current editor state, so
-    // unsaved/undeployed channels show up too.
-    populateLinkChannelDatalists(nodeData);
+// Editors currently on screen, so they can be torn down before the panel is
+// replaced and notified when the config changes underneath them.
+let mountedEditors = [];
+
+function destroyMountedEditors() {
+    for (const { editor, el, ctx } of mountedEditors) {
+        try {
+            if (editor.destroy) editor.destroy(el, ctx);
+        } catch (error) {
+            console.error('[node-ui] editor destroy() failed:', error);
+        }
+    }
+    mountedEditors = [];
+}
+
+/**
+ * Build each node-supplied editor and drop it into the slot reserved for it.
+ *
+ * One editor throwing must not take the rest of the panel with it, so every
+ * call into node-supplied code is guarded.
+ */
+function mountPendingEditors(nodeData, pending) {
+    const deps = {
+        updateConfig: updateNodeConfig,
+        setOutputCount: updateNodeOutputCount,
+        rerender: () => renderProperties(nodeData),
+    };
+
+    for (const { slotId, prop } of pending) {
+        const slot = document.getElementById(slotId);
+        const editor = getPropertyEditor(prop.type);
+        if (!slot || !editor) continue;
+
+        const ctx = createPropertyContext({ nodeData, prop, deps });
+        let el;
+        try {
+            el = editor.mount(ctx);
+        } catch (error) {
+            console.error(`[node-ui] editor for '${prop.type}' failed to mount:`, error);
+            slot.textContent = `The editor for '${prop.type}' failed to load.`;
+            slot.classList.add('property-missing-editor');
+            continue;
+        }
+
+        slot.appendChild(el);
+        mountedEditors.push({ editor, el, ctx, prop });
+
+        if (editor.ready) {
+            // ready() may be async (fetching suggestions, broker lists); a
+            // rejection must not break the panel that is already on screen.
+            Promise.resolve()
+                .then(() => editor.ready(el, ctx))
+                .catch(error => console.error(`[node-ui] editor for '${prop.type}' ready() failed:`, error));
+        }
+    }
+}
+
+/**
+ * Tell mounted editors that a config key changed, so an editor whose display
+ * is derived from another property can re-sync without a full re-render (the
+ * Function node's example dropdown switching to "Custom" when the code is
+ * edited by hand).
+ */
+function notifyEditorsOfConfigChange(nodeId, key, value) {
+    for (const { editor, el, ctx } of mountedEditors) {
+        if (!editor.onConfigChange || ctx.nodeId !== nodeId) continue;
+        try {
+            editor.onConfigChange(el, key, value, ctx);
+        } catch (error) {
+            console.error('[node-ui] editor onConfigChange() failed:', error);
+        }
+    }
 }
 
 /**
@@ -368,40 +356,6 @@ export function renderProperties(nodeData) {
  * (state.nodes) - deduped and sorted. Free-text entry still works; this only
  * adds suggestions.
  */
-async function populateLinkChannelDatalists(nodeData) {
-    const nodeType = getNodeType(nodeData.type);
-    if (!nodeType || !nodeType.properties) return;
-    const linkChannelProps = nodeType.properties.filter(p => p.type === 'link-channel');
-    if (linkChannelProps.length === 0) return;
-
-    const clientChannels = new Set();
-    state.nodes.forEach(n => {
-        if (n.type === 'LinkInNode' || n.type === 'LinkOutNode') {
-            const ch = (n.config && n.config.channel != null ? String(n.config.channel) : '').trim();
-            if (ch) clientChannels.add(ch);
-        }
-    });
-
-    let serverChannels = [];
-    try {
-        const response = await fetch(`${API_BASE}/link-channels`);
-        const data = await response.json();
-        if (data && data.success && Array.isArray(data.channels)) {
-            serverChannels = data.channels;
-        }
-    } catch (error) {
-        console.error('Failed to load link channels:', error);
-    }
-
-    const merged = Array.from(new Set([...serverChannels, ...clientChannels])).sort();
-    const optionsHtml = merged.map(ch => `<option value="${escapeHtml(ch)}"></option>`).join('');
-
-    linkChannelProps.forEach(prop => {
-        const datalist = document.getElementById(`link-channel-list-${nodeData.id}-${prop.name}`);
-        if (datalist) datalist.innerHTML = optionsHtml;
-    });
-}
-
 export function updateNodeProperty(nodeId, property, value) {
     const nodeData = state.nodes.get(nodeId);
     nodeData[property] = value;
@@ -454,9 +408,8 @@ export function updateNodeConfig(nodeId, key, value) {
         }
     }
 
-    // Keep any 'code-examples' dropdown pointed at this key in sync, so editing
-    // the code by hand switches the dropdown to "Custom".
-    syncCodeExampleSelect(nodeId, key);
+    // Let a mounted node editor re-sync anything it derives from this key.
+    notifyEditorsOfConfigChange(nodeId, key, value);
 
     // Update property visibility since config changed
     window.updatePropertyVisibility(nodeId);
@@ -465,115 +418,6 @@ export function updateNodeConfig(nodeId, key, value) {
     setModified(true);
 }
 
-// One-step undo for 'code-examples' dropdowns: nodeId -> what applying the
-// example replaced ({target, code, outputs?}). Session-only and deliberately
-// not persisted - it exists so an accidental template pick can't silently eat
-// hand-written code. Applying another example overwrites the entry, so only
-// the most recent replacement can be restored.
-const codeExampleUndo = new Map();
-
-/**
- * Apply a ready-made snippet from a 'code-examples' dropdown into the target
- * textarea property (e.g. the Function node's `func`). The dropdown itself
- * stores no config value; it just writes the chosen code into `targetProp`,
- * and the picked example stays selected because the selection is derived from
- * the resulting code.
- *
- * An example may also declare `outputs`, which is applied to the node's output
- * count so e.g. a two-output template really gives the node two outputs.
- * The replaced code (and output count) is stashed for undoCodeExample().
- *
- * @param {string} nodeId - The node ID
- * @param {string} targetProp - The config key to write the snippet into
- * @param {HTMLSelectElement} selectEl - The dropdown element
- */
-export function applyCodeExample(nodeId, targetProp, selectEl) {
-    const nodeData = state.nodes.get(nodeId);
-    if (!nodeData) return;
-
-    const opt = selectEl.options[selectEl.selectedIndex];
-    // Placeholder or the (disabled) "Custom" entry: nothing to apply.
-    if (!opt || !opt.value || opt.value === '__custom__') {
-        syncCodeExampleSelect(nodeId, targetProp);
-        return;
-    }
-
-    const code = opt.dataset.code || '';
-    const outputs = opt.dataset.outputs;
-
-    // Remember what this example replaces so the undo button can restore it.
-    const undoEntry = {
-        target: targetProp,
-        code: `${nodeData.config[targetProp] !== undefined ? nodeData.config[targetProp] : ''}`
-    };
-    if (outputs !== undefined) {
-        // Only track outputs when the example actually changes it. An unset
-        // count restores to 1, the node's default.
-        undoEntry.outputs = nodeData.config.outputs !== undefined ? nodeData.config.outputs : 1;
-    }
-    codeExampleUndo.set(nodeId, undoEntry);
-
-    updateNodeConfig(nodeId, targetProp, code);
-    if (outputs !== undefined) {
-        updateNodeConfig(nodeId, 'outputs', parseInt(outputs, 10));
-    }
-
-    // Re-render so the textarea shows the new code, the Outputs field shows the
-    // new count, and the undo button becomes enabled.
-    renderProperties(nodeData);
-}
-
-/**
- * Restore the code (and output count) that the last applied example replaced.
- * @param {string} nodeId - The node ID
- */
-export function undoCodeExample(nodeId) {
-    const entry = codeExampleUndo.get(nodeId);
-    const nodeData = state.nodes.get(nodeId);
-    if (!entry || !nodeData) return;
-
-    codeExampleUndo.delete(nodeId);
-    updateNodeConfig(nodeId, entry.target, entry.code);
-    if (entry.outputs !== undefined) {
-        updateNodeConfig(nodeId, 'outputs', entry.outputs);
-    }
-
-    renderProperties(nodeData);
-    showToast('Restored the previous code');
-}
-
-/**
- * Re-derive a 'code-examples' dropdown's selection from the target property's
- * current code, without re-rendering the panel. Called whenever the target
- * changes, so editing a template's code switches the dropdown to "Custom" and
- * typing an example's code back in re-selects that example.
- * @param {string} nodeId - The node ID
- * @param {string} targetProp - The config key the dropdown writes into
- */
-function syncCodeExampleSelect(nodeId, targetProp) {
-    const nodeData = state.nodes.get(nodeId);
-    if (!nodeData) return;
-
-    // Scoped by node id so a config change on some other node (e.g. a slider
-    // updating in the background) can never retarget the visible panel.
-    const select = document.querySelector(
-        `.property-example-select[data-example-node="${nodeId}"][data-example-target="${targetProp}"]`);
-    if (!select) return;
-
-    const code = `${nodeData.config[targetProp] !== undefined ? nodeData.config[targetProp] : ''}`;
-    let value = code.trim() === '' ? '' : '__custom__';
-    for (const opt of select.options) {
-        if (opt.dataset.code !== undefined && opt.dataset.code === code) {
-            value = opt.value;
-            break;
-        }
-    }
-    select.value = value;
-}
-
-/**
- * Update multiselect config - collects all checked values into an array
- */
 export function updateMultiselectConfig(nodeId, propName, checkbox) {
     const nodeData = state.nodes.get(nodeId);
     if (!nodeData) return;
@@ -787,499 +631,6 @@ export function selectFile(nodeId, propName, accept, uploadRoute) {
 }
 
 // Rules editor for switch node
-function renderRulesEditor(nodeId, propName, rules) {
-    let html = '<div class="rules-editor">';
-    
-    rules.forEach((rule, index) => {
-        html += `
-            <div class="rule-item" data-rule-index="${index}">
-                <div class="rule-header">
-                    <span class="rule-label">Rule ${index + 1} → Output ${index + 1}</span>
-                    <button class="btn-icon" onclick="window.removeRule('${nodeId}', '${propName}', ${index})" title="Delete rule">✕</button>
-                </div>
-                <div class="rule-config">
-                    <select class="rule-operator" onchange="window.updateRule('${nodeId}', '${propName}', ${index}, 'operator', this.value)">
-                        ${getOperatorOptions(rule.operator || 'eq')}
-                    </select>
-                    <input type="text" class="rule-value" placeholder="Value" 
-                           value="${rule.value || ''}"
-                           onchange="window.updateRule('${nodeId}', '${propName}', ${index}, 'value', this.value)">
-                    <select class="rule-type" onchange="window.updateRule('${nodeId}', '${propName}', ${index}, 'valueType', this.value)">
-                        ${getValueTypeOptions(rule.valueType || 'str')}
-                    </select>
-                </div>
-            </div>
-        `;
-    });
-    
-    html += `
-        <button class="btn btn-secondary btn-sm" onclick="window.addRule('${nodeId}', '${propName}')">+ Add Rule</button>
-    </div>`;
-    
-    return html;
-}
-
-function getOperatorOptions(selected) {
-    const operators = [
-        { value: 'eq', label: '==' },
-        { value: 'neq', label: '!=' },
-        { value: 'lt', label: '<' },
-        { value: 'lte', label: '<=' },
-        { value: 'gt', label: '>' },
-        { value: 'gte', label: '>=' },
-        { value: 'between', label: 'between' },
-        { value: 'contains', label: 'contains' },
-        { value: 'matches', label: 'matches regex' },
-        { value: 'true', label: 'is true' },
-        { value: 'false', label: 'is false' },
-        { value: 'null', label: 'is null' },
-        { value: 'nnull', label: 'is not null' },
-        { value: 'empty', label: 'is empty' },
-        { value: 'nempty', label: 'is not empty' },
-        { value: 'haskey', label: 'has key' },
-        { value: 'else', label: 'otherwise' }
-    ];
-    
-    return operators.map(op => 
-        `<option value="${op.value}" ${op.value === selected ? 'selected' : ''}>${op.label}</option>`
-    ).join('');
-}
-
-function getValueTypeOptions(selected) {
-    const types = [
-        { value: 'str', label: 'string' },
-        { value: 'num', label: 'number' },
-        { value: 'bool', label: 'boolean' },
-        { value: 'json', label: 'JSON' }
-    ];
-    
-    return types.map(type => 
-        `<option value="${type.value}" ${type.value === selected ? 'selected' : ''}>${type.label}</option>`
-    ).join('');
-}
-
-export function addRule(nodeId, propName) {
-    const nodeData = state.nodes.get(nodeId);
-    const rules = nodeData.config[propName] || [];
-    
-    rules.push({
-        operator: 'eq',
-        value: '',
-        valueType: 'str'
-    });
-    
-    nodeData.config[propName] = rules;
-    
-    // Update output count to match rules
-    updateNodeOutputCount(nodeId, rules.length);
-    
-    markNodeModified(nodeId);
-    setModified(true);
-    renderProperties(nodeData);
-}
-
-export function removeRule(nodeId, propName, ruleIndex) {
-    const nodeData = state.nodes.get(nodeId);
-    const rules = nodeData.config[propName] || [];
-    
-    if (rules.length > 1) {
-        rules.splice(ruleIndex, 1);
-        nodeData.config[propName] = rules;
-        
-        // Update output count to match rules
-        updateNodeOutputCount(nodeId, rules.length);
-        
-        markNodeModified(nodeId);
-        setModified(true);
-        renderProperties(nodeData);
-    }
-}
-
-export function updateRule(nodeId, propName, ruleIndex, field, value) {
-    const nodeData = state.nodes.get(nodeId);
-    const rules = nodeData.config[propName] || [];
-    
-    if (rules[ruleIndex]) {
-        rules[ruleIndex][field] = value;
-        nodeData.config[propName] = rules;
-        
-        markNodeModified(nodeId);
-        setModified(true);
-    }
-}
-
-// Inject properties editor for inject node
-function renderInjectPropsEditor(nodeId, propName, props) {
-    let html = '<div class="inject-props-editor">';
-    
-    props.forEach((prop, index) => {
-        html += `
-            <div class="inject-prop-row" data-prop-index="${index}">
-                <span class="inject-prop-prefix">msg.</span>
-                <input type="text" class="inject-prop-key" placeholder="payload" 
-                       value="${prop.property || ''}"
-                       onchange="window.updateInjectProp('${nodeId}', '${propName}', ${index}, 'property', this.value)">
-                <span class="inject-prop-eq">=</span>
-                <select class="inject-prop-type" onchange="window.updateInjectProp('${nodeId}', '${propName}', ${index}, 'valueType', this.value)">
-                    ${getInjectValueTypeOptions(prop.valueType || 'str')}
-                </select>
-                ${renderInjectValueInput(nodeId, propName, index, prop)}
-                <button class="btn-icon-sm" onclick="window.removeInjectProp('${nodeId}', '${propName}', ${index})" title="Delete">✕</button>
-            </div>
-        `;
-    });
-    
-    html += `
-        <button class="btn btn-secondary btn-sm" onclick="window.addInjectProp('${nodeId}', '${propName}')">+ Add</button>
-    </div>`;
-    
-    return html;
-}
-
-function getInjectValueTypeOptions(selected) {
-    const types = [
-        { value: 'str', icon: 'az', label: 'string' },
-        { value: 'num', icon: '123', label: 'number' },
-        { value: 'bool', icon: 't/f', label: 'boolean' },
-        { value: 'json', icon: '{ }', label: 'JSON' },
-        { value: 'date', icon: '⏱', label: 'timestamp' },
-        { value: 'env', icon: 'env', label: 'env variable' }
-    ];
-    
-    return types.map(type => 
-        `<option value="${type.value}" ${type.value === selected ? 'selected' : ''} data-icon="${type.icon}">${type.value === selected ? type.icon : type.label}</option>`
-    ).join('');
-}
-
-function renderInjectValueInput(nodeId, propName, index, prop) {
-    const valueType = prop.valueType || 'str';
-    const value = prop.value !== undefined ? prop.value : '';
-    
-    if (valueType === 'date') {
-        return '<input type="text" class="inject-prop-value" disabled placeholder="timestamp">';
-    } else if (valueType === 'bool') {
-        return `<select class="inject-prop-value" onchange="window.updateInjectProp('${nodeId}', '${propName}', ${index}, 'value', this.value)"><option value="true" ${value === 'true' || value === true ? 'selected' : ''}>true</option><option value="false" ${value === 'false' || value === false ? 'selected' : ''}>false</option></select>`;
-    } else if (valueType === 'json') {
-        const escaped = String(value).replace(/"/g, '&quot;');
-        return `<input type="text" class="inject-prop-value inject-prop-json" placeholder='{"key":"value"}' value="${escaped}" onchange="window.updateInjectProp('${nodeId}', '${propName}', ${index}, 'value', this.value)">`;
-    } else {
-        const placeholder = valueType === 'num' ? '0' : valueType === 'env' ? 'ENV_VAR' : '';
-        return `<input type="text" class="inject-prop-value" placeholder="${placeholder}" value="${value}" onchange="window.updateInjectProp('${nodeId}', '${propName}', ${index}, 'value', this.value)">`;
-    }
-}
-
-export function addInjectProp(nodeId, propName) {
-    const nodeData = state.nodes.get(nodeId);
-    const props = nodeData.config[propName] || [];
-    
-    props.push({
-        property: 'payload',
-        valueType: 'date',
-        value: ''
-    });
-    
-    nodeData.config[propName] = props;
-    
-    markNodeModified(nodeId);
-    setModified(true);
-    renderProperties(nodeData);
-}
-
-export function removeInjectProp(nodeId, propName, propIndex) {
-    const nodeData = state.nodes.get(nodeId);
-    const props = nodeData.config[propName] || [];
-    
-    if (props.length > 0) {
-        props.splice(propIndex, 1);
-        nodeData.config[propName] = props;
-        
-        markNodeModified(nodeId);
-        setModified(true);
-        renderProperties(nodeData);
-    }
-}
-
-export function updateInjectProp(nodeId, propName, propIndex, field, value) {
-    const nodeData = state.nodes.get(nodeId);
-    const props = nodeData.config[propName] || [];
-    
-    if (props[propIndex]) {
-        props[propIndex][field] = value;
-        nodeData.config[propName] = props;
-        
-        // Re-render if type changed to update value input
-        if (field === 'valueType') {
-            renderProperties(nodeData);
-        }
-        
-        markNodeModified(nodeId);
-        setModified(true);
-    }
-}
-
-// Change rules editor for change node (Node-RED style)
-function renderChangeRulesEditor(nodeId, propName, rules) {
-    let html = '<div class="change-rules-editor">';
-    
-    rules.forEach((rule, index) => {
-        html += renderChangeRuleItem(nodeId, propName, rule, index);
-    });
-    
-    html += `
-        <button class="btn btn-secondary btn-sm" onclick="window.addChangeRule('${nodeId}', '${propName}')">+ Add Rule</button>
-    </div>`;
-    
-    return html;
-}
-
-function renderChangeRuleItem(nodeId, propName, rule, index) {
-    const ruleType = rule.type || 'set';
-    const path = rule.path || 'msg.payload';
-    const value = rule.value !== undefined ? rule.value : '';
-    const valueType = rule.valueType || 'str';
-    const search = rule.search || '';
-    const replace = rule.replace || '';
-    const searchType = rule.searchType || 'str';
-    const replaceType = rule.replaceType || 'str';
-    // List mode: the path holds a list of objects and the rule applies to
-    // `key` inside every one of them (e.g. class_name on each detection).
-    const isList = rule.isList === true || rule.isList === 'true';
-    const itemKey = rule.key || '';
-    const listRow = `
-            <div class="change-rule-row change-rule-list-row">
-                <label class="change-rule-list-toggle" title="Apply this rule to every object in the list">
-                    <input type="checkbox" ${isList ? 'checked' : ''}
-                           onchange="window.updateChangeRule('${nodeId}', '${propName}', ${index}, 'isList', this.checked)">
-                    is list
-                </label>
-                ${isList ? `
-                <span class="change-rule-to">key</span>
-                <input type="text" class="change-rule-key" placeholder="class_name"
-                       value="${escapeHtml(itemKey)}"
-                       onchange="window.updateChangeRule('${nodeId}', '${propName}', ${index}, 'key', this.value)">
-                ` : ''}
-            </div>`;
-    
-    let html = `
-        <div class="change-rule-item" data-rule-index="${index}">
-            <div class="change-rule-header">
-                <select class="change-rule-type" onchange="window.updateChangeRule('${nodeId}', '${propName}', ${index}, 'type', this.value)">
-                    ${getChangeRuleTypeOptions(ruleType)}
-                </select>
-                <button class="btn-icon-sm" onclick="window.removeChangeRule('${nodeId}', '${propName}', ${index})" title="Delete rule">✕</button>
-            </div>
-            <div class="change-rule-config">
-    `;
-    
-    if (ruleType === 'set') {
-        html += `
-            <div class="change-rule-row">
-                <input type="text" class="change-rule-path" placeholder="msg.payload" 
-                       value="${path}"
-                       onchange="window.updateChangeRule('${nodeId}', '${propName}', ${index}, 'path', this.value)">
-                <span class="change-rule-to">to</span>
-                <select class="change-rule-value-type" onchange="window.updateChangeRule('${nodeId}', '${propName}', ${index}, 'valueType', this.value)">
-                    ${getChangeValueTypeOptions(valueType)}
-                </select>
-                ${renderChangeValueInput(nodeId, propName, index, value, valueType)}
-            </div>
-            ${listRow}
-        `;
-    } else if (ruleType === 'change') {
-        html += `
-            <div class="change-rule-row">
-                <span class="change-rule-label">in</span>
-                <input type="text" class="change-rule-path" placeholder="msg.payload" 
-                       value="${path}"
-                       onchange="window.updateChangeRule('${nodeId}', '${propName}', ${index}, 'path', this.value)">
-            </div>
-            ${listRow}
-            <div class="change-rule-row">
-                <span class="change-rule-label">search</span>
-                <select class="change-rule-search-type" onchange="window.updateChangeRule('${nodeId}', '${propName}', ${index}, 'searchType', this.value)">
-                    ${getChangeSearchTypeOptions(searchType)}
-                </select>
-                <input type="text" class="change-rule-search" placeholder="search" 
-                       value="${escapeHtml(search)}"
-                       onchange="window.updateChangeRule('${nodeId}', '${propName}', ${index}, 'search', this.value)">
-            </div>
-            <div class="change-rule-row">
-                <span class="change-rule-label">replace</span>
-                <select class="change-rule-replace-type" onchange="window.updateChangeRule('${nodeId}', '${propName}', ${index}, 'replaceType', this.value)">
-                    ${getChangeReplaceTypeOptions(replaceType)}
-                </select>
-                <input type="text" class="change-rule-replace" placeholder="replace" 
-                       value="${escapeHtml(replace)}"
-                       onchange="window.updateChangeRule('${nodeId}', '${propName}', ${index}, 'replace', this.value)">
-            </div>
-        `;
-    } else if (ruleType === 'delete') {
-        html += `
-            <div class="change-rule-row">
-                <input type="text" class="change-rule-path" placeholder="msg.payload" 
-                       value="${path}"
-                       onchange="window.updateChangeRule('${nodeId}', '${propName}', ${index}, 'path', this.value)">
-            </div>
-            ${listRow}
-        `;
-    } else if (ruleType === 'move') {
-        const toPath = rule.toPath || '';
-        html += `
-            <div class="change-rule-row">
-                <input type="text" class="change-rule-path" placeholder="msg.payload" 
-                       value="${path}"
-                       onchange="window.updateChangeRule('${nodeId}', '${propName}', ${index}, 'path', this.value)">
-                <span class="change-rule-to">to</span>
-                <input type="text" class="change-rule-to-path" placeholder="${isList ? 'new_key' : 'msg.newPayload'}" 
-                       value="${toPath}"
-                       onchange="window.updateChangeRule('${nodeId}', '${propName}', ${index}, 'toPath', this.value)">
-            </div>
-            ${listRow}
-        `;
-    }
-    
-    html += `
-            </div>
-        </div>
-    `;
-    
-    return html;
-}
-
-function escapeHtml(str) {
-    if (str === null || str === undefined) return '';
-    return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-}
-
-function getChangeRuleTypeOptions(selected) {
-    const types = [
-        { value: 'set', label: 'Set' },
-        { value: 'change', label: 'Change' },
-        { value: 'delete', label: 'Delete' },
-        { value: 'move', label: 'Move' }
-    ];
-    
-    return types.map(type => 
-        `<option value="${type.value}" ${type.value === selected ? 'selected' : ''}>${type.label}</option>`
-    ).join('');
-}
-
-function getChangeValueTypeOptions(selected) {
-    const types = [
-        { value: 'str', label: 'string' },
-        { value: 'num', label: 'number' },
-        { value: 'bool', label: 'boolean' },
-        { value: 'json', label: 'JSON' },
-        { value: 'path', label: 'msg. path' },
-        { value: 'date', label: 'timestamp' },
-        { value: 'env', label: 'env var' }
-    ];
-    
-    return types.map(type => 
-        `<option value="${type.value}" ${type.value === selected ? 'selected' : ''}>${type.label}</option>`
-    ).join('');
-}
-
-function getChangeSearchTypeOptions(selected) {
-    const types = [
-        { value: 'str', label: 'string' },
-        { value: 'regex', label: 'regex' }
-    ];
-    
-    return types.map(type => 
-        `<option value="${type.value}" ${type.value === selected ? 'selected' : ''}>${type.label}</option>`
-    ).join('');
-}
-
-function getChangeReplaceTypeOptions(selected) {
-    const types = [
-        { value: 'str', label: 'string' },
-        { value: 'path', label: 'msg. path' }
-    ];
-    
-    return types.map(type => 
-        `<option value="${type.value}" ${type.value === selected ? 'selected' : ''}>${type.label}</option>`
-    ).join('');
-}
-
-function renderChangeValueInput(nodeId, propName, index, value, valueType) {
-    const escaped = escapeHtml(value);
-    
-    if (valueType === 'bool') {
-        const boolVal = value === true || value === 'true';
-        return `<select class="change-rule-value" onchange="window.updateChangeRule('${nodeId}', '${propName}', ${index}, 'value', this.value === 'true')">
-            <option value="true" ${boolVal ? 'selected' : ''}>true</option>
-            <option value="false" ${!boolVal ? 'selected' : ''}>false</option>
-        </select>`;
-    } else if (valueType === 'date') {
-        return '<input type="text" class="change-rule-value" disabled placeholder="timestamp">';
-    } else if (valueType === 'json') {
-        return `<input type="text" class="change-rule-value change-rule-json" placeholder='{"key":"value"}' value="${escaped}" onchange="window.updateChangeRule('${nodeId}', '${propName}', ${index}, 'value', this.value)">`;
-    } else if (valueType === 'path') {
-        return `<input type="text" class="change-rule-value" placeholder="payload.data" value="${escaped}" onchange="window.updateChangeRule('${nodeId}', '${propName}', ${index}, 'value', this.value)">`;
-    } else {
-        const placeholder = valueType === 'num' ? '0' : valueType === 'env' ? 'ENV_VAR' : '';
-        return `<input type="text" class="change-rule-value" placeholder="${placeholder}" value="${escaped}" onchange="window.updateChangeRule('${nodeId}', '${propName}', ${index}, 'value', this.value)">`;
-    }
-}
-
-export function addChangeRule(nodeId, propName) {
-    const nodeData = state.nodes.get(nodeId);
-    const rules = nodeData.config[propName] || [];
-    
-    rules.push({
-        type: 'set',
-        path: 'msg.payload',
-        value: '',
-        valueType: 'str'
-    });
-    
-    nodeData.config[propName] = rules;
-    
-    markNodeModified(nodeId);
-    setModified(true);
-    renderProperties(nodeData);
-}
-
-export function removeChangeRule(nodeId, propName, ruleIndex) {
-    const nodeData = state.nodes.get(nodeId);
-    const rules = nodeData.config[propName] || [];
-    
-    if (rules.length > 0) {
-        rules.splice(ruleIndex, 1);
-        nodeData.config[propName] = rules;
-        
-        markNodeModified(nodeId);
-        setModified(true);
-        renderProperties(nodeData);
-    }
-}
-
-export function updateChangeRule(nodeId, propName, ruleIndex, field, value) {
-    const nodeData = state.nodes.get(nodeId);
-    const rules = nodeData.config[propName] || [];
-    
-    if (rules[ruleIndex]) {
-        rules[ruleIndex][field] = value;
-        nodeData.config[propName] = rules;
-        
-        // Re-render if type changed to update inputs, or if list mode was
-        // toggled (that shows/hides the item key input).
-        if (field === 'type' || field === 'valueType' || field === 'isList') {
-            renderProperties(nodeData);
-        }
-        
-        markNodeModified(nodeId);
-        setModified(true);
-    }
-}
-
-// Update property visibility based on current config values
 window.updatePropertyVisibility = function(nodeId) {
     const nodeData = state.nodes.get(nodeId);
     if (!nodeData) return;

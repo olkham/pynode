@@ -170,6 +170,9 @@ class FunctionNode(BaseNode):
     output_count = 1
     info = str(_info)
     
+    # Editor UI for this node's custom property type (see BaseNode.ui_assets).
+    ui_assets = {'js': ['ui/code-examples.js']}
+
     properties = [
         {
             'name': 'examples',

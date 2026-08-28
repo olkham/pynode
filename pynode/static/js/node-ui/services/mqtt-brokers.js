@@ -1,21 +1,29 @@
 // MQTT broker (service) management.
 //
+// A shared service, not a node's own UI: brokers are global config
+// (/api/services/mqtt, mqtt_services.json) that any node could reference. The
+// `mqtt-service` property editor that consumes this lives with the node that
+// declares it, in pynode/nodes/MQTTNode/ui/.
+//
 // Two responsibilities:
-//   1. Populate the compact broker <select> shown in a node's properties panel
-//      (rendered by properties.js for the `mqtt-service` property type).
+//   1. Populate the compact broker <select> a node's property editor renders.
 //   2. Drive the single "Manage MQTT Brokers" dialog (one overlay in
 //      index.html, #mqtt-broker-dialog) where the user can pick an existing
 //      broker OR start a new one, edit every field, test the connection, save,
 //      and delete - all in one place.
 //
+// The dialog keeps window.* handlers because index.html's markup wires its
+// buttons with inline onclick; that markup is the remaining piece to move.
+//
 // All API calls go through the global fetch() which auth.js transparently
 // decorates with the API key, so plain fetch(`${API_BASE}/...`) is correct.
-import { state, markNodeModified, setModified } from './state.js';
-import { API_BASE } from './config.js';
-import { showToast } from './ui-utils.js';
+import { API_BASE } from '../../config.js';
+import { showToast } from '../../ui-utils.js';
 
-// Which node/property the dialog is currently editing brokers for.
-let dialogContext = { nodeId: null, propName: null };
+// How the dialog writes back to whatever opened it: `assign` receives a
+// broker id (or '' to clear) and `current` reports the id in use, so the
+// dialog never needs to know which node or property it is editing.
+let dialogContext = { current: () => '', assign: () => {} };
 
 // -------------------------------------------------------------------------
 // Compact per-node broker <select>
@@ -24,8 +32,7 @@ let dialogContext = { nodeId: null, propName: null };
 // Populate a node property's broker <select> with the available services.
 // A serviceId that no longer resolves to a known broker is shown as
 // "(missing broker)" so a dangling reference is visible rather than silent.
-window.loadMqttServices = async function (nodeId, propName, currentServiceId) {
-    const select = document.getElementById(`mqtt-service-${nodeId}`);
+export async function populateBrokerSelect(select, currentServiceId) {
     if (!select) return;
     try {
         const response = await fetch(`${API_BASE}/services/mqtt`);
@@ -59,16 +66,7 @@ window.loadMqttServices = async function (nodeId, propName, currentServiceId) {
     } catch (error) {
         console.error('Error loading MQTT services:', error);
     }
-};
-
-// Node's compact select changed -> assign the chosen broker to the node.
-window.onMqttServiceSelect = function (nodeId, propName, serviceId) {
-    const nodeData = state.nodes.get(nodeId);
-    if (!nodeData) return;
-    nodeData.config[propName] = serviceId;
-    markNodeModified(nodeId);
-    setModified(true);
-};
+}
 
 // -------------------------------------------------------------------------
 // "Manage MQTT Brokers" dialog
@@ -193,24 +191,27 @@ async function loadPicker(selectedId) {
     return services;
 }
 
-// Open the dialog for a given node/property. Preselects the node's current
-// broker if it still exists, otherwise starts on "New broker".
-window.openMqttBrokerDialog = async function (nodeId, propName) {
-    dialogContext = { nodeId, propName };
+/**
+ * Open the broker manager. Preselects the broker currently in use if it still
+ * exists, otherwise starts on "New broker".
+ *
+ * @param {object} args
+ * @param {() => string} args.current - the broker id in use right now
+ * @param {(serviceId: string) => void} args.assign - called when the dialog
+ *        assigns a saved broker, or clears one it deleted
+ */
+export async function openMqttBrokerDialog({ current, assign }) {
+    dialogContext = { current, assign };
     const overlay = dialogEl();
     if (!overlay) return;
-    overlay.dataset.nodeId = nodeId;
-    overlay.dataset.propName = propName;
 
-    const nodeData = state.nodes.get(nodeId);
-    const currentServiceId = (nodeData && nodeData.config[propName]) || '';
-
+    const currentServiceId = current() || '';
     const services = await loadPicker(currentServiceId);
     const exists = currentServiceId && services.some(s => s.id === currentServiceId);
     await loadBrokerIntoForm(exists ? currentServiceId : '__new__');
 
     overlay.style.display = 'flex';
-};
+}
 
 // Picker changed -> load that broker (or a blank new form) into the fields.
 window.onMqttBrokerPick = function (serviceId) {
@@ -292,15 +293,8 @@ window.saveMqttBroker = async function () {
         }
 
         const savedId = data.service.id;
-        // Assign the saved broker to the node that opened the dialog.
-        const { nodeId, propName } = dialogContext;
-        const nodeData = nodeId && state.nodes.get(nodeId);
-        if (nodeData) {
-            nodeData.config[propName] = savedId;
-            markNodeModified(nodeId);
-            setModified(true);
-            await window.loadMqttServices(nodeId, propName, savedId);
-        }
+        // Assign the saved broker back to whatever opened the dialog.
+        dialogContext.assign(savedId);
         // Keep the dialog open on the just-saved broker so the user can keep
         // managing; refresh the picker to reflect any new entry / rename.
         await loadPicker(savedId);
@@ -327,14 +321,9 @@ window.deleteMqttBroker = async function () {
             return;
         }
 
-        // If the deleted broker was assigned to the node, clear the assignment.
-        const { nodeId, propName } = dialogContext;
-        const nodeData = nodeId && state.nodes.get(nodeId);
-        if (nodeData && nodeData.config[propName] === serviceId) {
-            nodeData.config[propName] = '';
-            markNodeModified(nodeId);
-            setModified(true);
-            await window.loadMqttServices(nodeId, propName, '');
+        // If the deleted broker was the one in use, clear the assignment.
+        if (dialogContext.current() === serviceId) {
+            dialogContext.assign('');
         }
         await loadPicker('__new__');
         await loadBrokerIntoForm('__new__');

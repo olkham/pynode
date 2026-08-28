@@ -58,6 +58,9 @@ class LinkInNode(BaseNode):
         'channel': '',
     }
 
+    # Editor UI for this node's custom property type (see BaseNode.ui_assets).
+    ui_assets = {'js': ['ui/link-channel.js']}
+
     properties = [
         {
             'name': 'channel',

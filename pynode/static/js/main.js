@@ -6,31 +6,20 @@ import { loadWorkflow } from './workflow.js';
 import { startDebugPolling } from './debug.js';
 import { initViewport } from './viewport.js';
 import { initMinimap } from './minimap.js';
-import { updateNodeProperty, updateNodeConfig, applyCodeExample, undoCodeExample, triggerNodeAction, triggerToggleAction, toggleNodeState, toggleGate, toggleNodeEnabled, addRule, removeRule, updateRule, addInjectProp, removeInjectProp, updateInjectProp, addChangeRule, removeChangeRule, updateChangeRule, selectFile } from './properties.js';
-import { openGeometryEditor } from './geometry-editor.js';
+import { updateNodeProperty, updateNodeConfig, triggerNodeAction, triggerToggleAction, toggleNodeState, toggleGate, toggleNodeEnabled, selectFile } from './properties.js';
 import { showInfoPanel } from './ui-utils.js';
 
-// Expose functions to window for inline event handlers
+// Expose functions to window for the inline event handlers in the panel's
+// remaining string-built rows. Node-supplied editors attach real listeners and
+// need nothing here, which is why this list no longer grows with every node.
 window.updateNodeProperty = updateNodeProperty;
 window.updateNodeConfig = updateNodeConfig;
-window.applyCodeExample = applyCodeExample;
-window.undoCodeExample = undoCodeExample;
 window.triggerNodeAction = triggerNodeAction;
 window.triggerToggleAction = triggerToggleAction;
 window.toggleNodeState = toggleNodeState;
 window.toggleGate = toggleGate;
 window.toggleNodeEnabled = toggleNodeEnabled;
-window.addRule = addRule;
-window.removeRule = removeRule;
-window.updateRule = updateRule;
-window.addInjectProp = addInjectProp;
-window.removeInjectProp = removeInjectProp;
-window.updateInjectProp = updateInjectProp;
-window.addChangeRule = addChangeRule;
-window.removeChangeRule = removeChangeRule;
-window.updateChangeRule = updateChangeRule;
 window.selectFile = selectFile;
-window.openGeometryEditor = openGeometryEditor;
 window.showInfoPanel = showInfoPanel;
 
 // Fetch the running version and show it next to the title. Best-effort:

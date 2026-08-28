@@ -47,6 +47,9 @@ class MqttOutNode(BaseNode):
         'retain': 'false'
     }
     
+    # Editor UI for this node's custom property type (see BaseNode.ui_assets).
+    ui_assets = {'js': ['ui/mqtt-service.js']}
+
     properties = [
         {
             'name': 'serviceId',

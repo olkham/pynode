@@ -7,12 +7,101 @@ dynamic route registration and SSE broadcasting) is safely shared by every
 Flask app / WorkflowManager instance.
 """
 
+import inspect
 import logging
+from pathlib import Path
 
 from pynode.workflow_engine import WorkflowEngine
 from pynode import nodes
 
 logger = logging.getLogger(__name__)
+
+# URL prefix for node-supplied editor assets. Deliberately NOT under /api/:
+# the API-key guard in server.py only challenges /api/ paths, and the auth.js
+# fetch wrapper that attaches X-API-Key cannot reach dynamic import() or
+# <link rel=stylesheet> anyway. Serving these under /api/ would 401 the whole
+# editor as soon as PYNODE_API_KEY is set.
+UI_ASSET_URL_PREFIX = '/node-ui'
+
+# Only these may be served out of a node folder.
+UI_ASSET_SUFFIXES = {'.js', '.css'}
+
+# Exact-match map of URL path -> absolute file path, built here at import time
+# from validated `ui_assets` declarations. The route does a dict lookup and no
+# path arithmetic at all, so traversal is structurally impossible rather than
+# filtered. See pynode/api/node_ui.py.
+ui_asset_registry = {}
+
+# Directory that holds the node folders; nothing outside it is ever served.
+_NODES_ROOT = Path(__file__).resolve().parent / 'nodes'
+
+
+def _node_folder(node_class):
+    """Absolute path of the folder a node class is defined in, or None."""
+    try:
+        return Path(inspect.getfile(node_class)).resolve().parent
+    except (TypeError, OSError):
+        return None
+
+
+def _resolve_ui_assets(node_class, type_name):
+    """Validate a node class's ``ui_assets`` and register them for serving.
+
+    Returns the client-facing ``{'js': [url, ...], 'css': [...]}`` mapping and
+    populates :data:`ui_asset_registry` as a side effect. Every entry must
+    exist, resolve inside the declaring node's own folder, and carry an
+    allowlisted suffix; anything else is dropped with a warning rather than
+    raising, so one bad path cannot stop the server from starting.
+
+    The URL carries the file's mtime so an upgraded (or locally edited, after
+    a restart) asset is fetched fresh despite immutable caching.
+    """
+    declared = getattr(node_class, 'ui_assets', None) or {}
+    if not isinstance(declared, dict) or not declared:
+        return {}
+
+    folder = _node_folder(node_class)
+    if folder is None or folder == _NODES_ROOT or _NODES_ROOT not in folder.parents:
+        logger.warning("%s declares ui_assets but is not inside a node folder; ignoring", type_name)
+        return {}
+
+    resolved = {}
+    for kind in ('js', 'css'):
+        entries = declared.get(kind) or []
+        if isinstance(entries, str):
+            entries = [entries]
+        urls = []
+        for rel in entries:
+            try:
+                target = (folder / rel).resolve()
+            except (OSError, ValueError):
+                logger.warning("%s: bad ui_assets path %r; ignoring", type_name, rel)
+                continue
+            if folder not in target.parents:
+                logger.warning("%s: ui_assets path %r escapes %s; ignoring", type_name, rel, folder.name)
+                continue
+            if target.suffix.lower() not in UI_ASSET_SUFFIXES:
+                logger.warning("%s: ui_assets path %r is not a %s file; ignoring",
+                               type_name, rel, '/'.join(sorted(UI_ASSET_SUFFIXES)))
+                continue
+            if not target.is_file():
+                logger.warning("%s: ui_assets path %r does not exist; ignoring", type_name, rel)
+                continue
+
+            # Build the URL from the RESOLVED path so a messy but legal
+            # declaration ('ui/../ui/x.js') still yields one canonical URL.
+            url_path = f"{UI_ASSET_URL_PREFIX}/{folder.name}/{target.relative_to(folder).as_posix()}"
+            ui_asset_registry[url_path] = str(target)
+            try:
+                stamp = int(target.stat().st_mtime)
+            except OSError:
+                stamp = 0
+            urls.append(f"{url_path}?v={stamp}")
+
+        if urls:
+            resolved[kind] = urls
+
+    return resolved
 
 
 def create_workflow_engine():
@@ -36,6 +125,10 @@ def build_node_types_cache():
 
     from pynode.nodes.base_node import BaseNode
     base_properties = getattr(BaseNode, 'properties', [])
+
+    # Rebuilt alongside the cache so a rebuild cannot leave stale servable
+    # paths behind.
+    ui_asset_registry.clear()
 
     # Define category ordering (compared case-insensitively; display casing is
     # applied by the frontend, e.g. 'opencv' renders as 'OpenCV').
@@ -104,6 +197,7 @@ def build_node_types_cache():
             'properties': merged_properties,
             'uiComponent': ui_component,
             'uiComponentConfig': ui_component_config,
+            'uiAssets': _resolve_ui_assets(node_class, name),
             'info': info
         })
 
