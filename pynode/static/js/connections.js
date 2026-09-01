@@ -3,6 +3,7 @@ import { state, markNodeModified, markConnectionAdded, markConnectionDeleted, se
 import { clientToCanvas } from './viewport.js';
 import { refreshMinimap } from './minimap.js';
 import { categoryLabel } from './ui-utils.js';
+import { linkPath } from './link-path.js';
 
 // Track the currently hovered connection for insertion
 let hoveredConnectionForInsert = null;
@@ -178,33 +179,10 @@ export function renderConnection(connection) {
     const x2 = targetCenter.x;
     const y2 = targetCenter.y;
     
-    // Arrowhead always ends at the target port
-    // For near-vertical connections, adjust control points for a visible curve
-    // Arrowhead is always at the target port (x2, y2)
-    // Control points are adjusted for a smooth curve, but never move the end point
-    const dx = x2 - x1;
-    
-    // Gradual transition: minCurve increases as the connection goes backwards
-    // Forward (dx > 0): minCurve = 30
-    // Backwards (dx < 0): minCurve grows larger as dx becomes more negative
-    let minCurve = 30;
-    if (dx < 0) {
-        // Gradually increase minCurve based on how far back it goes
-        // At dx = -100, minCurve ≈ 55; at dx = -200, minCurve ≈ 80
-        minCurve = 30 + Math.abs(dx) * 0.5;
-        minCurve = Math.min(minCurve, 100); // Cap at 100
-    }
-
-    const dy = y2 - y1;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-    // minCurve = Math.min(minCurve, distance / 2 - 10);
-
-    let control = Math.max(Math.abs(dx) * 0.3, minCurve);
-    // let control = 0;
-    // Control points: always horizontally offset from source/target
-    const cx1 = x1 + control;
-    const cx2 = x2 - control;
-    const pathData = `M ${x1} ${y1} C ${cx1} ${y1}, ${cx2} ${y2}, ${x2} ${y2}`;
+    // Shape of the link is decided by link-path.js: forward links get a single
+    // curve, backward ones (stacked nodes, feedback loops) get the 180-across-180
+    // routing. The path always starts and ends exactly on the ports.
+    const pathData = linkPath(x1, y1, x2, y2);
     
     // Create visible path (no arrowhead)
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
@@ -321,37 +299,29 @@ export function startBackwardConnection(targetId, e, inputIndex = 0) {
     document.addEventListener('mouseup', cancelConnection);
 }
 
+/**
+ * Markup for the line that follows the cursor while a connection is dragged.
+ * Drawn with the same geometry as a finished link, so what you drag is what
+ * you get. When dragging backwards the cursor is standing in for the *source*
+ * output, so the path is generated from the cursor to the held input port.
+ */
+function tempLineMarkup(startX, startY, endX, endY, backward) {
+    const d = backward
+        ? linkPath(endX, endY, startX, startY)
+        : linkPath(startX, startY, endX, endY);
+    return `<path d="${d}" stroke="#0e639c" stroke-width="2" fill="none" />`;
+}
+
 export function drawTempConnection(e) {
     if (!state.drawingConnection) return;
 
     const endPoint = clientToCanvas(e.clientX, e.clientY);
-    const endX = endPoint.x;
-    const endY = endPoint.y;
-    
-    const dx = endX - state.drawingConnection.startX;
-    const controlDistance = Math.abs(dx) * 0.5;
-    
-    const tempLine = document.getElementById('temp-line');
-    
-    if (state.drawingConnection.backward) {
-        // Backward connection: input port is on the left, so curve goes left first
-        tempLine.innerHTML = `
-            <path d="M ${state.drawingConnection.startX} ${state.drawingConnection.startY} 
-                     C ${state.drawingConnection.startX - controlDistance} ${state.drawingConnection.startY},
-                         ${endX + controlDistance} ${endY},
-                         ${endX} ${endY}"
-                  stroke="#0e639c" stroke-width="2" fill="none" />
-        `;
-    } else {
-        // Forward connection: output port is on the right, so curve goes right first
-        tempLine.innerHTML = `
-            <path d="M ${state.drawingConnection.startX} ${state.drawingConnection.startY} 
-                     C ${state.drawingConnection.startX + controlDistance} ${state.drawingConnection.startY},
-                         ${endX - controlDistance} ${endY},
-                         ${endX} ${endY}"
-                  stroke="#0e639c" stroke-width="2" fill="none" />
-        `;
-    }
+
+    document.getElementById('temp-line').innerHTML = tempLineMarkup(
+        state.drawingConnection.startX, state.drawingConnection.startY,
+        endPoint.x, endPoint.y,
+        state.drawingConnection.backward
+    );
 }
 
 export function endConnection(targetId, targetInputIndex = 0) {
@@ -400,32 +370,12 @@ export function cancelConnection(e) {
         // (temp line lives in the SVG -> canvas coords; the mini palette is an
         // HTML overlay on document.body -> keeps client coords)
         const endPoint = clientToCanvas(mousePos.x, mousePos.y);
-        const endX = endPoint.x;
-        const endY = endPoint.y;
-        const dx = endX - state.drawingConnection.startX;
-        const controlDistance = Math.abs(dx) * 0.5;
-        
-        const tempLine = document.getElementById('temp-line');
-        
-        if (isBackward) {
-            // Backward connection: curve goes left first from input port
-            tempLine.innerHTML = `
-                <path d="M ${state.drawingConnection.startX} ${state.drawingConnection.startY} 
-                         C ${state.drawingConnection.startX - controlDistance} ${state.drawingConnection.startY},
-                             ${endX + controlDistance} ${endY},
-                             ${endX} ${endY}"
-                      stroke="#0e639c" stroke-width="2" fill="none" />
-            `;
-        } else {
-            // Forward connection: curve goes right first from output port
-            tempLine.innerHTML = `
-                <path d="M ${state.drawingConnection.startX} ${state.drawingConnection.startY} 
-                         C ${state.drawingConnection.startX + controlDistance} ${state.drawingConnection.startY},
-                             ${endX - controlDistance} ${endY},
-                             ${endX} ${endY}"
-                      stroke="#0e639c" stroke-width="2" fill="none" />
-            `;
-        }
+
+        document.getElementById('temp-line').innerHTML = tempLineMarkup(
+            state.drawingConnection.startX, state.drawingConnection.startY,
+            endPoint.x, endPoint.y,
+            isBackward
+        );
         
         // Show mini palette at mouse position (temp line will be cleared when palette closes)
         if (isBackward) {

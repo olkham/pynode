@@ -17,6 +17,7 @@ static/
     ├── palette.js          # Node palette rendering
     ├── nodes.js            # Node creation and rendering
     ├── connections.js      # Connection management
+    ├── link-path.js        # Connection line geometry
     ├── selection.js        # Node selection logic
     ├── clipboard.js        # Copy/cut/paste of nodes
     ├── history.js          # Undo/redo
@@ -75,6 +76,18 @@ static/
 - Connection drawing (temp lines)
 - Connection deletion
 - Connection updates on node movement
+
+### `link-path.js` - Connection Line Geometry
+- The one place that decides what shape a link is drawn in
+- A port of Node-RED's `generateLinkPath`, adapted to this editor's node metrics
+- Forward links (target to the right) get a single curve
+- Backward links between level ports (a feedback loop) detour below the nodes:
+  down, straight across, back up
+- Backward links between offset ports (nodes stacked vertically) get a shallow
+  shoulder out of the output, a sweep through the midpoint and a shoulder back
+  into the input, rather than cutting diagonally back over both nodes
+- Used for both rendered connections and the line that follows the cursor
+  while a connection is being dragged
 
 ### `selection.js` - Selection Logic
 - Single and multi-node selection
