@@ -85,7 +85,9 @@ class TestDeclaredAssets:
             sources = ''.join(
                 registered_sources.get(url.split('?')[0], '') for url in declared_js)
             for prop_type in custom:
-                if f"propertyType: '{prop_type}'" not in sources:
+                # Either quote style, so an author's choice cannot fail this.
+                if not any(f'propertyType: {q}{prop_type}{q}' in sources
+                           for q in ("'", '"')):
                     missing.append((node_type['type'], prop_type))
 
         assert not missing, f'property types with no editor shipped by their node: {missing}'

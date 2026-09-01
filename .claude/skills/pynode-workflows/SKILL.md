@@ -10,6 +10,12 @@ between them. The GUI's **Import** button (hamburger menu) accepts a flat
 workflow file and loads it into a **new tab** named after the file. The same
 document can be POSTed to `/api/workflow`.
 
+> **Wiring a flow is not the same as building a node.** If the task is to give
+> a node a custom properties-panel control, use the **`pynode-node-ui`** skill
+> instead — node editor UI lives in the node's own folder
+> (`pynode/nodes/<Name>/ui/*.js`, declared via the class's `ui_assets`), and
+> never in `pynode/static/js/properties.js`.
+
 ## Workflow file format
 
 ```json
