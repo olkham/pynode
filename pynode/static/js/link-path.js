@@ -28,13 +28,13 @@ const NODE_W = 130;
 const NODE_H = 30;
 
 // Control-point reach for a forward link, in units of NODE_W.
-const FORWARD_SCALE = 0.75;
+const FORWARD_SCALE = 0.5;
 
 // Backward links reach out this far horizontally, in units of NODE_W. The reach
 // is dynamic: ports close together in either axis get a tighter turn than ones
 // far apart, so short hops stay compact without flattening long links.
-const BACK_SCALE_MAX = 0.4;
-const BACK_SCALE_MIN = 0.2;
+const BACK_SCALE_MAX = 0.2;
+const BACK_SCALE_MIN = 0.1;
 
 // Ports closer to level than this have no room for a sweep between them, so the
 // link detours below the nodes instead, dropping LEVEL_DROP past the lower port.
