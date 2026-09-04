@@ -23,6 +23,7 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - HOST_IP=${HOST_IP:-}
+      - PYNODE_MAX_UPLOAD_MB=8192
     restart: unless-stopped
     # Rotate container logs so they cannot fill the host disk
     logging:

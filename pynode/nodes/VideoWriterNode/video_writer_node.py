@@ -4,6 +4,7 @@ Video Writer Node - Writes video files from incoming image frames
 
 import os
 import time
+import threading
 import cv2
 import numpy as np
 from datetime import datetime
@@ -26,8 +27,15 @@ _info.add_bullets(
     ("Motion JPEG:", ".avi - Each frame is a JPEG, large files"),
     ("Xvid:", ".avi - Good compression, legacy format"),
     ("DivX:", ".avi - Similar to Xvid"),
-    ("WMV:", ".wmv - Windows Media format")
+    ("WMV:", ".wmv - Windows Media format"),
+    ("Matroska:", ".mkv - Crash-resilient container (MPEG-4, FFV1 lossless, or VP9); footage stays playable even if recording is interrupted")
 )
+_info.add_header("Inactivity Timeout")
+_info.add_text("When set above 0, the current recording is closed automatically if no frames arrive for the configured number of seconds. The next frame to arrive starts a new file.")
+_info.add_header("Control Messages")
+_info.add_text("Send a control message (e.g. from an Inject node) to stop and close the current recording:")
+_info.add_code('{ "command": "stop" }')
+_info.add_text('Accepted commands: "stop" / "close". A plain string payload of "stop" also works.')
 _info.add_header("Naming Modes")
 _info.add_bullets(
     ("Counter:", "Sequential numbering (video_0001.mp4, video_0002.mp4, ...)"),
@@ -73,6 +81,7 @@ class VideoWriterNode(BaseNode):
         'counter_digits': 4,
         'resize_method': 'fit',
         'auto_resolution': False,
+        'timeout': 0,  # seconds of frame inactivity before closing; 0 = disabled
     }
     
     # Available codecs with their file extensions
@@ -83,6 +92,20 @@ class VideoWriterNode(BaseNode):
         'mjpg': {'fourcc': 'MJPG', 'ext': '.avi', 'name': 'Motion JPEG'},
         'divx': {'fourcc': 'DIVX', 'ext': '.avi', 'name': 'DivX'},
         'wmv1': {'fourcc': 'WMV1', 'ext': '.wmv', 'name': 'WMV'},
+        # Matroska container survives an interrupted write, so partially
+        # recorded footage remains playable (unlike a truncated .mp4).
+        'mkv_mp4v': {'fourcc': 'mp4v', 'ext': '.mkv', 'name': 'Matroska MPEG-4'},
+        'mkv_ffv1': {'fourcc': 'FFV1', 'ext': '.mkv', 'name': 'Matroska FFV1 (lossless)'},
+        'mkv_vp9': {'fourcc': 'VP90', 'ext': '.mkv', 'name': 'Matroska VP9'},
+    }
+
+    # Codec to fall back to per container when the selected encoder is missing
+    # from the OpenCV/FFmpeg build (e.g. H.264 in the pip opencv-python wheel).
+    FALLBACK_FOURCC = {
+        '.mp4': 'mp4v',
+        '.mkv': 'mp4v',
+        '.avi': 'MJPG',
+        '.wmv': 'MJPG',
     }
     
     properties = [
@@ -131,6 +154,9 @@ class VideoWriterNode(BaseNode):
                 {'value': 'mjpg', 'label': 'Motion JPEG (.avi)'},
                 {'value': 'divx', 'label': 'DivX (.avi)'},
                 {'value': 'wmv1', 'label': 'WMV (.wmv)'},
+                {'value': 'mkv_mp4v', 'label': 'Matroska MPEG-4 (.mkv)'},
+                {'value': 'mkv_ffv1', 'label': 'Matroska FFV1 lossless (.mkv)'},
+                {'value': 'mkv_vp9', 'label': 'Matroska VP9 (.mkv)'},
             ],
             'default': DEFAULT_CONFIG['codec']
         },
@@ -184,6 +210,15 @@ class VideoWriterNode(BaseNode):
             'min': 0,
             'placeholder': '0 = unlimited'
         },
+        {
+            'name': 'timeout',
+            'label': 'Inactivity Timeout (s)',
+            'type': 'number',
+            'default': DEFAULT_CONFIG['timeout'],
+            'min': 0,
+            'step': 0.1,
+            'placeholder': '0 = disabled'
+        },
     ]
     
     def __init__(self, node_id=None, name="video_writer"):
@@ -195,6 +230,12 @@ class VideoWriterNode(BaseNode):
         self._recording = False
         self._actual_width = None
         self._actual_height = None
+        self._last_frame_time = None
+        # Guards recording state shared between the worker and watchdog threads
+        self._lock = threading.Lock()
+        self._watchdog_thread = None
+        self._watchdog_stop = threading.Event()
+        self._watchdog_interval = 0.25
         
     def _generate_filename(self):
         """Generate filename based on naming mode"""
@@ -301,28 +342,33 @@ class VideoWriterNode(BaseNode):
         # Get codec fourcc
         codec = self.config.get('codec', 'mp4v')
         fourcc_str = self.CODECS.get(codec, self.CODECS['mp4v'])['fourcc']
-        fourcc = cv2.VideoWriter_fourcc(*fourcc_str) # type: ignore[attr-defined]
         
         # Get framerate
         framerate = float(self.config.get('framerate', 30.0))
         
         # print(f"[VideoWriter] Creating: {self._current_file}, {fourcc_str}, {framerate}fps, {self._actual_width}x{self._actual_height}")
         
-        # Create VideoWriter
-        self._writer = cv2.VideoWriter(
-            self._current_file,
-            fourcc,
-            framerate,
-            (self._actual_width, self._actual_height)
-        )
+        # Create VideoWriter, falling back to a widely-available encoder when
+        # the selected codec is not compiled into this OpenCV/FFmpeg build.
+        self._writer = self._open_writer(fourcc_str, framerate)
+        fallback = self.FALLBACK_FOURCC.get(ext)
+        if (self._writer is None or not self._writer.isOpened()) and \
+                fallback and fallback.lower() != fourcc_str.lower():
+            if self._writer is not None:
+                self._writer.release()
+            self.report_error(
+                f"Encoder '{fourcc_str}' unavailable for {ext}; "
+                f"falling back to '{fallback}'")
+            self._writer = self._open_writer(fallback, framerate)
         
-        if not self._writer.isOpened():
+        if self._writer is None or not self._writer.isOpened():
             self.report_error(f"Failed to create video writer for {self._current_file}")
             self._writer = None
             return None
             
         self._frame_count = 0
         self._recording = True
+        self._last_frame_time = time.time()
         
         # print(f"[VideoWriter] Started recording: {self._current_file} ({self._actual_width}x{self._actual_height})")
         
@@ -335,6 +381,16 @@ class VideoWriterNode(BaseNode):
             'framerate': framerate,
             'codec': codec
         }
+
+    def _open_writer(self, fourcc_str, framerate):
+        """Create a cv2.VideoWriter for the current file with the given fourcc."""
+        fourcc = cv2.VideoWriter_fourcc(*fourcc_str)  # type: ignore[attr-defined]
+        return cv2.VideoWriter(
+            self._current_file,  # type: ignore[arg-type]
+            fourcc,
+            framerate,
+            (self._actual_width, self._actual_height)  # type: ignore[arg-type]
+        )
         
     def _stop_recording(self):
         """Stop current recording and return event message"""
@@ -358,10 +414,36 @@ class VideoWriterNode(BaseNode):
             }
         return None
         
+    def _extract_command(self, payload):
+        """Return a normalized control command from a payload, or None."""
+        if isinstance(payload, dict):
+            cmd = payload.get('command', payload.get('control'))
+            if cmd is not None:
+                return str(cmd).strip().lower()
+        elif isinstance(payload, str):
+            cmd = payload.strip().lower()
+            if cmd in ('stop', 'close', 'stop_recording'):
+                return cmd
+        return None
+
     def on_input(self, msg: dict, input_index: int = 0):
         """Process incoming message with image frame - does NOT forward messages"""
-        # Get image from payload
         payload = msg.get(MessageKeys.PAYLOAD, {})
+
+        # Control messages (e.g. from an Inject node) manage recording state
+        command = self._extract_command(payload)
+        if command is not None:
+            if command in ('stop', 'close', 'stop_recording'):
+                with self._lock:
+                    end_event = self._stop_recording()
+                if end_event:
+                    self.send({
+                        MessageKeys.MSG_ID: msg.get(MessageKeys.MSG_ID),
+                        MessageKeys.PAYLOAD: end_event
+                    })
+            return
+
+        # Get image from payload
         if isinstance(payload, dict):
             image_data = payload.get(MessageKeys.IMAGE.PATH)
         else:
@@ -390,52 +472,86 @@ class VideoWriterNode(BaseNode):
         else:
             self.report_error(f"Unexpected image shape: {image.shape}")
             return
-            
-        event_msg = None
-        
-        # Check if we need to start a new recording
+
+        events = []
         clip_length = self.config.get('clip_length', 0)
-        
-        if not self._recording:
-            event_msg = self._start_recording(image, msg)
-            if event_msg:
-                # Send start event (status only, no image)
-                self.send({
-                    MessageKeys.MSG_ID: msg.get(MessageKeys.MSG_ID),
-                    MessageKeys.PAYLOAD: event_msg
-                })
-                
-        # Check clip length limit
-        if clip_length > 0 and self._frame_count >= clip_length:
-            end_event = self._stop_recording()
+        timeout = self.get_config_float('timeout', 0)
+
+        with self._lock:
+            now = time.time()
+
+            # Inactivity timeout: close a stale recording so this frame starts fresh
+            if (self._recording and timeout > 0 and self._last_frame_time is not None
+                    and (now - self._last_frame_time) > timeout):
+                end_event = self._stop_recording()
+                if end_event:
+                    events.append(end_event)
+
+            if not self._recording:
+                start_event = self._start_recording(image, msg)
+                if start_event:
+                    events.append(start_event)
+
+            # Clip length rollover
+            if clip_length > 0 and self._frame_count >= clip_length:
+                end_event = self._stop_recording()
+                if end_event:
+                    events.append(end_event)
+                start_event = self._start_recording(image, msg)
+                if start_event:
+                    events.append(start_event)
+
+            # Write frame, resized to the video's resolution
+            if self._writer is not None:
+                image = self._resize_frame(image, self._actual_width, self._actual_height)
+                self._writer.write(image)
+                self._frame_count += 1
+                self._last_frame_time = time.time()
+
+        # Send status events (no image) outside the lock
+        for event in events:
+            self.send({
+                MessageKeys.MSG_ID: msg.get(MessageKeys.MSG_ID),
+                MessageKeys.PAYLOAD: event
+            })
+
+    def _watchdog_loop(self):
+        """Close the recording when no frames arrive within the timeout."""
+        while not self._watchdog_stop.is_set():
+            self._watchdog_stop.wait(self._watchdog_interval)
+            if self._watchdog_stop.is_set():
+                break
+            timeout = self.get_config_float('timeout', 0)
+            if timeout <= 0:
+                continue
+            end_event = None
+            with self._lock:
+                if (self._recording and self._last_frame_time is not None
+                        and (time.time() - self._last_frame_time) > timeout):
+                    end_event = self._stop_recording()
             if end_event:
-                # Send end event (status only, no image)
-                self.send({
-                    MessageKeys.MSG_ID: msg.get(MessageKeys.MSG_ID),
-                    MessageKeys.PAYLOAD: end_event
-                })
-            # Start new recording
-            event_msg = self._start_recording(image, msg)
-            if event_msg:
-                self.send({
-                    MessageKeys.MSG_ID: msg.get(MessageKeys.MSG_ID),
-                    MessageKeys.PAYLOAD: event_msg
-                })
-                
-        # Write frame
-        if self._writer is not None:
-            # Always resize to match the video's resolution
-            # (set from first frame if auto_resolution, or from config otherwise)
-            image = self._resize_frame(image, self._actual_width, self._actual_height)
-                
-            self._writer.write(image)
-            self._frame_count += 1
-        # Note: No return/send of input message - only recording events are sent
-        
+                self.send({MessageKeys.PAYLOAD: end_event})
+
+    def on_start(self):
+        """Start the base worker plus the inactivity watchdog thread."""
+        super().on_start()
+        self._watchdog_stop.clear()
+        if self._watchdog_thread is None or not self._watchdog_thread.is_alive():
+            self._watchdog_thread = threading.Thread(
+                target=self._watchdog_loop, daemon=True)
+            self._watchdog_thread.start()
+
+    def on_stop(self):
+        """Stop the watchdog, close any open recording, then stop the base worker."""
+        self._watchdog_stop.set()
+        if self._watchdog_thread and self._watchdog_thread.is_alive():
+            self._watchdog_thread.join(timeout=2.0)
+        with self._lock:
+            end_event = self._stop_recording()
+        if end_event:
+            self.send({MessageKeys.PAYLOAD: end_event})
+        super().on_stop()
+
     def close(self):
         """Clean up when node is removed or flow stops"""
-        event = self._stop_recording()
-        if event:
-            # Try to send final event
-            self.send({MessageKeys.PAYLOAD: event})
-        # super().close()
+        self.on_stop()

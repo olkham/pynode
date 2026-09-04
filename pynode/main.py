@@ -62,6 +62,11 @@ def main():
                              'files, exported OpenVINO models, etc.). '
                              'Also settable via the PYNODE_MODELS_DIR env var. '
                              'Default: <data-dir>/models.')
+    parser.add_argument('--max-upload-mb', type=int, default=None,
+                        help='Maximum upload/request body size in megabytes '
+                             '(production/Waitress mode). Also settable via '
+                             'the PYNODE_MAX_UPLOAD_MB env var. Default: 8192 '
+                             '(8 GB). Waitress otherwise caps bodies at 1 GB.')
     args = parser.parse_args()
 
     # Configure application-wide logging
@@ -106,11 +111,19 @@ def main():
         # Production mode with Waitress
         try:
             from waitress import serve
+            # Waitress caps request bodies at 1 GB by default, which rejects
+            # large video uploads with a 413; raise it (configurable).
+            max_upload_mb = args.max_upload_mb
+            if max_upload_mb is None:
+                max_upload_mb = int(os.environ.get('PYNODE_MAX_UPLOAD_MB', 8192))
+            max_body = max_upload_mb * 1024 * 1024
             logger.info("Starting PyNode server in PRODUCTION mode...")
             logger.info(f"Server running at: http://{args.host}:{args.port}")
             logger.info("Supports unlimited concurrent connections")
-            serve(app, host=args.host, port=args.port, threads=10, 
-                  channel_timeout=120, backlog=1024, connection_limit=1000)
+            logger.info(f"Max upload size: {max_upload_mb} MB")
+            serve(app, host=args.host, port=args.port, threads=10,
+                  channel_timeout=120, backlog=1024, connection_limit=1000,
+                  max_request_body_size=max_body)
         except ImportError:
             logger.error("waitress not installed. Install with: pip install waitress")
             logger.warning("Falling back to development server...")
