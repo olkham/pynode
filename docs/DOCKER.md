@@ -63,6 +63,7 @@ services:
     volumes:
       - ./workflows:/app/workflows
       - ./logs:/app/logs
+      - ./data:/app/data
     runtime: nvidia
     deploy:
       resources:
@@ -84,6 +85,9 @@ services:
 The following directories are mounted as volumes:
 - `./workflows` - Workflow JSON files
 - `./logs` - Application logs
+- `./data` - Shared output folder for nodes (e.g. Video Writer). Set a node's
+  output path to `/app/data` (or a subfolder) to write files to the host's
+  `./data` directory instead of inside the container.
 
 ## Docker Images
 
@@ -163,6 +167,7 @@ docker run -d \
   -e HOST_IP=$(hostname -I | awk '{print $1}') \
   -v $(pwd)/workflows:/app/workflows \
   -v $(pwd)/logs:/app/logs \
+  -v $(pwd)/data:/app/data \
   pynode:latest
 ```
 

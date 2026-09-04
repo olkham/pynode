@@ -4,8 +4,9 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: pynode
-    ports:
-      - "5000:5000"
+    #ports:
+    #  - "5000:5000"
+    network_mode: "host"
     # Uncomment for mDNS support on Linux hosts (see DOCKER.md > mDNS /
     # Service Discovery). Not effective on Docker Desktop for Windows/macOS.
     # Remove the `ports:` mapping above when enabling this - it is ignored
@@ -15,6 +16,10 @@ services:
       # Mount persistent data
       - ./workflows:/app/workflows
       - ./logs:/app/logs
+      # Shared data folder for node output (e.g. Video Writer). Point a node's
+      # output path at /app/data (or a subfolder) to save files to ./data on
+      # the host instead of inside the container.
+      - ./data:/app/data
     environment:
       - PYTHONUNBUFFERED=1
       - HOST_IP=${HOST_IP:-}
