@@ -1,7 +1,7 @@
 """Multi-criteria detection filtering built on supervision's Detections ops."""
 
 import logging
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Optional, Set
 
 import numpy as np
 

@@ -5,7 +5,7 @@ Used for compositing operations like replacing regions in an image.
 
 import cv2
 import numpy as np
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 

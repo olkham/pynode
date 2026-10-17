@@ -4,8 +4,6 @@ This example runs without the UI - it creates nodes programmatically,
 connects them, and displays the output in an OpenCV window.
 """
 
-import sys
-import os
 import time
 import cv2
 import numpy as np

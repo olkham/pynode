@@ -4,7 +4,7 @@ Based on SAHI (Slicing Aided Hyper Inference) methodology.
 """
 
 import numpy as np
-from typing import Any, Dict, List, Tuple, Optional
+from typing import Any, Dict, List, Tuple
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 try:

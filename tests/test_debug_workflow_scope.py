@@ -8,7 +8,6 @@ called directly rather than running a live engine or SSE stream), so there
 is nothing for the teardown to leak.
 """
 
-import pytest
 
 
 def _create_workflow(client, name):

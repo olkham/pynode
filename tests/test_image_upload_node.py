@@ -14,7 +14,6 @@ import time
 
 import cv2
 import numpy as np
-import pytest
 
 from pynode.nodes.ImageUploadNode.image_upload_node import ImageUploadNode
 

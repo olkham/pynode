@@ -4,7 +4,7 @@ OpenCV Draw Node - draws shapes and annotations on images.
 
 import cv2
 import numpy as np
-from typing import Any, Dict, List
+from typing import Any, Dict
 from pynode.nodes.base_node import BaseNode, process_image, Info, MessageKeys
 
 _info = Info()

@@ -9,7 +9,6 @@ threads or bus registrations leak between tests. Channel names are unique per
 test to avoid any cross-test contamination of the process-wide bus.
 """
 
-import pytest
 
 from pynode.workflow_engine import WorkflowEngine
 from pynode.nodes.LinkNode.link_out_node import LinkOutNode

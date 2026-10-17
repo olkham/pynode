@@ -7,7 +7,6 @@ workflows dir, no worker threads. Sink files are written ONLY into tmp_path.
 import csv
 import json
 
-import numpy as np
 import pytest
 
 sv = pytest.importorskip('supervision')

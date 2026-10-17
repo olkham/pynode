@@ -14,10 +14,9 @@ if project_root not in sys.path:
 if inference_engine_dir not in sys.path:
     sys.path.insert(0, inference_engine_dir)
 
-import cv2
 from flask import json
 import numpy as np
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 # Handle both standalone and module imports
 try:

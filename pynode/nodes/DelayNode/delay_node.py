@@ -7,7 +7,7 @@ import time
 import threading
 from collections import deque
 from typing import Any, Dict
-from pynode.nodes.base_node import BaseNode, Info, MessageKeys
+from pynode.nodes.base_node import BaseNode, Info
 
 _info = Info()
 _info.add_text("Delays or rate-limits message delivery. Similar to Node-RED's delay node.")

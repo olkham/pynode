@@ -2,14 +2,12 @@
 Roboflow Upload Node - uploads images to a Roboflow project for annotation.
 """
 
-import base64
 import logging
 import os
 import tempfile
 import threading
 from datetime import datetime
 from typing import Any, Dict
-import numpy as np
 import cv2
 
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys

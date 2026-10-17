@@ -24,7 +24,7 @@ from pynode.api import register_blueprints
 from pynode.api.helpers import _json_error
 from pynode.api.uploads import ALLOWED_UPLOAD_SUBDIRS  # noqa: F401 (re-export)
 from pynode.credential_store import CREDENTIALS_FILE_NAME, CredentialStore
-from pynode.workflow_manager import BASE_DIR, MAX_BACKUPS, PKG_DIR, WorkflowManager
+from pynode.workflow_manager import PKG_DIR, WorkflowManager
 
 logger = logging.getLogger(__name__)
 

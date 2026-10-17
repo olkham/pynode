@@ -3,7 +3,7 @@
 Utilities for summarising and converting inference engine result formats.
 """
 
-from typing import Dict, List, Any, Optional
+from typing import Dict, Any
 import logging
 
 logger = logging.getLogger(__name__)

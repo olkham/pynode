@@ -10,7 +10,7 @@ import json
 import base64
 import threading
 import logging
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any
 
 try:
     import requests

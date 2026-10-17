@@ -10,7 +10,6 @@ into tmp_path, so the real workflows/ dir is never touched.
 """
 
 import io
-import os
 
 import pytest
 

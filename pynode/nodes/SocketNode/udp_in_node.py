@@ -11,7 +11,7 @@ import threading
 import time
 from typing import Any, Dict
 
-from pynode.nodes.base_node import BaseNode, Info, MessageKeys
+from pynode.nodes.base_node import BaseNode, Info
 from pynode.nodes.SocketNode import nodered_snippets, udp_protocol
 
 # Module level so DEFAULT_CONFIG and the Node-RED snippet in the info panel

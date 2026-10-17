@@ -2,7 +2,6 @@
 mDNS Broadcast Node - Broadcasts service information over mDNS for discovery
 """
 
-import json
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 from .mdns_manager import MDNSBroadcaster, MDNS_AVAILABLE
 

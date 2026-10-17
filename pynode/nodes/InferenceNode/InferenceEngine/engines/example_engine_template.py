@@ -5,7 +5,7 @@ This file demonstrates how to implement the BaseInferenceEngine interface.
 """
 
 import numpy as np
-from typing import Any, Optional
+from typing import Any
 import json
 
 # Import the base engine class

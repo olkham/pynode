@@ -3,12 +3,8 @@ Inference Node - Performs inference using multiple backends (Ultralytics, ONNX, 
 Supports engine selection, model file upload, target hardware selection, and inference.
 """
 
-import base64
-import cv2
 import logging
-import os
-import numpy as np
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 from pynode.nodes.detection_utils import CANONICAL_BBOX_FORMAT, normalized_detections
 

@@ -4,7 +4,6 @@ Supports dynamic filenames from messages or static configuration.
 """
 
 import os
-import base64
 import time
 from datetime import datetime
 from typing import Any, Dict

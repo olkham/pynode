@@ -4,8 +4,6 @@ and displays the annotated results using OpenCV.
 This example runs without the UI - it creates nodes programmatically.
 """
 
-import sys
-import os
 import time
 import cv2
 import numpy as np

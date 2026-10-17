@@ -3,7 +3,7 @@ Join Node - combines multiple messages into one.
 """
 
 import time
-from typing import Any, Dict, List
+from typing import Any, Dict
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()

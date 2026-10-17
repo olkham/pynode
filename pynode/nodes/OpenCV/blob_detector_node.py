@@ -5,7 +5,7 @@ Uses SimpleBlobDetector to find circular/blob-like features.
 
 import cv2
 import numpy as np
-from typing import Any, Dict, List
+from typing import Any, Dict
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()

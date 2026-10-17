@@ -5,7 +5,7 @@ them from its output.
 """
 
 from typing import Any, Dict, Optional
-from pynode.nodes.base_node import BaseNode, Info, MessageKeys
+from pynode.nodes.base_node import BaseNode, Info
 from pynode.nodes.LinkNode.link_bus import link_bus
 
 _info = Info()

@@ -9,11 +9,10 @@ tuned/adjusted.
 
 import base64
 import threading
-import time
 
 import numpy as np
 import cv2
-from pynode.nodes.base_node import BaseNode, FramePacer, Info, MessageKeys
+from pynode.nodes.base_node import BaseNode, FramePacer, Info
 
 _info = Info()
 _info.add_text("Accepts image files via drag-and-drop onto the node. "

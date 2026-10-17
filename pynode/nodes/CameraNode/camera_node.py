@@ -7,7 +7,7 @@ import base64
 import sys
 import threading
 import time
-from typing import Any, Dict, List
+from typing import Dict, List
 from pynode.nodes.base_node import BaseNode, FramePacer, Info, MessageKeys
 
 _info = Info()

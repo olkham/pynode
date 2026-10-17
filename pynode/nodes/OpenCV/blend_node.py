@@ -3,7 +3,6 @@ OpenCV Blend Node - blends two images together.
 """
 
 import cv2
-import numpy as np
 from typing import Any, Dict
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 

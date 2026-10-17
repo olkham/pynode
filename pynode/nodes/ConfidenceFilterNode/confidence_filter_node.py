@@ -3,7 +3,7 @@ Confidence Filter Node - filters messages based on detection confidence.
 Passes through messages that contain detections meeting the confidence threshold.
 """
 
-from typing import Any, Dict, List
+from typing import Any, Dict
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()

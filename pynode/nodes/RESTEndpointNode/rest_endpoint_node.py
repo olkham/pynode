@@ -9,7 +9,7 @@ configurable paths and response handling.
 import json
 import threading
 import logging
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 import time

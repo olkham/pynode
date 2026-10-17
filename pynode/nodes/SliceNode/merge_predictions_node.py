@@ -3,8 +3,7 @@ Merge Slice Predictions Node - combines predictions from image slices.
 Based on SAHI (Slicing Aided Hyper Inference) methodology for prediction merging.
 """
 
-import numpy as np
-from typing import Any, Dict, List, Tuple, Optional
+from typing import Any, Dict, List
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()

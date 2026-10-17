@@ -10,10 +10,9 @@ Message output format matches CameraNode / FrameSourceNode for drop-in compatibi
 import base64
 import logging
 import threading
-import time
 import queue
 import ipaddress
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import numpy as np
 
