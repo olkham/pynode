@@ -3,7 +3,7 @@ Template for creating custom nodes.
 This demonstrates how third-party developers can create their own nodes.
 """
 
-from typing import Any, Dict
+from typing import Any
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 # Build info content
@@ -66,7 +66,7 @@ class TemplateNode(BaseNode):
             'format': 'plain'
         })
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """
         Process incoming messages.
         This method is called when a message arrives at the node.

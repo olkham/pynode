@@ -7,7 +7,7 @@ import base64
 import os
 import queue
 import threading
-from typing import Any, Dict, Optional
+from typing import Any
 
 import cv2
 
@@ -157,9 +157,9 @@ class VideoReaderNode(BaseNode):
         # VideoCapture state - every access goes through _cap_lock because
         # the playback thread and the transport actions (stop/step) both
         # seek/read the capture.
-        self._cap: Optional[cv2.VideoCapture] = None
+        self._cap: cv2.VideoCapture | None = None
         self._cap_lock = threading.RLock()
-        self._video_path: Optional[str] = None
+        self._video_path: str | None = None
         self._total_frames = 0
         self._native_fps = 0.0
         # Index of the NEXT frame to read (the displayed frame is one less).
@@ -167,13 +167,13 @@ class VideoReaderNode(BaseNode):
         # Playback thread state; transport actions are serialized by
         # _transport_lock so play/stop/step can't interleave.
         self._playing = False
-        self._play_thread: Optional[threading.Thread] = None
+        self._play_thread: threading.Thread | None = None
         self._transport_lock = threading.Lock()
         # Prefetch pipeline (playback only): _decode_loop reads ahead into
         # _prefetch_q, _playback_loop drains it on a fixed schedule. See
         # _decode_loop for why the read is decoupled from the emit.
-        self._prefetch_q: Optional[queue.Queue] = None
-        self._decode_thread: Optional[threading.Thread] = None
+        self._prefetch_q: queue.Queue | None = None
+        self._decode_thread: threading.Thread | None = None
         # Index of the next frame the DECODER will read. Runs ahead of
         # _frame_index (the display position) by up to _PREFETCH_DEPTH.
         self._decode_index = 0
@@ -394,7 +394,7 @@ class VideoReaderNode(BaseNode):
         return self._send_frame(index, frame, total, path)
 
     def _send_frame(self, index: int, frame, total: int,
-                    path: Optional[str]) -> bool:
+                    path: str | None) -> bool:
         """Build the frame message for `frame` and send it downstream."""
         if self.get_config_bool(MessageKeys.CAMERA.ENCODE_JPEG, False):
             quality = self.get_config_int(MessageKeys.CAMERA.JPEG_QUALITY, 80)
@@ -422,7 +422,7 @@ class VideoReaderNode(BaseNode):
                 MessageKeys.IMAGE.HEIGHT: frame.shape[0],
             }
 
-        message_payload: Dict[str, Any] = {
+        message_payload: dict[str, Any] = {
             MessageKeys.IMAGE.PATH: image_payload,
             'frame': index,
             'total_frames': total,

@@ -18,7 +18,6 @@ produces this form.)
 
 import socket
 import threading
-from typing import Optional
 
 from pynode.nodes.base_node import BaseNode, Info
 from pynode.nodes.SocketNode import ndjson_protocol, nodered_snippets
@@ -123,7 +122,7 @@ class TcpInNode(BaseNode):
         self._stop_flag = threading.Event()
         self._clients_lock = threading.Lock()
         self._clients = {}  # socket -> reader thread
-        self.bound_port: Optional[int] = None
+        self.bound_port: int | None = None
         self.received_count = 0
         self.error_count = 0
 
@@ -187,7 +186,7 @@ class TcpInNode(BaseNode):
         while not self._stop_flag.is_set():
             try:
                 client, addr = self._server_socket.accept()
-            except socket.timeout:
+            except TimeoutError:
                 continue
             except OSError:
                 return  # socket closed by on_stop
@@ -213,7 +212,7 @@ class TcpInNode(BaseNode):
             while not self._stop_flag.is_set():
                 try:
                     data = client.recv(self._RECV_BUFFER_SIZE)
-                except socket.timeout:
+                except TimeoutError:
                     continue
                 except OSError:
                     break

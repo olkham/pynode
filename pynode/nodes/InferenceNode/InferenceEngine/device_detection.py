@@ -28,26 +28,25 @@ actually present and returns the closest usable substitute plus a warning.
 """
 
 import logging
-from typing import Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
 # Static fallback used when openvino is not importable or enumeration fails.
 # It mirrors the historical hardcoded dropdown (CPU/GPU/NPU) so behavior is
 # unchanged on systems without openvino.
-FALLBACK_DEVICES: List[str] = ['CPU', 'GPU', 'NPU']
+FALLBACK_DEVICES: list[str] = ['CPU', 'GPU', 'NPU']
 
 # Cache: (devices, detected). ``detected`` is False when the fallback list is
 # in use. Enumeration can be slow, so it runs once (lazily) per process.
-_device_cache: Optional[Tuple[List[str], bool]] = None
+_device_cache: tuple[list[str], bool] | None = None
 
 # FULL_DEVICE_NAME per enumerated device (e.g. 'GPU.0' -> 'Intel(R) UHD
 # Graphics 770 (iGPU)'). Populated alongside _device_cache; empty when names
 # could not be queried or the fallback list is in use.
-_device_names: Dict[str, str] = {}
+_device_names: dict[str, str] = {}
 
 
-def _enumerate_openvino_devices() -> Optional[Tuple[List[str], Dict[str, str]]]:
+def _enumerate_openvino_devices() -> tuple[list[str], dict[str, str]] | None:
     """Return ``(devices, names)`` from OpenVINO, or None if unavailable."""
     try:
         from openvino import Core  # type: ignore
@@ -63,7 +62,7 @@ def _enumerate_openvino_devices() -> Optional[Tuple[List[str], Dict[str, str]]]:
     except Exception as e:
         logger.warning(f"OpenVINO device enumeration failed: {e}")
         return None
-    names: Dict[str, str] = {}
+    names: dict[str, str] = {}
     for device in devices:
         try:
             names[device] = str(core.get_property(device, 'FULL_DEVICE_NAME'))
@@ -72,7 +71,7 @@ def _enumerate_openvino_devices() -> Optional[Tuple[List[str], Dict[str, str]]]:
     return devices, names
 
 
-def get_openvino_devices(refresh: bool = False) -> Tuple[List[str], bool]:
+def get_openvino_devices(refresh: bool = False) -> tuple[list[str], bool]:
     """Return ``(devices, detected)``.
 
     ``devices`` is e.g. ``['CPU', 'GPU.0', 'GPU.1']`` when openvino is
@@ -93,19 +92,19 @@ def get_openvino_devices(refresh: bool = False) -> Tuple[List[str], bool]:
     return list(devices), detected
 
 
-def get_openvino_device_names() -> Dict[str, str]:
+def get_openvino_device_names() -> dict[str, str]:
     """Return FULL_DEVICE_NAME per device (may be empty), e.g.
     ``{'GPU.0': 'Intel(R) UHD Graphics 770 (iGPU)'}``."""
     get_openvino_devices()  # ensure enumeration has been attempted
     return dict(_device_names)
 
 
-def _gpu_devices(devices: List[str]) -> List[str]:
+def _gpu_devices(devices: list[str]) -> list[str]:
     """Filter GPU entries ('GPU', 'GPU.0', ...) preserving enumeration order."""
     return [d for d in devices if d == 'GPU' or d.startswith('GPU.')]
 
 
-def _intel_gpu_devices(devices: List[str]) -> List[str]:
+def _intel_gpu_devices(devices: list[str]) -> list[str]:
     """GPU entries that are actually Intel GPUs.
 
     OpenVINO's GPU plugin enumerates every OpenCL GPU, so on a machine with
@@ -123,7 +122,7 @@ def _intel_gpu_devices(devices: List[str]) -> List[str]:
     return intel_gpus
 
 
-def get_cuda_devices() -> List[str]:
+def get_cuda_devices() -> list[str]:
     """Return ``['cuda:0', ...]`` via torch, or ``[]`` when torch is missing,
     is a CPU-only build, or no NVIDIA GPU is present."""
     try:
@@ -139,7 +138,7 @@ def get_cuda_devices() -> List[str]:
         return []
 
 
-def get_intel_device_options() -> List[Dict[str, str]]:
+def get_intel_device_options() -> list[dict[str, str]]:
     """Build the Intel OpenVINO entries for the hardware dropdown.
 
     - Intel CPU is always offered.
@@ -154,7 +153,7 @@ def get_intel_device_options() -> List[Dict[str, str]]:
     devices, _detected = get_openvino_devices()
     names = get_openvino_device_names()
 
-    options: List[Dict[str, str]] = [
+    options: list[dict[str, str]] = [
         {'value': 'intel:cpu', 'label': 'Intel CPU (OpenVINO)'},
     ]
 
@@ -201,7 +200,7 @@ def resolve_intel_device(device: str) -> str:
     return f'intel:{gpus[0].lower()}'
 
 
-def validate_device(device: str) -> Tuple[str, Optional[str]]:
+def validate_device(device: str) -> tuple[str, str | None]:
     """Check a configured device against the hardware present on THIS machine.
 
     Saved workflows carry device strings from whatever machine they were

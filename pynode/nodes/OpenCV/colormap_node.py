@@ -4,7 +4,7 @@ Colormap Node - applies colormaps to depth/grayscale images for visualization.
 
 import cv2
 import numpy as np
-from typing import Any, Dict
+from typing import Any
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
@@ -167,7 +167,7 @@ class ColormapNode(BaseNode):
     def __init__(self, node_id=None, name="colormap"):
         super().__init__(node_id, name)
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """Apply colormap to input image/depth data."""
         payload = msg.get(MessageKeys.PAYLOAD)
         if not payload:

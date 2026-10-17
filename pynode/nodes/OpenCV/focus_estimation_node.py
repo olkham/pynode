@@ -4,7 +4,7 @@ OpenCV Focus Estimation Node - measures image sharpness using various focus oper
 
 import cv2
 import numpy as np
-from typing import Any, Dict
+from typing import Any
 from pynode.nodes.base_node import BaseNode, process_image, Info, MessageKeys
 
 _info = Info()
@@ -145,7 +145,7 @@ class FocusEstimationNode(BaseNode):
         return float(entropy)
     
     @process_image()
-    def on_input(self, image: np.ndarray, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, image: np.ndarray, msg: dict[str, Any], input_index: int = 0):
         """Compute focus score for the input image."""
         method = self.config.get('method', 'laplacian')
         include_image = self.get_config_bool('include_image', False)

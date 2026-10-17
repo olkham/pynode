@@ -9,7 +9,7 @@ configurable paths and response handling.
 import json
 import threading
 import logging
-from typing import Optional, Dict, Any
+from typing import Any
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 import time
@@ -169,15 +169,15 @@ class RESTEndpointNode(BaseNode):
         }
     ]
     
-    def __init__(self, node_id: Optional[str] = None, name: str = "rest-endpoint"):
+    def __init__(self, node_id: str | None = None, name: str = "rest-endpoint"):
         super().__init__(node_id, name)
         self.configure(self.DEFAULT_CONFIG.copy())
-        self.server: Optional[HTTPServer] = None
-        self.server_thread: Optional[threading.Thread] = None
+        self.server: HTTPServer | None = None
+        self.server_thread: threading.Thread | None = None
         self._running = False
         self._request_count = 0
-        self._pending_responses: Dict[str, Any] = {}
-        self._response_events: Dict[str, threading.Event] = {}
+        self._pending_responses: dict[str, Any] = {}
+        self._response_events: dict[str, threading.Event] = {}
     
     def on_deploy(self):
         """Called when the workflow is deployed - start the server."""
@@ -196,7 +196,7 @@ class RESTEndpointNode(BaseNode):
         """Called when the node is removed."""
         self._stop_server()
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """
         Handle incoming messages for response control.
         

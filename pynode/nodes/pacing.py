@@ -5,7 +5,7 @@ can pace itself correctly; re-exported from ``pynode.nodes.base_node``.
 """
 
 import time
-from typing import Callable, Optional
+from collections.abc import Callable
 
 
 class FramePacer:
@@ -69,7 +69,7 @@ class FramePacer:
     DEFAULT_MAX_CATCHUP = 3.0
 
     def __init__(self, interval: float,
-                 running: Optional[Callable[[], bool]] = None,
+                 running: Callable[[], bool] | None = None,
                  sleep_chunk: float = DEFAULT_SLEEP_CHUNK,
                  max_catchup: float = DEFAULT_MAX_CATCHUP):
         """
@@ -94,7 +94,7 @@ class FramePacer:
         """Restart the schedule from now (call when resuming after a pause)."""
         self._deadline = time.perf_counter()
 
-    def wait(self, interval: Optional[float] = None) -> bool:
+    def wait(self, interval: float | None = None) -> bool:
         """Sleep until the next deadline.
 
         Returns:

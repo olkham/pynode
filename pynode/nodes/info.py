@@ -5,7 +5,6 @@ Extracted from ``base_node.py``; ``pynode.nodes.base_node`` re-exports
 """
 
 import html
-from typing import List, Tuple, Union
 
 
 class Info:
@@ -27,8 +26,8 @@ class Info:
     """
 
     def __init__(self):
-        self._content: List[str] = []
-        self._inline_buffer: List[str] = []
+        self._content: list[str] = []
+        self._inline_buffer: list[str] = []
 
     def _escape(self, text: str) -> str:
         """Escape HTML special characters for security."""
@@ -64,7 +63,7 @@ class Info:
             self._content.append(f'<ul><li>{self._escape(label)}</li></ul>')
         return self
 
-    def add_bullets(self, *items: Union[str, Tuple[str, str]]) -> 'Info':
+    def add_bullets(self, *items: str | tuple[str, str]) -> 'Info':
         """
         Add multiple bullet points as a single list.
         Each item can be a string or a tuple of (label, text).

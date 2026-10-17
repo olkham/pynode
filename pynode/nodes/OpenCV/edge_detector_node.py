@@ -4,7 +4,7 @@ OpenCV Edge Detection Node - detects edges using various algorithms.
 
 import cv2
 import numpy as np
-from typing import Any, Dict
+from typing import Any
 from pynode.nodes.base_node import BaseNode, process_image, Info
 
 _info = Info()
@@ -126,7 +126,7 @@ class EdgeDetectorNode(BaseNode):
         super().__init__(node_id, name)
     
     @process_image()
-    def on_input(self, image: np.ndarray, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, image: np.ndarray, msg: dict[str, Any], input_index: int = 0):
         """Detect edges in the input image."""
         method = self.config.get('method', 'canny')
         threshold1 = self.get_config_int('threshold1', 100)

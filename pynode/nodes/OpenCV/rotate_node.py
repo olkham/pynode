@@ -4,7 +4,7 @@ OpenCV Rotate Node - rotates images.
 
 import cv2
 import numpy as np
-from typing import Any, Dict
+from typing import Any
 from pynode.nodes.base_node import BaseNode, process_image, Info
 
 _info = Info()
@@ -110,7 +110,7 @@ class RotateNode(BaseNode):
             return (0, 0, 0)
     
     @process_image()
-    def on_input(self, image: np.ndarray, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, image: np.ndarray, msg: dict[str, Any], input_index: int = 0):
         """Rotate the input image."""
         mode = self.config.get('mode', '90cw')
         

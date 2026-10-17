@@ -7,7 +7,7 @@ import base64
 import cv2
 import logging
 import numpy as np
-from typing import Any, Dict, Optional
+from typing import Any
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 from pynode.nodes.detection_utils import CANONICAL_BBOX_FORMAT, normalized_detection
 
@@ -183,7 +183,7 @@ class DrawPredictionsNode(BaseNode):
             'yellow': (0, 255, 255)
         }
     
-    def _decode_image(self, image_data: str) -> Optional[np.ndarray]:
+    def _decode_image(self, image_data: str) -> np.ndarray | None:
         """Decode base64 image to numpy array."""
         try:
             # Remove data URL prefix if present
@@ -199,7 +199,7 @@ class DrawPredictionsNode(BaseNode):
             self.report_error(f"Failed to decode image: {str(e)}")
             return None
     
-    def _encode_image(self, img: np.ndarray) -> Optional[str]:
+    def _encode_image(self, img: np.ndarray) -> str | None:
         """Encode numpy array to base64 JPEG."""
         try:
             _, buffer = cv2.imencode('.jpg', img)
@@ -220,13 +220,13 @@ class DrawPredictionsNode(BaseNode):
         status = "enabled" if self.drawing_enabled else "disabled"
         logger.info(f"Draw Predictions ({self.id}): Drawing {status}")
     
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize node to dictionary for API/storage, including drawing state."""
         data = super().to_dict()
         data['drawingEnabled'] = self.drawing_enabled
         return data
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """Draw predictions/tracks on image, with configurable path and track_id support."""
         # If drawing is disabled, pass through the message unchanged
         if not self.drawing_enabled:

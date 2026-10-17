@@ -3,7 +3,7 @@ MQTT Out node - publishes messages to MQTT topics.
 Uses shared MQTT service for connection management.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 from pynode.nodes.MQTTNode.mqtt_service import mqtt_manager, MQTTService
 
@@ -87,7 +87,7 @@ class MqttOutNode(BaseNode):
     
     def __init__(self, node_id: 'str | None' = None, name: str = ""):
         super().__init__(node_id, name)
-        self._service: Optional[MQTTService] = None
+        self._service: MQTTService | None = None
     
     def on_start(self):
         """Register with MQTT service when workflow starts."""
@@ -126,7 +126,7 @@ class MqttOutNode(BaseNode):
         """Cleanup when node is removed."""
         self.on_stop()
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """
         Process incoming message and publish to MQTT.
         """

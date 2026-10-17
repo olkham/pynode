@@ -6,7 +6,7 @@ Supports dynamic rules with multiple outputs.
 
 import copy
 import re
-from typing import Any, Dict
+from typing import Any
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
@@ -87,7 +87,7 @@ class SwitchNode(BaseNode):
         super().__init__(node_id, name)
         self._update_output_count()
     
-    def configure(self, config: Dict[str, Any]):
+    def configure(self, config: dict[str, Any]):
         """Override configure to update output count when rules change."""
         super().configure(config)
         self._update_output_count()
@@ -117,7 +117,7 @@ class SwitchNode(BaseNode):
         else:  # 'str' or default
             return str(value_str)
     
-    def _evaluate_rule(self, msg_value: Any, rule: Dict[str, Any]) -> bool:
+    def _evaluate_rule(self, msg_value: Any, rule: dict[str, Any]) -> bool:
         """
         Evaluate a single rule against a message value.
         
@@ -228,7 +228,7 @@ class SwitchNode(BaseNode):
         except (TypeError, ValueError, AttributeError):
             return False
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """
         Route message based on rules.
         Each rule is checked in order, and messages are sent to matching output(s).

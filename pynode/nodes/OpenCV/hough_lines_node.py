@@ -4,7 +4,7 @@ OpenCV Hough Lines Node - detects lines in images.
 
 import cv2
 import numpy as np
-from typing import Any, Dict
+from typing import Any
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
@@ -151,7 +151,7 @@ class HoughLinesNode(BaseNode):
         except Exception:
             return (0, 0, 255)
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """Detect lines in the input image."""
         if MessageKeys.PAYLOAD not in msg:
             self.send(msg)

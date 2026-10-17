@@ -3,7 +3,7 @@ Auto Sync Node - joins messages from multiple inputs and outputs them together.
 Simply buffers the latest message from each input and outputs all when a new message arrives.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
@@ -67,9 +67,9 @@ class AutoSyncNode(BaseNode):
     
     def __init__(self, node_id=None, name="auto sync"):
         super().__init__(node_id, name)
-        self._buffers: Dict[int, Optional[Dict[str, Any]]] = {}
+        self._buffers: dict[int, dict[str, Any] | None] = {}
     
-    def configure(self, config: Dict[str, Any]):
+    def configure(self, config: dict[str, Any]):
         """Configure node and update input count."""
         super().configure(config)
         
@@ -83,7 +83,7 @@ class AutoSyncNode(BaseNode):
         super().on_start()
         self._buffers = {i: None for i in range(self.input_count)}
     
-    def _get_sync_value(self, msg: Dict[str, Any]) -> Optional[float]:
+    def _get_sync_value(self, msg: dict[str, Any]) -> float | None:
         """Extract the sync property value from a message."""
         sync_property = self.config.get('sync_property', 'frame_count')
         
@@ -107,7 +107,7 @@ class AutoSyncNode(BaseNode):
         
         return None
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """Process incoming messages."""
         if input_index >= self.input_count:
             self.report_error(f"Received message on invalid input {input_index}")

@@ -4,7 +4,7 @@ Based on SAHI (Slicing Aided Hyper Inference) methodology.
 """
 
 import numpy as np
-from typing import Any, Dict, List, Tuple
+from typing import Any
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 try:
@@ -155,7 +155,7 @@ class SliceImageNode(BaseNode):
     def __init__(self, node_id=None, name="slice_image"):
         super().__init__(node_id, name)
     
-    def _get_auto_slice_params(self, height: int, width: int) -> Tuple[int, int, int, int]:
+    def _get_auto_slice_params(self, height: int, width: int) -> tuple[int, int, int, int]:
         """
         Calculate automatic slice parameters based on image resolution.
         Returns (x_overlap, y_overlap, slice_width, slice_height)
@@ -189,7 +189,7 @@ class SliceImageNode(BaseNode):
             return "horizontal"
         return "square"
     
-    def _calc_ratio_and_slice(self, orientation: str, slide: int = 1, ratio: float = 0.1) -> Tuple[int, int, float, float]:
+    def _calc_ratio_and_slice(self, orientation: str, slide: int = 1, ratio: float = 0.1) -> tuple[int, int, float, float]:
         """Calculate slice rows/cols and overlap ratios based on orientation."""
         if orientation == "vertical":
             return slide, slide * 2, ratio, ratio
@@ -197,7 +197,7 @@ class SliceImageNode(BaseNode):
             return slide * 2, slide, ratio, ratio
         return slide, slide, ratio, ratio
     
-    def _get_resolution_params(self, resolution: str, height: int, width: int, orientation: str) -> Tuple[int, int, int, int]:
+    def _get_resolution_params(self, resolution: str, height: int, width: int, orientation: str) -> tuple[int, int, int, int]:
         """Get slice parameters based on resolution category."""
         if resolution == "medium":
             split_row, split_col, overlap_h, overlap_w = self._calc_ratio_and_slice(orientation, 1, 0.8)
@@ -223,7 +223,7 @@ class SliceImageNode(BaseNode):
         slice_width: int,
         overlap_height_ratio: float,
         overlap_width_ratio: float
-    ) -> List[List[int]]:
+    ) -> list[list[int]]:
         """
         Generate bounding boxes for slicing an image.
         
@@ -269,7 +269,7 @@ class SliceImageNode(BaseNode):
         num_slices_y: int,
         overlap_height_ratio: float,
         overlap_width_ratio: float
-    ) -> List[List[int]]:
+    ) -> list[list[int]]:
         """
         Generate slice bounding boxes for a fixed grid of nx x ny tiles.
         
@@ -300,7 +300,7 @@ class SliceImageNode(BaseNode):
         
         return slice_bboxes
     
-    def _axis_starts(self, length: int, count: int, overlap_ratio: float) -> Tuple[List[int], int]:
+    def _axis_starts(self, length: int, count: int, overlap_ratio: float) -> tuple[list[int], int]:
         """
         Compute evenly spaced tile start positions along one axis.
         
@@ -320,7 +320,7 @@ class SliceImageNode(BaseNode):
         
         return starts, slice_size
     
-    def _slice_image(self, image: np.ndarray) -> List[Dict[str, Any]]:
+    def _slice_image(self, image: np.ndarray) -> list[dict[str, Any]]:
         """
         Slice the image into tiles based on configuration.
         
@@ -391,7 +391,7 @@ class SliceImageNode(BaseNode):
         
         return slices
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """Process incoming image and output slices."""
         if not _HAS_CV2:
             self.report_error("OpenCV (cv2) is required for image slicing")

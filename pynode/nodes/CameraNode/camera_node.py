@@ -7,7 +7,6 @@ import base64
 import sys
 import threading
 import time
-from typing import Dict, List
 from pynode.nodes.base_node import BaseNode, FramePacer, Info, MessageKeys
 
 _info = Info()
@@ -82,14 +81,14 @@ class CameraNode(BaseNode):
         return sys.platform
 
     @classmethod
-    def _get_backend_map(cls) -> Dict[str, int]:
+    def _get_backend_map(cls) -> dict[str, int]:
         """Map backend option value -> cv2.CAP_* constant.
 
         Only includes backends valid for the current OS whose cv2 constant
         actually exists in the installed OpenCV build.
         """
         platform_key = cls._current_platform_key()
-        mapping: Dict[str, int] = {}
+        mapping: dict[str, int] = {}
         for value, attr, _label, platforms in cls._BACKEND_DEFS:
             if platforms is not None and platform_key not in platforms:
                 continue
@@ -98,7 +97,7 @@ class CameraNode(BaseNode):
         return mapping
 
     @classmethod
-    def _get_backend_options(cls) -> List[Dict[str, str]]:
+    def _get_backend_options(cls) -> list[dict[str, str]]:
         """Build the 'backend' select options for the current OS/OpenCV build."""
         options = [{'value': 'auto', 'label': 'Auto (OpenCV default)'}]
         for value in cls._get_backend_map():

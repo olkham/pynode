@@ -3,7 +3,7 @@ Error node - captures and displays error messages from any node in the workflow.
 Automatically receives error events and displays them in the debug panel.
 """
 
-from typing import Any, Dict
+from typing import Any
 from pynode.nodes.base_node import BaseNode, Info
 
 # Build info content
@@ -51,7 +51,7 @@ class ErrorNode(BaseNode):
         self.max_errors = 100  # Keep last 100 errors
         self.is_system_node = False  # Can be set to True for the system error node
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """
         This won't be called since input_count = 0.
         Errors are captured via handle_error() method.

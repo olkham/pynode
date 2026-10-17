@@ -5,7 +5,7 @@ Uses SimpleBlobDetector to find circular/blob-like features.
 
 import cv2
 import numpy as np
-from typing import Any, Dict
+from typing import Any
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
@@ -132,7 +132,7 @@ class BlobDetectorNode(BaseNode):
     def __init__(self, node_id=None, name="blob detector"):
         super().__init__(node_id, name)
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """Detect blobs in the input image."""
         if MessageKeys.PAYLOAD not in msg:
             self.send(msg)

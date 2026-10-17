@@ -2,7 +2,7 @@
 Filter Node - filters messages based on conditions.
 """
 
-from typing import Any, Dict
+from typing import Any
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
@@ -68,7 +68,7 @@ class FilterNode(BaseNode):
         self.last_value = None
         self.message_count = 0
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """Filter messages based on configured mode."""
         mode = self.config.get('mode', 'dedupe')
         payload = msg.get(MessageKeys.PAYLOAD)

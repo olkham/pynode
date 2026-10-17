@@ -5,7 +5,7 @@ Similar to Node-RED's debug node.
 
 import time
 import numpy as np
-from typing import Any, Dict
+from typing import Any
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
@@ -82,7 +82,7 @@ class DebugNode(BaseNode):
         super().__init__(node_id, name)
         self.messages = []  # Store messages for API access
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """
         Print/store the message for debugging.
         """

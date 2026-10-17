@@ -7,7 +7,7 @@ import os
 import tempfile
 import threading
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any
 import cv2
 
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
@@ -137,7 +137,7 @@ class RoboflowUploadNode(BaseNode):
         self._rf_project = None
         super().on_stop()
 
-    def configure(self, config: Dict[str, Any]):
+    def configure(self, config: dict[str, Any]):
         """Apply configuration."""
         super().configure(config)
 
@@ -166,7 +166,7 @@ class RoboflowUploadNode(BaseNode):
             self.report_error(f"Roboflow connection failed: {e}")
             self._rf_project = None
 
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """Decode image from message and upload to Roboflow."""
         if not self._rf_project:
             self.report_error("Not connected to Roboflow (check configuration)")

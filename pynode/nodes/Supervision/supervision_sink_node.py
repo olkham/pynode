@@ -3,7 +3,6 @@
 import logging
 import os
 import time
-from typing import Optional
 
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 from pynode.nodes.supervision_utils import (
@@ -103,8 +102,8 @@ class SupervisionSinkNode(BaseNode):
 
     def __init__(self, node_id=None, name="sv_sink"):
         self._sink = None
-        self._sink_format: Optional[str] = None
-        self._sink_path: Optional[str] = None
+        self._sink_format: str | None = None
+        self._sink_path: str | None = None
         self._frame_index = 0
         self._rows_written = 0
         self._missing_reported = False

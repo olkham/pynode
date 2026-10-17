@@ -4,7 +4,7 @@ OpenCV Template Matching Node - finds template in image.
 
 import cv2
 import numpy as np
-from typing import Any, Dict
+from typing import Any
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
@@ -122,7 +122,7 @@ class TemplateMatchNode(BaseNode):
         except Exception:
             return (0, 255, 0)
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """Process template matching."""
         if MessageKeys.PAYLOAD not in msg:
             self.send(msg)

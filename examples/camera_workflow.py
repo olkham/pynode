@@ -8,7 +8,7 @@ import time
 import cv2
 import numpy as np
 import base64
-from typing import Dict, Any
+from typing import Any
 
 from pynode.workflow_engine import WorkflowEngine
 from pynode.nodes.base_node import BaseNode, MessageKeys
@@ -45,7 +45,7 @@ class DisplayNode(BaseNode):
         cv2.destroyWindow(self.window_name)
         print(f"[{self.name}] Display window closed")
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """
         Process incoming image messages and display them.
         """

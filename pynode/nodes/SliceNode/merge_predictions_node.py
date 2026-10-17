@@ -3,7 +3,7 @@ Merge Slice Predictions Node - combines predictions from image slices.
 Based on SAHI (Slicing Aided Hyper Inference) methodology for prediction merging.
 """
 
-from typing import Any, Dict, List
+from typing import Any
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
@@ -83,9 +83,9 @@ class MergeSlicePredictionsNode(BaseNode):
     
     def __init__(self, node_id=None, name="merge_predictions"):
         super().__init__(node_id, name)
-        self._pending_slices: Dict[str, Dict] = {}  # msg_id -> collected slice data
+        self._pending_slices: dict[str, dict] = {}  # msg_id -> collected slice data
     
-    def _calculate_iou(self, box1: List[float], box2: List[float]) -> float:
+    def _calculate_iou(self, box1: list[float], box2: list[float]) -> float:
         """
         Calculate Intersection over Union (IoU) between two bounding boxes.
         Boxes are in [x1, y1, x2, y2] format.
@@ -116,7 +116,7 @@ class MergeSlicePredictionsNode(BaseNode):
         
         return intersection / union
     
-    def _calculate_ios(self, box1: List[float], box2: List[float]) -> float:
+    def _calculate_ios(self, box1: list[float], box2: list[float]) -> float:
         """
         Calculate Intersection over Smaller area (IoS) between two bounding boxes.
         Useful for detecting when a smaller box is inside a larger one.
@@ -149,9 +149,9 @@ class MergeSlicePredictionsNode(BaseNode):
     
     def _transform_detections(
         self,
-        detections: List[Dict],
-        offset: List[int]
-    ) -> List[Dict]:
+        detections: list[dict],
+        offset: list[int]
+    ) -> list[dict]:
         """
         Transform detection coordinates from slice-local to original image coordinates.
         """
@@ -181,11 +181,11 @@ class MergeSlicePredictionsNode(BaseNode):
     
     def _nms(
         self,
-        detections: List[Dict],
+        detections: list[dict],
         nms_threshold: float,
         match_metric: str = 'iou',
         class_agnostic: bool = False
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """
         Apply Non-Maximum Suppression to remove duplicate detections.
         
@@ -211,7 +211,7 @@ class MergeSlicePredictionsNode(BaseNode):
         if class_agnostic:
             groups = {'all': sorted_dets}
         else:
-            groups: Dict[Any, List[Dict]] = {}
+            groups: dict[Any, list[dict]] = {}
             for det in sorted_dets:
                 class_id = det.get('class_id', det.get('class_name', 'unknown'))
                 if class_id not in groups:
@@ -249,10 +249,10 @@ class MergeSlicePredictionsNode(BaseNode):
     
     def _greedy_nmm(
         self,
-        detections: List[Dict],
+        detections: list[dict],
         match_threshold: float,
         match_metric: str = 'iou'
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """
         Greedy Non-Maximum Merging - merges overlapping detections of same class.
         
@@ -327,7 +327,7 @@ class MergeSlicePredictionsNode(BaseNode):
         
         return merged
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """
         Process incoming slice predictions and merge them.
         

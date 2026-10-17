@@ -24,9 +24,9 @@ matches the PyNode node's own default rather than the example flow's
 """
 
 import json
-from functools import lru_cache
+from functools import cache
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 _FLOW_PATH = Path(__file__).resolve().parent / 'interop' / 'nodered-example-flow.json'
 
@@ -41,7 +41,7 @@ _ORIGIN_Y = 120
 
 # kind -> (example-flow node ids in wire order, comment title, comment body).
 # The body is .format()ed with the port, so it can never quote a stale one.
-_SNIPPETS: Dict[str, Tuple[Tuple[str, ...], str, str]] = {
+_SNIPPETS: dict[str, tuple[tuple[str, ...], str, str]] = {
     'udp_out': (
         ('pnb1000000000003',   # udp in
          'pnb1000000000004',   # function: PNB1 reassemble
@@ -90,11 +90,11 @@ _SNIPPETS: Dict[str, Tuple[Tuple[str, ...], str, str]] = {
 }
 
 
-def _load_flow() -> List[Dict[str, Any]]:
+def _load_flow() -> list[dict[str, Any]]:
     return json.loads(_FLOW_PATH.read_text(encoding='utf-8'))
 
 
-@lru_cache(maxsize=None)
+@cache
 def flow_snippet(kind: str, port: int) -> str:
     """Return an importable Node-RED flow (JSON array text) for ``kind``.
 

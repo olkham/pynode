@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import logging
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 try:
     import onnxruntime as ort
@@ -31,14 +31,14 @@ class OnnxEngine(BaseInferenceEngine):
         super().__init__(**kwargs)
         self.model_path = kwargs.get('model_path', self.model_path)
         self.device = kwargs.get('device', self.device)
-        self.session: Optional[ort.InferenceSession] = None  # type: ignore[reportInvalidTypeForm]
-        self.input_name: Optional[str] = None
-        self.input_shape: Optional[Tuple[int, ...]] = None
-        self.output_name: Optional[str] = None
-        self.num_classes: Optional[int] = None
+        self.session: ort.InferenceSession | None = None  # type: ignore[reportInvalidTypeForm]
+        self.input_name: str | None = None
+        self.input_shape: tuple[int, ...] | None = None
+        self.output_name: str | None = None
+        self.num_classes: int | None = None
         # Confidence threshold for filtering predictions
         self.confidence_threshold: float = float(kwargs.get('confidence_threshold', 0.5))
-        self.cat_map: Optional[Dict[int, str]] = kwargs.get('cat_map', None)
+        self.cat_map: dict[int, str] | None = kwargs.get('cat_map', None)
         # Track sizes to map model coordinates back to original image
         # types: Optional[Tuple[int,int]]
         self._original_image_size = None  # (height, width)
@@ -210,14 +210,14 @@ class OnnxEngine(BaseInferenceEngine):
         # Expect outputs[0] to be numpy array
         return outputs[0]
 
-    def _postprocess(self, raw_output: np.ndarray) -> Dict[str, Any]:
+    def _postprocess(self, raw_output: np.ndarray) -> dict[str, Any]:
         """Convert raw ONNX output to engine-standard dict.
 
         raw_output expected shape: (1, 4+classes, num_detections)
         We'll parse into list of detections where each detection includes bbox in x_center,y_center,w,h
         and a list of class confidences.
         """
-        result: Dict[str, Any] = {
+        result: dict[str, Any] = {
             "success": True,
             "device": self.device,
             "model_name": os.path.basename(self.model_path) if self.model_path else None,
@@ -332,7 +332,7 @@ class OnnxEngine(BaseInferenceEngine):
                 "device": self.device
             }
 
-    def draw(self, image: np.ndarray, results: Dict[str, Any]) -> np.ndarray:
+    def draw(self, image: np.ndarray, results: dict[str, Any]) -> np.ndarray:
         # Draw simple boxes using xywh center format
         import cv2
         out_img = image.copy()
@@ -359,7 +359,7 @@ class OnnxEngine(BaseInferenceEngine):
 
         return out_img
 
-    def result_to_json(self, results: Dict[str, Any], output_format: str = "dict") -> Any:
+    def result_to_json(self, results: dict[str, Any], output_format: str = "dict") -> Any:
         import json
         if output_format == 'dict':
             return results

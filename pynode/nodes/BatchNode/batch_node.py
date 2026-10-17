@@ -2,7 +2,7 @@
 Batch Node - groups messages into batches.
 """
 
-from typing import Any, Dict
+from typing import Any
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
@@ -62,7 +62,7 @@ class BatchNode(BaseNode):
         super().__init__(node_id, name)
         self.buffer = []
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """Collect messages into batches."""
         self.buffer.append(msg.copy())
         

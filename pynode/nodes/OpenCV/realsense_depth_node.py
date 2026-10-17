@@ -5,7 +5,7 @@ Handles aligned RGB and depth data with various output formats.
 
 import cv2
 import numpy as np
-from typing import Any, Dict
+from typing import Any
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
@@ -116,7 +116,7 @@ class RealsenseDepthNode(BaseNode):
     def __init__(self, node_id=None, name="realsense depth"):
         super().__init__(node_id, name)
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """Process RealSense depth camera frames."""
         if MessageKeys.PAYLOAD not in msg:
             self.send(msg)

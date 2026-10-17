@@ -9,7 +9,7 @@ Supports two modes:
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 
@@ -74,7 +74,7 @@ class Qwen3VLMNode(BaseNode):
     # ------------------------------------------------------------------
     # Default configuration
     # ------------------------------------------------------------------
-    DEFAULT_CONFIG: Dict[str, Any] = {
+    DEFAULT_CONFIG: dict[str, Any] = {
         "model_name": "Qwen/Qwen3-VL-2B-Instruct",
         "hf_token": "",
         "mode": "generic",
@@ -88,7 +88,7 @@ class Qwen3VLMNode(BaseNode):
     # Dynamic device options
     # ------------------------------------------------------------------
     @staticmethod
-    def _get_device_options() -> List[Dict[str, str]]:
+    def _get_device_options() -> list[dict[str, str]]:
         devices = [{"value": "cpu", "label": "CPU"}]
         try:
             import torch  # type: ignore
@@ -120,7 +120,7 @@ class Qwen3VLMNode(BaseNode):
     # Properties panel schema
     # ------------------------------------------------------------------
     @classmethod
-    def get_properties(cls) -> List[Dict[str, Any]]:
+    def get_properties(cls) -> list[dict[str, Any]]:
         return [
             {
                 "name": "model_name",
@@ -188,7 +188,7 @@ class Qwen3VLMNode(BaseNode):
     # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------
-    def __init__(self, node_id: Optional[str] = None, name: str = "qwen3-vlm"):
+    def __init__(self, node_id: str | None = None, name: str = "qwen3-vlm"):
         super().__init__(node_id, name)
         cfg = self.DEFAULT_CONFIG.copy()
         cfg["device"] = self._default_device()
@@ -196,12 +196,12 @@ class Qwen3VLMNode(BaseNode):
 
         self._model = None
         self._processor = None
-        self._loaded_model_name: Optional[str] = None
+        self._loaded_model_name: str | None = None
 
     # ------------------------------------------------------------------
     # Configure – reload model when model_name or device changes
     # ------------------------------------------------------------------
-    def configure(self, config: Dict[str, Any]):
+    def configure(self, config: dict[str, Any]):
         old_name = self.config.get("model_name") if hasattr(self, "config") else None
         old_device = self.config.get("device") if hasattr(self, "config") else None
         super().configure(config)
@@ -266,7 +266,7 @@ class Qwen3VLMNode(BaseNode):
     # ------------------------------------------------------------------
     # Core inference helpers
     # ------------------------------------------------------------------
-    def _run_inference(self, pil_image, prompt: str, max_tokens: int) -> Optional[str]:
+    def _run_inference(self, pil_image, prompt: str, max_tokens: int) -> str | None:
         """Run the model and return the decoded text response."""
         messages = [
             {
@@ -315,7 +315,7 @@ class Qwen3VLMNode(BaseNode):
     # ------------------------------------------------------------------
     def _run_detection(
         self, pil_image, target: str, max_tokens: int, draw: bool, include_image: bool
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Run detection-mode inference.
         Returns a payload dict compatible with downstream YOLO-style nodes,
@@ -353,7 +353,7 @@ class Qwen3VLMNode(BaseNode):
         # Convert sv.Detections to serialisable list (compatible with YOLO output)
         det_list = []
         for i in range(len(detections)):
-            entry: Dict[str, Any] = {
+            entry: dict[str, Any] = {
                 "class_id": int(detections.class_id[i]) if detections.class_id is not None else 0,
                 "class_name": (
                     detections.data.get("class_name", [target] * len(detections))[i]
@@ -370,7 +370,7 @@ class Qwen3VLMNode(BaseNode):
             }
             det_list.append(entry)
 
-        payload: Dict[str, Any] = {
+        payload: dict[str, Any] = {
             "detections": det_list,
             "detection_count": len(det_list),
             "bbox_format": "xyxy",
@@ -434,7 +434,7 @@ class Qwen3VLMNode(BaseNode):
     def _run_generic(
         self, pil_image, prompt: str, max_tokens: int, include_image: bool,
         encode_format: str
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Run generic (Q&A / description) inference.
         Returns a payload dict with ``text`` and optionally the original image.
@@ -443,7 +443,7 @@ class Qwen3VLMNode(BaseNode):
         if response is None:
             return None
 
-        payload: Dict[str, Any] = {
+        payload: dict[str, Any] = {
             "text": response,
             "prompt": prompt,
         }
@@ -480,7 +480,7 @@ class Qwen3VLMNode(BaseNode):
     # ------------------------------------------------------------------
     # Message handler
     # ------------------------------------------------------------------
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """
         Process an incoming image message through the Qwen3-VL model.
         """

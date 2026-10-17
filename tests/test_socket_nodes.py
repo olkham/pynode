@@ -1177,9 +1177,9 @@ def _run_nodered_function(func_name, msg, emit):
     over its return value ``out``."""
     return _run_node(
         _NODE_RED_PRELUDE
-        + "function nrFunction(msg) {\n%s\n}\n" % _flow_function_source(func_name)
-        + "const out = nrFunction(%s);\n" % json.dumps(msg)
-        + "process.stdout.write(JSON.stringify(%s));\n" % emit)
+        + f"function nrFunction(msg) {{\n{_flow_function_source(func_name)}\n}}\n"
+        + f"const out = nrFunction({json.dumps(msg)});\n"
+        + f"process.stdout.write(JSON.stringify({emit}));\n")
 
 
 @requires_node
@@ -1262,7 +1262,7 @@ def test_nodered_pnb1_reassemble_decodes_what_udp_out_sends():
         while True:
             try:
                 data, _ = receiver.recvfrom(65535)
-            except socket.timeout:
+            except TimeoutError:
                 break
             captured.append(base64.b64encode(data).decode('ascii'))
     finally:
@@ -1273,8 +1273,8 @@ def test_nodered_pnb1_reassemble_decodes_what_udp_out_sends():
 
     emitted = _run_node(
         _NODE_RED_PRELUDE
-        + "function nrFunction(msg) {\n%s\n}\n" % _flow_function_source('PNB1 reassemble')
-        + "const datagrams = %s;\n" % json.dumps(captured)
+        + "function nrFunction(msg) {{\n{}\n}}\n".format(_flow_function_source('PNB1 reassemble'))
+        + f"const datagrams = {json.dumps(captured)};\n"
         + """
 const out = [];
 for (const b64 of datagrams) {

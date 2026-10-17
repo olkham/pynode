@@ -68,7 +68,7 @@ import json
 import struct
 import threading
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import cv2
@@ -190,7 +190,7 @@ def next_message_id(current: int) -> int:
 # Payload encode / decode
 # --------------------------------------------------------------------------
 
-def _is_image_like(arr: 'np.ndarray') -> bool:
+def _is_image_like(arr: np.ndarray) -> bool:
     """True if a numpy array looks like something cv2.imencode can handle."""
     if arr.dtype != np.uint8:
         return False
@@ -202,7 +202,7 @@ def _is_image_like(arr: 'np.ndarray') -> bool:
 
 
 def _classify_payload(payload: Any, encode_images: bool, jpeg_quality: int
-                       ) -> Tuple[str, bytes, Dict[str, Any], int]:
+                       ) -> tuple[str, bytes, dict[str, Any], int]:
     """Turn a message payload into (payload_type, payload_bytes, extra_meta, flags).
 
     ``extra_meta`` holds payload-type-specific metadata fields (currently
@@ -234,7 +234,7 @@ def _classify_payload(payload: Any, encode_images: bool, jpeg_quality: int
     return PayloadType.JSON, payload_bytes, {}, 0
 
 
-def decode_payload(payload_type: str, data: bytes, meta: Dict[str, Any]) -> Any:
+def decode_payload(payload_type: str, data: bytes, meta: dict[str, Any]) -> Any:
     """Reverse of ``_classify_payload`` given the reassembled payload bytes."""
     if payload_type == PayloadType.JSON:
         if not data:
@@ -277,10 +277,10 @@ def decode_payload(payload_type: str, data: bytes, meta: Dict[str, Any]) -> Any:
 # --------------------------------------------------------------------------
 
 def build_datagrams(message_id: int, topic: str, payload: Any, *,
-                     extra_props: Optional[Dict[str, Any]] = None,
+                     extra_props: dict[str, Any] | None = None,
                      chunk_size: int = DEFAULT_CHUNK_SIZE,
                      encode_images: bool = True,
-                     jpeg_quality: int = DEFAULT_JPEG_QUALITY) -> List[bytes]:
+                     jpeg_quality: int = DEFAULT_JPEG_QUALITY) -> list[bytes]:
     """Build the full list of UDP datagrams (header+body, ready to sendto) for one message.
 
     Args:
@@ -311,7 +311,7 @@ def build_datagrams(message_id: int, topic: str, payload: Any, *,
     payload_type, payload_bytes, extra_meta, flags = _classify_payload(
         payload, encode_images, jpeg_quality)
 
-    meta: Dict[str, Any] = {
+    meta: dict[str, Any] = {
         'payload_type': payload_type,
         'total_size': len(payload_bytes),
     }
@@ -341,7 +341,7 @@ def build_datagrams(message_id: int, topic: str, payload: Any, *,
     if chunk_count > MAX_CHUNK_COUNT:
         raise EncodeError(f"Message too large: {chunk_count} chunks exceeds max {MAX_CHUNK_COUNT}")
 
-    datagrams: List[bytes] = []
+    datagrams: list[bytes] = []
     header0 = pack_header(flags, message_id, 0, chunk_count, len(meta_bytes))
     datagrams.append(header0 + meta_bytes + chunk0_payload)
     for idx, chunk in enumerate(rest_chunks, start=1):
@@ -362,8 +362,8 @@ class _PendingMessage:
     def __init__(self, chunk_count: int, flags: int, now: float):
         self.chunk_count = chunk_count
         self.flags = flags
-        self.chunks: Dict[int, bytes] = {}
-        self.meta: Optional[Dict[str, Any]] = None
+        self.chunks: dict[int, bytes] = {}
+        self.meta: dict[str, Any] | None = None
         self.first_seen = now
 
     @property
@@ -391,8 +391,8 @@ class Reassembler:
                  max_incomplete: int = DEFAULT_MAX_INCOMPLETE):
         self.timeout = timeout
         self.max_incomplete = max_incomplete
-        self.pending: Dict[Tuple[Any, int], _PendingMessage] = {}
-        self.stats: Dict[str, int] = {
+        self.pending: dict[tuple[Any, int], _PendingMessage] = {}
+        self.stats: dict[str, int] = {
             'received_datagrams': 0,
             'completed': 0,
             'dropped_timeout': 0,
@@ -409,8 +409,8 @@ class Reassembler:
         del self.pending[oldest_key]
         self.stats['dropped_overflow'] += 1
 
-    def add_datagram(self, addr: Any, data: bytes, now: Optional[float] = None
-                      ) -> Optional[Dict[str, Any]]:
+    def add_datagram(self, addr: Any, data: bytes, now: float | None = None
+                      ) -> dict[str, Any] | None:
         """Feed one received datagram in. Returns the completed message dict
         (``{'addr', 'message_id', 'meta', 'payload_bytes', 'flags'}``) once
         every chunk for its (addr, message_id) has arrived, else ``None``.
@@ -464,7 +464,7 @@ class Reassembler:
                 'flags': pending.flags,
             }
 
-    def evict_stale(self, now: Optional[float] = None) -> int:
+    def evict_stale(self, now: float | None = None) -> int:
         """Drop pending buffers older than ``self.timeout``. Returns count evicted."""
         if now is None:
             now = time.time()

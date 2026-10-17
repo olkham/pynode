@@ -25,7 +25,8 @@ import logging
 import os
 import threading
 import uuid
-from typing import Any, Dict, List, Mapping, Optional
+from typing import Any
+from collections.abc import Mapping
 
 from cryptography.fernet import Fernet, InvalidToken
 
@@ -57,7 +58,7 @@ def _fernet(key_text: str, source: str) -> Fernet:
 
 def _read_key_file(path: str) -> str:
     try:
-        with open(path, 'r', encoding='ascii') as f:
+        with open(path, encoding='ascii') as f:
             return f.read()
     except (OSError, UnicodeDecodeError) as e:
         raise CredentialError(
@@ -71,7 +72,7 @@ class CredentialKey:
     is picked up by the next call.
     """
 
-    def __init__(self, default_key_file: str, environ: Optional[Mapping[str, str]] = None):
+    def __init__(self, default_key_file: str, environ: Mapping[str, str] | None = None):
         self.default_key_file = default_key_file
         # None = read os.environ at call time (tests pass a plain dict).
         self._environ = environ
@@ -145,10 +146,10 @@ _KEY_CHECK_PLAINTEXT = b'pynode-credential-store'
 # Credential types: {type name: {'type', 'label', 'fields': [{'name', 'label',
 # 'secret'}]}}. Process-wide and static, like the node-type registries. Node
 # packages add their own with register_credential_type().
-CREDENTIAL_TYPES: Dict[str, Dict[str, Any]] = {}
+CREDENTIAL_TYPES: dict[str, dict[str, Any]] = {}
 
 
-def register_credential_type(type_name: str, label: str, fields: List[Dict[str, Any]]) -> None:
+def register_credential_type(type_name: str, label: str, fields: list[dict[str, Any]]) -> None:
     """Register (or replace) a credential type.
 
     Args:
@@ -172,7 +173,7 @@ def register_credential_type(type_name: str, label: str, fields: List[Dict[str, 
     }
 
 
-def list_credential_types() -> List[Dict[str, Any]]:
+def list_credential_types() -> list[dict[str, Any]]:
     """Every registered credential type (copies, safe to serialise or mutate)."""
     return copy.deepcopy(list(CREDENTIAL_TYPES.values()))
 
@@ -203,30 +204,30 @@ class CredentialStore:
     listing never depends on the type registry to know what is secret.
     """
 
-    def __init__(self, path: str, key_file: Optional[str] = None,
-                 environ: Optional[Mapping[str, str]] = None):
+    def __init__(self, path: str, key_file: str | None = None,
+                 environ: Mapping[str, str] | None = None):
         self.path = path
         self.key = CredentialKey(
             key_file or os.path.join(os.path.dirname(path), KEY_FILE_NAME), environ)
         # Guards _data and the file: API threads and node worker threads
         # call into the same store.
         self._lock = threading.RLock()
-        self._data: Optional[Dict[str, Any]] = None
+        self._data: dict[str, Any] | None = None
 
     # -- public API ---------------------------------------------------------
 
-    def list(self) -> List[Dict[str, Any]]:
+    def list(self) -> list[dict[str, Any]]:
         """Public view of every credential (never includes a secret value)."""
         with self._lock:
             return [_public(entry) for entry in self._load()['credentials']]
 
-    def get(self, cred_id: str) -> Optional[Dict[str, Any]]:
+    def get(self, cred_id: str) -> dict[str, Any] | None:
         """Public view of one credential, or None if it does not exist."""
         with self._lock:
             entry = _find(self._load(), cred_id)
             return _public(entry) if entry else None
 
-    def create(self, name: str, type_name: str, fields: Mapping[str, Any]) -> Dict[str, Any]:
+    def create(self, name: str, type_name: str, fields: Mapping[str, Any]) -> dict[str, Any]:
         """Create a credential and return its public view.
 
         Raises:
@@ -238,9 +239,9 @@ class CredentialStore:
         if type_def is None:
             raise ValueError(f"Unknown credential type: {type_name!r}")
         values = _check_fields(type_def, fields)
-        entry: Dict[str, Any] = {'id': uuid.uuid4().hex, 'name': name, 'type': type_name,
+        entry: dict[str, Any] = {'id': uuid.uuid4().hex, 'name': name, 'type': type_name,
                                  'fields': {}, 'secrets': {}}
-        secrets: Dict[str, str] = {}
+        secrets: dict[str, str] = {}
         for field in type_def['fields']:
             value = values.get(field['name'], '')
             if field['secret']:
@@ -258,8 +259,8 @@ class CredentialStore:
             self._write(data)
             return _public(entry)
 
-    def update(self, cred_id: str, name: Optional[str] = None,
-               fields: Optional[Mapping[str, Any]] = None) -> Optional[Dict[str, Any]]:
+    def update(self, cred_id: str, name: str | None = None,
+               fields: Mapping[str, Any] | None = None) -> dict[str, Any] | None:
         """Rename a credential and/or change its fields; None if it does not exist.
 
         A secret field that is missing or empty keeps its stored value, so the
@@ -282,7 +283,7 @@ class CredentialStore:
                 if type_def is None:
                     raise ValueError(f"Credential type {entry['type']!r} is not installed")
                 values = _check_fields(type_def, fields)
-                new_secrets: Dict[str, str] = {}
+                new_secrets: dict[str, str] = {}
                 for field in type_def['fields']:
                     if field['name'] not in values:
                         continue
@@ -314,7 +315,7 @@ class CredentialStore:
             self._write(data)
             return True
 
-    def resolve(self, cred_id: str) -> Dict[str, str]:
+    def resolve(self, cred_id: str) -> dict[str, str]:
         """Every field of a credential, with secret fields decrypted.
 
         Raises:
@@ -343,7 +344,7 @@ class CredentialStore:
 
     # -- internals ----------------------------------------------------------
 
-    def _load(self) -> Dict[str, Any]:
+    def _load(self) -> dict[str, Any]:
         """The store contents, read from disk on first use.
 
         An unreadable file raises CredentialError on every call and is never
@@ -354,7 +355,7 @@ class CredentialStore:
                 self._data = {'version': STORE_VERSION, 'credentials': []}
             else:
                 try:
-                    with open(self.path, 'r', encoding='utf-8') as f:
+                    with open(self.path, encoding='utf-8') as f:
                         data = json.load(f)
                 except (OSError, ValueError) as e:
                     raise CredentialError(f"Cannot read credential store {self.path}: {e}") from None
@@ -366,7 +367,7 @@ class CredentialStore:
                 self._data = data
         return self._data
 
-    def _write(self, data: Dict[str, Any]) -> None:
+    def _write(self, data: dict[str, Any]) -> None:
         """Atomically replace the file, then adopt ``data`` as the in-memory state.
 
         Callers mutate a deep copy and pass it here, so a failed write leaves
@@ -381,7 +382,7 @@ class CredentialStore:
         os.replace(tmp_path, self.path)
         self._data = data
 
-    def _fernet_for_write(self, data: Dict[str, Any]) -> Fernet:
+    def _fernet_for_write(self, data: dict[str, Any]) -> Fernet:
         """Key for encrypting into ``data``; stamps keyCheck when the first secret is stored."""
         if data.get('keyCheck'):
             fernet = self.key.get(create=False)
@@ -393,14 +394,14 @@ class CredentialStore:
         data['keyCheck'] = _encrypt(fernet, _KEY_CHECK_PLAINTEXT.decode('ascii'))
         return fernet
 
-    def _fernet_for_read(self, data: Dict[str, Any]) -> Fernet:
+    def _fernet_for_read(self, data: dict[str, Any]) -> Fernet:
         if not data.get('keyCheck'):
             raise CredentialError(f"{self.path} holds secrets but no keyCheck (edited by hand?)")
         fernet = self.key.get(create=False)
         self._verify_key(fernet, data)
         return fernet
 
-    def _verify_key(self, fernet: Fernet, data: Dict[str, Any]) -> None:
+    def _verify_key(self, fernet: Fernet, data: dict[str, Any]) -> None:
         try:
             matches = fernet.decrypt(data['keyCheck'].encode('ascii')) == _KEY_CHECK_PLAINTEXT
         except (InvalidToken, ValueError, AttributeError):
@@ -415,14 +416,14 @@ def _encrypt(fernet: Fernet, value: str) -> str:
     return fernet.encrypt(value.encode('utf-8')).decode('ascii')
 
 
-def _find(data: Dict[str, Any], cred_id: str) -> Optional[Dict[str, Any]]:
+def _find(data: dict[str, Any], cred_id: str) -> dict[str, Any] | None:
     for entry in data['credentials']:
         if entry.get('id') == cred_id:
             return entry
     return None
 
 
-def _public(entry: Dict[str, Any]) -> Dict[str, Any]:
+def _public(entry: dict[str, Any]) -> dict[str, Any]:
     """The client-safe view of a stored credential.
 
     Built from the file's own fields/secrets split, not from the type
@@ -458,7 +459,7 @@ def _clean_name(name: Any) -> str:
     return name.strip()
 
 
-def _check_fields(type_def: Dict[str, Any], fields: Any) -> Dict[str, str]:
+def _check_fields(type_def: dict[str, Any], fields: Any) -> dict[str, str]:
     """Validate submitted field values against a type and return them as a plain dict.
 
     Error messages name fields, never values.

@@ -3,7 +3,7 @@ Range Node - scales/maps values from one range to another.
 """
 
 import math
-from typing import Any, Dict
+from typing import Any
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
@@ -179,7 +179,7 @@ class RangeNode(BaseNode):
 
         return float(value)
 
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """Map payload value from input range to output range."""
         try:
             payload = msg.get(MessageKeys.PAYLOAD)

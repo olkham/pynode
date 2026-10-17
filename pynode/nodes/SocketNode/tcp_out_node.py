@@ -16,7 +16,7 @@ sustained high-rate video.
 
 import socket
 import threading
-from typing import Any, Dict
+from typing import Any
 
 from pynode.nodes.base_node import BaseNode, Info
 from pynode.nodes.SocketNode import ndjson_protocol, nodered_snippets
@@ -237,7 +237,7 @@ class TcpOutNode(BaseNode):
         super().on_stop()
 
     # -- sending ------------------------------------------------------------ #
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         try:
             line = ndjson_protocol.build_line(
                 msg,

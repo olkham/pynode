@@ -6,7 +6,7 @@ import logging
 
 import cv2
 import numpy as np
-from typing import Any, Dict
+from typing import Any
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 logger = logging.getLogger(__name__)
@@ -98,7 +98,7 @@ class FrequencyFilterNode(BaseNode):
         }
     ]
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """Process incoming frequency data."""
         # Check for FFT data
         dft_shift = msg.get('_fft_data')

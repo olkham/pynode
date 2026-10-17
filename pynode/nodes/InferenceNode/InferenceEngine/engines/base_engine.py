@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
+from typing import Any
 import logging
 import numpy as np
 
@@ -20,7 +20,7 @@ class BaseInferenceEngine(ABC):
         self.logger = logging.getLogger(self.__class__.__name__)
         
     
-    def load(self, model_file: Optional[str] = None, device: Optional[str] = None) -> bool:
+    def load(self, model_file: str | None = None, device: str | None = None) -> bool:
         """
         Load the model for inference
         
@@ -59,7 +59,7 @@ class BaseInferenceEngine(ABC):
         """Load the model - must be implemented by subclasses"""
         pass
     
-    def infer(self, image: np.ndarray) -> Dict[str, Any]:
+    def infer(self, image: np.ndarray) -> dict[str, Any]:
         """
         Runs inference on the input image
         
@@ -130,7 +130,7 @@ class BaseInferenceEngine(ABC):
         """Get the user-friendly display name for this engine"""
         return cls.display_name
     
-    def get_info(self) -> Dict[str, Any]:
+    def get_info(self) -> dict[str, Any]:
         """Get information about the current engine state"""
         return {
             "engine_type": self.__class__.__name__,

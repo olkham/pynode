@@ -6,7 +6,7 @@ Supports dynamic filenames from messages or static configuration.
 import os
 import time
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
@@ -137,7 +137,7 @@ class ImageWriterNode(BaseNode):
         self._counter = 0
         self._last_written = None
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """
         Write data to disk. Expects msg.payload to contain the data to write.
         For images, payload should be base64 encoded string or raw bytes.
@@ -223,7 +223,7 @@ class ImageWriterNode(BaseNode):
             )
             self.send(output_msg)
     
-    def _generate_filename(self, base: str, extension: str, mode: str, msg: Dict[str, Any]) -> str:
+    def _generate_filename(self, base: str, extension: str, mode: str, msg: dict[str, Any]) -> str:
         """Generate filename based on naming mode."""
         
         if mode == 'message':

@@ -4,7 +4,7 @@ OpenCV Perspective Transform Node - applies perspective transformations.
 
 import cv2
 import numpy as np
-from typing import Any, Dict
+from typing import Any
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
@@ -111,7 +111,7 @@ class PerspectiveNode(BaseNode):
         except Exception:
             return None
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """Apply perspective transform."""
         if MessageKeys.PAYLOAD not in msg:
             self.send(msg)

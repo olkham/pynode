@@ -4,7 +4,7 @@ Workflow Engine for managing nodes and executing workflows.
 
 import logging
 import threading
-from typing import Dict, List, Any, Type, Optional
+from typing import Any
 
 from pynode.nodes.base_node import BaseNode
 
@@ -18,8 +18,8 @@ class WorkflowEngine:
     """
     
     def __init__(self):
-        self.nodes: Dict[str, BaseNode] = {}
-        self.node_types: Dict[str, Type[BaseNode]] = {}
+        self.nodes: dict[str, BaseNode] = {}
+        self.node_types: dict[str, type[BaseNode]] = {}
         self.running = False
         self._lock = threading.RLock()  # Use RLock (reentrant lock) to allow nested locking
         self._system_error_node = None  # System error node that's always present
@@ -35,7 +35,7 @@ class WorkflowEngine:
         # (e.g. in tests), where get_credential() raises CredentialError.
         self.credential_store = None
     
-    def register_node_type(self, node_class: Type[BaseNode]):
+    def register_node_type(self, node_class: type[BaseNode]):
         """
         Register a node type that can be instantiated.
         
@@ -44,8 +44,8 @@ class WorkflowEngine:
         """
         self.node_types[node_class.__name__] = node_class
     
-    def create_node(self, node_type: str, node_id: Optional[str] = None, 
-                   name: str = "", config: Optional[Dict[str, Any]] = None) -> BaseNode:
+    def create_node(self, node_type: str, node_id: str | None = None, 
+                   name: str = "", config: dict[str, Any] | None = None) -> BaseNode:
         """
         Create a new node instance and add it to the workflow.
         
@@ -74,7 +74,7 @@ class WorkflowEngine:
             self.nodes[node.id] = node
             return node
     
-    def get_node(self, node_id: str) -> Optional[BaseNode]:
+    def get_node(self, node_id: str) -> BaseNode | None:
         """
         Get a node by its ID.
         
@@ -181,7 +181,7 @@ class WorkflowEngine:
                 except Exception as e:
                     logger.error(f"Error stopping node {node.id}: {e}")
     
-    def get_debug_messages(self, node_id: str) -> List[Dict[str, Any]]:
+    def get_debug_messages(self, node_id: str) -> list[dict[str, Any]]:
         """
         Get debug messages from a debug node.
         
@@ -249,7 +249,7 @@ class WorkflowEngine:
                 except Exception as e:
                     logger.error(f"Failed to create system error node: {e}")
     
-    def get_system_errors(self) -> List[Dict[str, Any]]:
+    def get_system_errors(self) -> list[dict[str, Any]]:
         """
         Get errors from the system error node.
         
@@ -269,7 +269,7 @@ class WorkflowEngine:
         if self._system_error_node and hasattr(self._system_error_node, 'clear_errors'):
             self._system_error_node.clear_errors()
     
-    def get_error_messages(self, node_id: str) -> List[Dict[str, Any]]:
+    def get_error_messages(self, node_id: str) -> list[dict[str, Any]]:
         """
         Get error messages from an error node.
         
@@ -295,7 +295,7 @@ class WorkflowEngine:
         if node and hasattr(node, 'clear_errors'):
             node.clear_errors()
     
-    def export_workflow(self) -> Dict[str, Any]:
+    def export_workflow(self) -> dict[str, Any]:
         """
         Export the entire workflow to a dictionary.
         Excludes system nodes (like the system error node).
@@ -359,7 +359,7 @@ class WorkflowEngine:
             'connections': connections_data
         }
     
-    def import_workflow(self, workflow_data: Dict[str, Any]):
+    def import_workflow(self, workflow_data: dict[str, Any]):
         """
         Import a workflow from a dictionary.
         
@@ -410,7 +410,7 @@ class WorkflowEngine:
             if self.running:
                 self._ensure_system_error_node()
     
-    def _create_unknown_node(self, node_data: Dict[str, Any]) -> BaseNode:
+    def _create_unknown_node(self, node_data: dict[str, Any]) -> BaseNode:
         """
         Create a placeholder node for an unknown node type.
         
@@ -453,7 +453,7 @@ class WorkflowEngine:
         
         return node
     
-    def get_workflow_stats(self) -> Dict[str, Any]:
+    def get_workflow_stats(self) -> dict[str, Any]:
         """
         Get statistics about the current workflow.
         

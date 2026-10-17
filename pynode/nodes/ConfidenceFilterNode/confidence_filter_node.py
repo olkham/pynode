@@ -3,7 +3,7 @@ Confidence Filter Node - filters messages based on detection confidence.
 Passes through messages that contain detections meeting the confidence threshold.
 """
 
-from typing import Any, Dict
+from typing import Any
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
@@ -92,7 +92,7 @@ class ConfidenceFilterNode(BaseNode):
     def __init__(self, node_id=None, name="confidence filter"):
         super().__init__(node_id, name)
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """
         Split detections based on confidence threshold.
         Always outputs to both ports:

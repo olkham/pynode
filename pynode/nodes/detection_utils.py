@@ -30,7 +30,8 @@ Use DenormalizeCoordsNode when a producer emits normalized boxes.
 """
 
 import logging
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Any
+from collections.abc import Iterable, Sequence
 
 from pynode.nodes.messages import MessageKeys
 
@@ -50,7 +51,7 @@ _CONFIDENCE_KEYS = (MessageKeys.CV.CONFIDENCE, 'top_score', 'score', 'conf')
 _TRACK_ID_KEYS = (MessageKeys.CV.TRACK_ID, 'tracker_id')
 
 
-def _first(det: Dict[str, Any], keys: Sequence[str]) -> Optional[Any]:
+def _first(det: dict[str, Any], keys: Sequence[str]) -> Any | None:
     """Return the first key present and non-None in ``det``."""
     for key in keys:
         value = det.get(key)
@@ -60,7 +61,7 @@ def _first(det: Dict[str, Any], keys: Sequence[str]) -> Optional[Any]:
 
 
 def to_xyxy(bbox: Iterable[Any],
-            bbox_format: str = CANONICAL_BBOX_FORMAT) -> List[float]:
+            bbox_format: str = CANONICAL_BBOX_FORMAT) -> list[float]:
     """Convert a 4-value box to ``[x1, y1, x2, y2]``.
 
     Args:
@@ -93,7 +94,7 @@ def to_xyxy(bbox: Iterable[Any],
     return values
 
 
-def _resolve_class(det: Dict[str, Any]) -> Tuple[int, str]:
+def _resolve_class(det: dict[str, Any]) -> tuple[int, str]:
     """Pull ``(class_id, class_name)`` out of a detection.
 
     Handles the ONNX engine's ``top_class``, which is an int index normally but
@@ -118,8 +119,8 @@ def _resolve_class(det: Dict[str, Any]) -> Tuple[int, str]:
     return class_id, str(name)
 
 
-def normalized_detection(det: Dict[str, Any],
-                         default_format: str = CANONICAL_BBOX_FORMAT) -> Dict[str, Any]:
+def normalized_detection(det: dict[str, Any],
+                         default_format: str = CANONICAL_BBOX_FORMAT) -> dict[str, Any]:
     """Return a copy of ``det`` in the canonical interop form.
 
     The box is converted to ``xyxy`` and the class/confidence/track keys are
@@ -170,7 +171,7 @@ def normalized_detection(det: Dict[str, Any],
 
 
 def normalized_detections(detections: Any,
-                          default_format: str = CANONICAL_BBOX_FORMAT) -> List[Dict[str, Any]]:
+                          default_format: str = CANONICAL_BBOX_FORMAT) -> list[dict[str, Any]]:
     """Normalize a whole detection list, skipping entries that cannot convert.
 
     One malformed detection should not cost the caller the rest of the frame,
@@ -189,7 +190,7 @@ def normalized_detections(detections: Any,
             return []
         detections = list(detections)
 
-    out: List[Dict[str, Any]] = []
+    out: list[dict[str, Any]] = []
     for i, det in enumerate(detections):
         try:
             out.append(normalized_detection(det, default_format))

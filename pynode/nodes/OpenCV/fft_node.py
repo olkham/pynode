@@ -4,7 +4,7 @@ OpenCV FFT Node - performs Fast Fourier Transform on an image.
 
 import cv2
 import numpy as np
-from typing import Any, Dict
+from typing import Any
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
@@ -49,7 +49,7 @@ class FFTNode(BaseNode):
         }
     ]
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """Process incoming image and compute FFT."""
         if MessageKeys.PAYLOAD not in msg:
             self.send(msg)

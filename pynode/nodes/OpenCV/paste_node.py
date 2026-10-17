@@ -5,7 +5,7 @@ Used for compositing operations like replacing regions in an image.
 
 import cv2
 import numpy as np
-from typing import Any, Dict, Optional
+from typing import Any
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 
@@ -121,11 +121,11 @@ class PasteNode(BaseNode):
     
     def __init__(self, node_id=None, name="paste"):
         super().__init__(node_id, name)
-        self._background: Optional[np.ndarray] = None
-        self._background_msg: Optional[Dict] = None
-        self._foreground: Optional[np.ndarray] = None
-        self._foreground_msg: Optional[Dict] = None
-        self._format_type: Optional[str] = None
+        self._background: np.ndarray | None = None
+        self._background_msg: dict | None = None
+        self._foreground: np.ndarray | None = None
+        self._foreground_msg: dict | None = None
+        self._format_type: str | None = None
     
     def on_start(self):
         """Reset state on start."""
@@ -136,7 +136,7 @@ class PasteNode(BaseNode):
         self._foreground_msg = None
         self._format_type = None
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """
         Process images:
         - Input 0: Store as background

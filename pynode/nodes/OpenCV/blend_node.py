@@ -3,7 +3,7 @@ OpenCV Blend Node - blends two images together.
 """
 
 import cv2
-from typing import Any, Dict
+from typing import Any
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
@@ -81,7 +81,7 @@ class BlendNode(BaseNode):
         self._image2 = None
         self._format_type = None
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """Blend two images."""
         if MessageKeys.PAYLOAD not in msg:
             self.send(msg)

@@ -9,7 +9,7 @@ a compound value - e.g. four sliders writing bbox[0..3] to drive a Crop node's
 detection box.
 """
 
-from typing import Any, Dict
+from typing import Any
 
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
@@ -197,7 +197,7 @@ class ControlSliderNode(BaseNode):
         super().on_start()
         self._live_value = self._coerce(self.config.get('value', 0))
 
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """Write the current value to the target path and forward the message."""
         path = str(self.config.get('path', '')).strip()
         if path:

@@ -13,7 +13,8 @@ BaseNode methods.
 
 import base64
 from functools import wraps
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any
+from collections.abc import Callable
 
 import numpy as np
 import cv2
@@ -26,8 +27,8 @@ def _noop_report_error(error_msg: str) -> None:
 
 
 def decode_image(payload: Any,
-                 report_error: Optional[Callable[[str], None]] = None
-                 ) -> Tuple[Any, Optional[str]]:
+                 report_error: Callable[[str], None] | None = None
+                 ) -> tuple[Any, str | None]:
     """
     Decode image from various formats into a numpy array.
     Returns (image, format_type) tuple where format_type indicates the input format.
@@ -103,8 +104,8 @@ def decode_image(payload: Any,
         return None, None
 
 
-def encode_image(image: Any, format_type: Optional[str],
-                 report_error: Optional[Callable[[str], None]] = None) -> Any:
+def encode_image(image: Any, format_type: str | None,
+                 report_error: Callable[[str], None] | None = None) -> Any:
     """
     Encode numpy array image back to the original format.
 
@@ -179,7 +180,7 @@ def encode_image(image: Any, format_type: Optional[str],
         return None
 
 
-def process_image(payload_path: str = MessageKeys.PAYLOAD, output_path: Optional[str] = None):
+def process_image(payload_path: str = MessageKeys.PAYLOAD, output_path: str | None = None):
     """
     Decorator for image processing node methods.
     Automatically handles image decoding/encoding and error handling.
@@ -215,7 +216,7 @@ def process_image(payload_path: str = MessageKeys.PAYLOAD, output_path: Optional
     """
     def decorator(func: Callable) -> Callable:
         @wraps(func)
-        def wrapper(self, msg: Dict[str, Any], input_index: int = 0):
+        def wrapper(self, msg: dict[str, Any], input_index: int = 0):
             # Check for payload
             if MessageKeys.PAYLOAD not in msg:
                 self.send(msg)
@@ -250,7 +251,7 @@ def process_image(payload_path: str = MessageKeys.PAYLOAD, output_path: Optional
                 # Function handled send itself
                 return
 
-            extra_fields: Dict[str, Any] = {}
+            extra_fields: dict[str, Any] = {}
             result_image: np.ndarray | None = None  # Explicit type hint
 
             if isinstance(result, tuple):
