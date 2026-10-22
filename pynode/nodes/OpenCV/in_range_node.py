@@ -5,7 +5,7 @@ Useful for color-based object detection and masking.
 
 import cv2
 import numpy as np
-from typing import Any, Dict
+from typing import Any
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
@@ -122,7 +122,7 @@ class InRangeNode(BaseNode):
     def __init__(self, node_id=None, name="in range"):
         super().__init__(node_id, name)
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """Apply color range filter to the input image."""
         if MessageKeys.PAYLOAD not in msg:
             self.send(msg)

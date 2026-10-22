@@ -5,7 +5,7 @@ Similar to Node-RED's change node.
 
 import json
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
@@ -95,7 +95,7 @@ class ChangeNode(BaseNode):
     def __init__(self, node_id=None, name="change"):
         super().__init__(node_id, name)
     
-    def _delete_nested_value(self, obj: Dict, path: str) -> bool:
+    def _delete_nested_value(self, obj: dict, path: str) -> bool:
         """
         Delete a value at a nested path
         
@@ -146,7 +146,7 @@ class ChangeNode(BaseNode):
         
         return False
     
-    def _rule_targets(self, msg: Dict, rule: Dict, path: str) -> List[Tuple[Optional[Dict], str]]:
+    def _rule_targets(self, msg: dict, rule: dict, path: str) -> list[tuple[dict | None, str]]:
         """Work out the places a rule applies to.
 
         Normally that is one place: the property path itself. With ``isList``
@@ -178,14 +178,14 @@ class ChangeNode(BaseNode):
 
         return [(item, key) for item in items if isinstance(item, dict)]
 
-    def _target_get(self, msg: Dict, target: Tuple[Optional[Dict], str]) -> Any:
+    def _target_get(self, msg: dict, target: tuple[dict | None, str]) -> Any:
         """Read a target - a message path, or a key inside a list item."""
         container, key = target
         if container is None:
             return self._get_nested_value(msg, key)
         return container.get(key)
 
-    def _target_set(self, msg: Dict, target: Tuple[Optional[Dict], str], value: Any) -> None:
+    def _target_set(self, msg: dict, target: tuple[dict | None, str], value: Any) -> None:
         """Write a target."""
         container, key = target
         if container is None:
@@ -193,7 +193,7 @@ class ChangeNode(BaseNode):
         else:
             container[key] = value
 
-    def _target_delete(self, msg: Dict, target: Tuple[Optional[Dict], str]) -> bool:
+    def _target_delete(self, msg: dict, target: tuple[dict | None, str]) -> bool:
         """Remove a target, reporting whether anything was there."""
         container, key = target
         if container is None:
@@ -203,7 +203,7 @@ class ChangeNode(BaseNode):
             return True
         return False
 
-    def _apply_change(self, msg: Dict, target: Tuple[Optional[Dict], str],
+    def _apply_change(self, msg: dict, target: tuple[dict | None, str],
                       search: Any, search_type: str,
                       replacement_text: str, replacement_value: Any) -> None:
         """Search and replace inside one target.
@@ -227,7 +227,7 @@ class ChangeNode(BaseNode):
         elif not isinstance(current, (dict, list, tuple)) and str(current) == str(search):
             self._target_set(msg, target, replacement_value)
 
-    def _resolve_value(self, msg: Dict, value: Any, value_type: str) -> Any:
+    def _resolve_value(self, msg: dict, value: Any, value_type: str) -> Any:
         """
         Resolve a value based on its type.
         
@@ -264,7 +264,7 @@ class ChangeNode(BaseNode):
             # Default: return as-is
             return value
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """
         Apply change rules to the message.
         """

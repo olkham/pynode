@@ -2,7 +2,7 @@
 Normalize Coordinates Node - converts pixel coordinates to normalized (0.0-1.0).
 """
 
-from typing import Any, Dict
+from typing import Any
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
@@ -87,7 +87,7 @@ class NormalizeCoordsNode(BaseNode):
     def __init__(self, node_id=None, name="normalize coords"):
         super().__init__(node_id, name)
     
-    def _get_image_dimensions(self, msg: Dict[str, Any]) -> tuple:
+    def _get_image_dimensions(self, msg: dict[str, Any]) -> tuple:
         """Get image dimensions from config or message."""
         w = self.get_config_int('image_width', 0)
         h = self.get_config_int('image_height', 0)
@@ -199,7 +199,7 @@ class NormalizeCoordsNode(BaseNode):
             return result
         return point
     
-    def _normalize_detection(self, det: Dict, w: int, h: int, preserve: bool) -> Dict:
+    def _normalize_detection(self, det: dict, w: int, h: int, preserve: bool) -> dict:
         """Normalize a detection dict."""
         result = det.copy()
         
@@ -247,11 +247,11 @@ class NormalizeCoordsNode(BaseNode):
         
         return result
     
-    def _normalize_shape(self, shape: Dict, w: int, h: int, preserve: bool) -> Dict:
+    def _normalize_shape(self, shape: dict, w: int, h: int, preserve: bool) -> dict:
         """Normalize a shape dict (for draw node compatibility)."""
         return self._normalize_detection(shape, w, h, preserve)
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """Normalize coordinates in the message."""
         w, h = self._get_image_dimensions(msg)
         

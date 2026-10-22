@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Any, Dict, Optional
+from typing import Any
 from .base_engine import BaseInferenceEngine
 
 
@@ -13,13 +13,13 @@ class PassEngine(BaseInferenceEngine):
         # Pass engine doesn't need a model
         self.model_path = None
         
-    def _load_model(self, model_file: Optional[str], device: str) -> bool:
+    def _load_model(self, model_file: str | None, device: str) -> bool:
         """Pass engine doesn't need to load any model"""
         self.is_loaded = True
         self.logger.info("Pass engine loaded - no model required")
         return True
     
-    def load(self, model_file: Optional[str] = None, device: Optional[str] = None) -> bool:
+    def load(self, model_file: str | None = None, device: str | None = None) -> bool:
         """Override load to not require a model file"""
         if device is None:
             device = self.device or "CPU"
@@ -39,7 +39,7 @@ class PassEngine(BaseInferenceEngine):
         """No preprocessing needed - just return the image as-is"""
         return image
     
-    def _infer(self, preprocessed_input: np.ndarray) -> Dict[str, Any]:
+    def _infer(self, preprocessed_input: np.ndarray) -> dict[str, Any]:
         """Create a placeholder prediction result"""
         height, width = preprocessed_input.shape[:2]
         
@@ -54,17 +54,17 @@ class PassEngine(BaseInferenceEngine):
             "confidence_threshold": 0.0
         }
     
-    def _postprocess(self, raw_output: Dict[str, Any]) -> Dict[str, Any]:
+    def _postprocess(self, raw_output: dict[str, Any]) -> dict[str, Any]:
         """Return the raw output with success flag"""
         raw_output["success"] = True
         raw_output["device"] = self.device
         return raw_output
     
-    def draw(self, image: np.ndarray, results: Dict[str, Any]) -> np.ndarray:
+    def draw(self, image: np.ndarray, results: dict[str, Any]) -> np.ndarray:
         """Return the original image unchanged"""
         return image.copy()
     
-    def result_to_json(self, results: Dict[str, Any], output_format: str = "dict") -> Any:
+    def result_to_json(self, results: dict[str, Any], output_format: str = "dict") -> Any:
         """Convert results to JSON format"""
         json_result = {
             "success": results.get("success", True),

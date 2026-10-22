@@ -2,7 +2,7 @@
 Split Node - splits arrays or strings into separate messages.
 """
 
-from typing import Any, Dict, List
+from typing import Any
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
@@ -80,7 +80,7 @@ class SplitNode(BaseNode):
     def __init__(self, node_id=None, name="split"):
         super().__init__(node_id, name)
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """Split incoming message into multiple messages."""
         split_path = self.config.get('split_path', MessageKeys.PAYLOAD)
         payload = self._get_nested_value(msg, split_path)
@@ -91,7 +91,7 @@ class SplitNode(BaseNode):
         
         split_type = self.config.get('split_type', 'auto')
         
-        items: List[Any] = []
+        items: list[Any] = []
         
         # Auto-detect or explicit type
         if split_type == 'auto':

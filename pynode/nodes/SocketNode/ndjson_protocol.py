@@ -37,7 +37,7 @@ binary natively.
 
 import base64
 import json
-from typing import Any, Dict, Tuple
+from typing import Any
 
 MARKER_KEY = '_pnb'
 MARKER_JPEG = 'jpeg'
@@ -127,7 +127,7 @@ def decode_payload(obj: Any) -> Any:
     raise NdjsonError(f"unknown {MARKER_KEY} marker: {marker!r}")
 
 
-def build_line(msg: Dict[str, Any], include_props: bool = False,
+def build_line(msg: dict[str, Any], include_props: bool = False,
                encode_images: bool = True,
                jpeg_quality: int = DEFAULT_JPEG_QUALITY) -> bytes:
     """Serialize a PyNode message dict to one NDJSON line (bytes incl ``\\n``).
@@ -137,7 +137,7 @@ def build_line(msg: Dict[str, Any], include_props: bool = False,
     values that are not JSON-serializable - mirroring the UDP node's
     exact-replication semantics.
     """
-    obj: Dict[str, Any] = {
+    obj: dict[str, Any] = {
         'payload': encode_payload(msg.get('payload'), encode_images, jpeg_quality)
     }
     topic = msg.get('topic', '') or ''
@@ -155,7 +155,7 @@ def build_line(msg: Dict[str, Any], include_props: bool = False,
     return json.dumps(obj, separators=(',', ':')).encode('utf-8') + b'\n'
 
 
-def parse_line(line: bytes) -> Tuple[Any, str, Dict[str, Any]]:
+def parse_line(line: bytes) -> tuple[Any, str, dict[str, Any]]:
     """Parse one NDJSON line into ``(payload, topic, extra_props)``.
 
     An object with a ``"payload"`` key is a full message (payload unwrapped

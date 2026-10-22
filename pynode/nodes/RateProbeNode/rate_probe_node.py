@@ -4,7 +4,7 @@ Passes messages through while tracking and displaying the rate.
 """
 
 import time
-from typing import Any, Dict
+from typing import Any
 from collections import deque
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
@@ -109,7 +109,7 @@ class RateProbeNode(BaseNode):
         # Need at least two messages to measure a rate.
         return 0.0
 
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """
         Pass through the message and update rate calculation.
         Sends rate information as the payload.

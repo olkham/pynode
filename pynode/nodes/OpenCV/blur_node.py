@@ -4,7 +4,7 @@ OpenCV Blur Node - applies various blur/smoothing filters to images.
 
 import cv2
 import numpy as np
-from typing import Any, Dict
+from typing import Any
 from pynode.nodes.base_node import BaseNode, process_image, Info, MessageKeys
 
 _info = Info()
@@ -105,7 +105,7 @@ class BlurNode(BaseNode):
         super().__init__(node_id, name)
     
     @process_image()
-    def on_input(self, image: np.ndarray, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, image: np.ndarray, msg: dict[str, Any], input_index: int = 0):
         """Apply blur to the input image."""
         method = self.config.get('method', 'gaussian')
         ksize = self.get_config_int('kernel_size', 5)

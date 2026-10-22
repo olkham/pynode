@@ -5,7 +5,7 @@ Similar to Node-RED's function node.
 
 import time
 import copy
-from typing import Any, Dict
+from typing import Any
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 
@@ -199,12 +199,12 @@ class FunctionNode(BaseNode):
     def __init__(self, node_id=None, name="function"):
         super().__init__(node_id, name)
     
-    def configure(self, config: Dict[str, Any]):
+    def configure(self, config: dict[str, Any]):
         """Configure the node and update output_count based on outputs setting."""
         super().configure(config)
         self.output_count = self.get_config_int('outputs', 1)
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """
         Execute the function code on the incoming message.
         """

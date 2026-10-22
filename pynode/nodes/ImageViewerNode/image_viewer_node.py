@@ -5,7 +5,7 @@ Image Viewer node - displays images/frames in the web UI.
 # import base64
 # import cv2
 # import numpy as np
-from typing import Any, Dict
+from typing import Any
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
@@ -91,7 +91,7 @@ class ImageViewerNode(BaseNode):
         self.last_sent_timestamp = 0  # dedupe state for the polled GET 'frame' route
         self._sse_last_sent = 0  # dedupe state for the SSE 'frame' broadcaster
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """
         Receive image data and store it for display.
         """
@@ -119,7 +119,7 @@ class ImageViewerNode(BaseNode):
         else:
             self.report_error(f"ImageViewerNode: No data found at path '{image_path}' in message.")
     
-    def on_input_direct(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input_direct(self, msg: dict[str, Any], input_index: int = 0):
         """
         Direct input processing (bypasses queue for better performance).
         """

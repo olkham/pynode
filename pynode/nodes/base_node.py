@@ -54,7 +54,7 @@ import uuid
 import queue
 import threading
 import copy
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Any
 
 from pynode.nodes import image_utils
 from pynode.nodes.image_utils import process_image  # noqa: F401 (re-export)
@@ -95,7 +95,7 @@ class BaseNode:
 
     # Default configuration - subclasses can override this
     # Will be auto-applied during __init__
-    DEFAULT_CONFIG: Dict[str, Any] = {}
+    DEFAULT_CONFIG: dict[str, Any] = {}
 
     # Property schema for the properties panel
     # Format: [{'name': 'propName', 'label': 'Display Label', 'type': 'text|textarea|select|button', 'options': [...], 'action': 'methodName'}]
@@ -115,7 +115,7 @@ class BaseNode:
     # These are the names referenced by 'action' keys in `properties` button/
     # toggle entries and in `ui_component_config`.
     # Format: ['method_name', ...]
-    actions: List[str] = []
+    actions: list[str] = []
 
     # API routes that this node type exposes.
     # The server will register these as Flask routes at startup.
@@ -125,7 +125,7 @@ class BaseNode:
     # Handler methods receive (request_data: dict) and return a result dict,
     # or just return a dict for GET requests with no input.
     # For file uploads, handler receives (file_storage, filename) parameters.
-    api_routes: List[Dict[str, Any]] = []
+    api_routes: list[dict[str, Any]] = []
 
     # SSE broadcast handlers for real-time UI updates.
     # The SSE broadcast worker calls these methods and pushes results to clients.
@@ -133,9 +133,9 @@ class BaseNode:
     # 'type' is the SSE event type sent to the client.
     # 'handler' is the method name to call on the node instance.
     # 'throttle' (optional): minimum interval in seconds between broadcasts (None = every cycle).
-    sse_handlers: List[Dict[str, Any]] = []
+    sse_handlers: list[dict[str, Any]] = []
 
-    def __init__(self, node_id: Optional[str] = None, name: str = ""):
+    def __init__(self, node_id: str | None = None, name: str = ""):
         """
         Initialize a base node.
 
@@ -148,10 +148,10 @@ class BaseNode:
         self.type = self.__class__.__name__
 
         # Connections: output_index -> [(target_node, target_input_index), ...]
-        self.outputs: Dict[int, List[tuple]] = {}
+        self.outputs: dict[int, list[tuple]] = {}
 
         # Configuration for the node
-        self.config: Dict[str, Any] = {}
+        self.config: dict[str, Any] = {}
 
         # Initialize drop_while_busy to default (will be overridden by configure if needed)
         self.drop_while_busy = True
@@ -177,7 +177,7 @@ class BaseNode:
         """Set reference to the workflow engine for error reporting."""
         self._workflow_engine = engine
 
-    def get_storage_dir(self, subdir: Optional[str] = None) -> str:
+    def get_storage_dir(self, subdir: str | None = None) -> str:
         """Return this node type's managed storage directory, creating it.
 
         Project rule: nodes must write any downloaded or generated binaries
@@ -209,7 +209,7 @@ class BaseNode:
         os.makedirs(storage_dir, exist_ok=True)
         return storage_dir
 
-    def get_credential(self, credential_id: Optional[str]) -> Dict[str, str]:
+    def get_credential(self, credential_id: str | None) -> dict[str, str]:
         """Resolve a credential ID (the value of a 'credential' property).
 
         Returns every field with secret fields decrypted, e.g. {'value': '...'}
@@ -265,7 +265,7 @@ class BaseNode:
                 if node.id != target_node.id
             ]
 
-    def create_message(self, payload: Any = _UNSET, topic: str = "", **kwargs) -> Dict[str, Any]:
+    def create_message(self, payload: Any = _UNSET, topic: str = "", **kwargs) -> dict[str, Any]:
         """
         Create a message in Node-RED format.
 
@@ -296,8 +296,8 @@ class BaseNode:
         msg.update(kwargs)
         return msg
 
-    def _prepare_outgoing(self, msg: Dict[str, Any], deep: bool,
-                          with_drop_count: bool) -> Dict[str, Any]:
+    def _prepare_outgoing(self, msg: dict[str, Any], deep: bool,
+                          with_drop_count: bool) -> dict[str, Any]:
         """Build the per-recipient outgoing message and stamp its metadata.
 
         Args:
@@ -327,7 +327,7 @@ class BaseNode:
         out[MessageKeys.QUEUE_LENGTH] = self._message_queue.qsize()
         return sort_msg_keys(out)
 
-    def send(self, msg: Dict[str, Any], output_index: int = 0):
+    def send(self, msg: dict[str, Any], output_index: int = 0):
         """
         Send a message to connected nodes (non-blocking).
         Messages are queued and processed asynchronously.
@@ -364,7 +364,7 @@ class BaseNode:
         # target, or a queued target dropped by drop_while_busy, does not count
         # towards the recipient total that decides shallow-vs-deep.
         # Entries are (target_node, target_input, is_direct).
-        recipients: List[Tuple['BaseNode', int, bool]] = []
+        recipients: list[tuple[BaseNode, int, bool]] = []
         for target_node, target_input in connections:
             if not target_node.enabled:
                 continue
@@ -405,7 +405,7 @@ class BaseNode:
                     # Queue full - drop message or handle overflow
                     target_node.report_error("Message queue full, dropping message")
 
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """
         Called when this node receives a message.
         Override this method in subclasses to implement node logic.
@@ -474,7 +474,7 @@ class BaseNode:
         if self._worker_thread and self._worker_thread.is_alive():
             self._worker_thread.join(timeout=2.0)
 
-    def configure(self, config: Dict[str, Any]):
+    def configure(self, config: dict[str, Any]):
         """
         Configure the node with settings.
 
@@ -526,7 +526,7 @@ class BaseNode:
         """
         return float(self.config.get(key, default))
 
-    def _get_nested_value(self, obj: Dict, path: str) -> Any:
+    def _get_nested_value(self, obj: dict, path: str) -> Any:
         """
         Get a value from a nested path using dot notation.
         Supports array indexing like 'items[0]' and optional 'msg.' prefix.
@@ -579,7 +579,7 @@ class BaseNode:
 
         return current
 
-    def _set_nested_value(self, obj: Dict, path: str, value: Any) -> bool:
+    def _set_nested_value(self, obj: dict, path: str, value: Any) -> bool:
         """
         Set a value at a nested path like 'payload.image.width'
         Supports array indexing and msg. prefix handling.
@@ -637,7 +637,7 @@ class BaseNode:
     # Image processing helper methods (thin delegates; the implementations
     # live in pynode.nodes.image_utils and report failures through this
     # node's report_error).
-    def decode_image(self, payload: Any) -> Tuple[Any, Optional[str]]:
+    def decode_image(self, payload: Any) -> tuple[Any, str | None]:
         """
         Decode image from various formats into a numpy array.
         Returns (image, format_type) tuple where format_type indicates the input format.
@@ -669,7 +669,7 @@ class BaseNode:
         return image_utils.encode_image(image, format_type,
                                         report_error=self.report_error)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Serialize node to dictionary for API/storage.
 

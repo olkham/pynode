@@ -3,7 +3,7 @@
 Utilities for summarising and converting inference engine result formats.
 """
 
-from typing import Dict, Any
+from typing import Any
 import logging
 
 logger = logging.getLogger(__name__)
@@ -30,7 +30,7 @@ def create_rectangle(x: float, y: float, width: float, height: float):
     return Rectangle(x=x, y=y, width=width, height=height, type=ShapeType.RECTANGLE)
 
 
-def extract_detections_summary(result: Dict[str, Any]) -> Dict[str, Any]:
+def extract_detections_summary(result: dict[str, Any]) -> dict[str, Any]:
     """
     Extract a simplified summary of detections from any result format.
 

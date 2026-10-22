@@ -2,7 +2,7 @@
 
 import logging
 import warnings
-from typing import Any, Dict, Optional
+from typing import Any
 
 # supervision <=0.27 line_zone.py uses np.cross on 2-D vectors, which NumPy 2
 # deprecates. It fires inside supervision, not our code - silence just that
@@ -144,10 +144,10 @@ class SupervisionLineCounterNode(BaseNode):
     def __init__(self, node_id=None, name="sv_line_counter"):
         self.line_zone = None
         self.annotator = None
-        self._built_for: Optional[tuple] = None   # (line, anchors, min_frames)
+        self._built_for: tuple | None = None   # (line, anchors, min_frames)
         # Per-class-name counts accumulated from crossing events (LineZone's
         # own per-class dicts are keyed by class_id).
-        self.class_counts: Dict[str, Dict[str, int]] = {'in': {}, 'out': {}}
+        self.class_counts: dict[str, dict[str, int]] = {'in': {}, 'out': {}}
         self._last_frame = None                   # raw ndarray for the editor
         self._missing_reported = False
         self._tracker_warned = False
@@ -157,7 +157,7 @@ class SupervisionLineCounterNode(BaseNode):
     # Zone lifecycle
     # ------------------------------------------------------------------
 
-    def _zone_spec(self) -> Optional[tuple]:
+    def _zone_spec(self) -> tuple | None:
         line = parse_line(self.config.get('line', self.DEFAULT_CONFIG['line']))
         if line is None:
             return None
@@ -183,7 +183,7 @@ class SupervisionLineCounterNode(BaseNode):
             return True
 
         (p1, p2), anchors_key, min_frames = spec
-        kwargs: Dict[str, Any] = {
+        kwargs: dict[str, Any] = {
             'start': sv.Point(int(p1[0]), int(p1[1])),
             'end': sv.Point(int(p2[0]), int(p2[1])),
             'minimum_crossing_threshold': max(1, min_frames),

@@ -1,7 +1,7 @@
 """Configurable detection/track visualisation using supervision's annotators."""
 
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 
@@ -186,10 +186,10 @@ class SupervisionAnnotateNode(BaseNode):
     def __init__(self, node_id=None, name="sv_annotate"):
         # name -> live annotator instance, built lazily against the current
         # style config + resolution.
-        self._annotators: Dict[str, Any] = {}
+        self._annotators: dict[str, Any] = {}
         # (lookup_name, thickness, text_scale, trace_length, resolution_wh)
         # the cache was built for; a mismatch rebuilds it.
-        self._built_style: Optional[Tuple] = None
+        self._built_style: tuple | None = None
         self._missing_reported = False
         self._trace_warned = False
         super().__init__(node_id, name)
@@ -198,14 +198,14 @@ class SupervisionAnnotateNode(BaseNode):
     # Annotator construction
     # ------------------------------------------------------------------
 
-    def _selected(self) -> List[str]:
+    def _selected(self) -> list[str]:
         selected = self.config.get('annotators')
         if not isinstance(selected, list):
             selected = self.DEFAULT_CONFIG['annotators']
         # Fixed canonical order, whatever order the checkboxes were ticked in.
         return [a for a in ANNOTATOR_ORDER if a in selected]
 
-    def _resolve_thickness(self, wh: Tuple[int, int]) -> int:
+    def _resolve_thickness(self, wh: tuple[int, int]) -> int:
         sv = import_supervision()
         raw = str(self.config.get('thickness', 'auto')).strip().lower()
         if raw and raw != 'auto':
@@ -217,7 +217,7 @@ class SupervisionAnnotateNode(BaseNode):
             return sv.calculate_optimal_line_thickness(resolution_wh=wh)
         return 2
 
-    def _resolve_text_scale(self, wh: Tuple[int, int]) -> float:
+    def _resolve_text_scale(self, wh: tuple[int, int]) -> float:
         sv = import_supervision()
         raw = str(self.config.get('text_scale', 'auto')).strip().lower()
         if raw and raw != 'auto':
@@ -287,7 +287,7 @@ class SupervisionAnnotateNode(BaseNode):
             return sv.HeatMapAnnotator()
         return None
 
-    def _ensure_annotators(self, lookup, wh: Tuple[int, int]) -> Dict[str, Any]:
+    def _ensure_annotators(self, lookup, wh: tuple[int, int]) -> dict[str, Any]:
         """Return the annotator cache, rebuilding when the style changed.
 
         Trace/HeatMap keep per-frame state, so the cache persists across frames

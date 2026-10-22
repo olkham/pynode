@@ -9,7 +9,7 @@ import threading
 import time
 import sys
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 from pynode.nodes.base_node import BaseNode, FramePacer, Info, MessageKeys
 
 _info = Info()
@@ -298,7 +298,7 @@ class FrameSourceNode(BaseNode):
                     }
                 
                 # Create message payload
-                message_payload: Dict[str, Any] = {MessageKeys.IMAGE.PATH: payload}
+                message_payload: dict[str, Any] = {MessageKeys.IMAGE.PATH: payload}
                 
                 # Add depth data if available (compatible with RealsenseDepthNode)
                 if has_depth:

@@ -5,10 +5,10 @@ Extracted from ``base_node.py``; ``pynode.nodes.base_node`` re-exports
 """
 
 from dataclasses import dataclass
-from typing import Any, Dict
+from typing import Any
 
 
-def sort_msg_keys(msg: Dict[str, Any]) -> Dict[str, Any]:
+def sort_msg_keys(msg: dict[str, Any]) -> dict[str, Any]:
     """
     Sort message dict with underscore keys first, then alphabetically.
     Useful for displaying debug messages with metadata fields first.

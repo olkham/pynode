@@ -7,7 +7,7 @@ Node-RED flow in ``interop/``.
 
 import json
 import socket
-from typing import Any, Dict
+from typing import Any
 
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 from pynode.nodes.SocketNode import nodered_snippets, udp_protocol
@@ -192,7 +192,7 @@ class UdpOutNode(BaseNode):
         """Cleanup when node is removed."""
         self.on_stop()
 
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         if not self._socket:
             self.report_error("UDP Out: UDP socket not open (node not started)")
             return

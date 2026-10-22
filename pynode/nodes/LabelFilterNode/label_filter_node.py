@@ -3,7 +3,7 @@ Label Filter Node - filters messages based on detection labels.
 Passes through messages that contain detections matching allowed labels.
 """
 
-from typing import Any, Dict, List
+from typing import Any
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
@@ -97,7 +97,7 @@ class LabelFilterNode(BaseNode):
     def __init__(self, node_id=None, name="label filter"):
         super().__init__(node_id, name)
 
-    def _parse_labels(self) -> List[str]:
+    def _parse_labels(self) -> list[str]:
         """Parse the comma-separated labels config into a list."""
         labels_str = self.config.get('labels', '')
         case_sensitive = self.config.get('case_sensitive', False)
@@ -109,7 +109,7 @@ class LabelFilterNode(BaseNode):
         
         return labels
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """
         Filter messages based on detection labels.
         Output 0: Messages with matching labels

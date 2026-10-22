@@ -18,7 +18,7 @@ Useful for:
 import sys
 import os
 import json
-from typing import Any, Dict
+from typing import Any
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
@@ -232,7 +232,7 @@ class PointInShapeNode(BaseNode):
         
         return None
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """Check if a point is inside a shape"""
         try:
             # Get configuration

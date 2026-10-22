@@ -4,7 +4,7 @@ Supports engine selection, model file upload, target hardware selection, and inf
 """
 
 import logging
-from typing import Any, Dict, List
+from typing import Any
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 from pynode.nodes.detection_utils import CANONICAL_BBOX_FORMAT, normalized_detections
 
@@ -68,7 +68,7 @@ class InferenceNode(BaseNode):
     }
     
     @staticmethod
-    def _get_available_engines() -> List[Dict[str, str]]:
+    def _get_available_engines() -> list[dict[str, str]]:
         """Get available inference engines from the factory."""
         try:
             from pynode.nodes.InferenceNode.InferenceEngine.inference_engine_factory import InferenceEngineFactory
@@ -87,7 +87,7 @@ class InferenceNode(BaseNode):
             ]
     
     @staticmethod
-    def _get_device_options() -> List[Dict[str, str]]:
+    def _get_device_options() -> list[dict[str, str]]:
         """Get available hardware devices for inference."""
         devices = [
             {'value': 'cpu', 'label': 'CPU'},
@@ -319,7 +319,7 @@ class InferenceNode(BaseNode):
             self._engine_loaded = False
             return False
     
-    def configure(self, config: Dict[str, Any]):
+    def configure(self, config: dict[str, Any]):
         """Override configure to reload engine when configuration changes."""
         old_engine_type = self.config.get('engine_type') if hasattr(self, 'config') else None
         old_model_path = self.config.get('model_path') if hasattr(self, 'config') else None
@@ -339,7 +339,7 @@ class InferenceNode(BaseNode):
             if old_engine_type is not None:  # Only if not initial setup
                 self._engine_loaded = False
     
-    def get_engine_info(self) -> Dict[str, Any]:
+    def get_engine_info(self) -> dict[str, Any]:
         """Get information about the current engine state."""
         if self.engine is None:
             return {
@@ -353,7 +353,7 @@ class InferenceNode(BaseNode):
         info['loaded'] = self._engine_loaded
         return info
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """
         Process incoming image messages and perform inference.
         """
@@ -472,7 +472,7 @@ class InferenceNode(BaseNode):
         self.engine = None
         self._engine_loaded = False
     
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize node to dictionary for API/storage."""
         data = super().to_dict()
         data['engineInfo'] = self.get_engine_info()

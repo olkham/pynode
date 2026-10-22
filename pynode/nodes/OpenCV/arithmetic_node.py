@@ -4,7 +4,7 @@ OpenCV Arithmetic Operations Node - performs pixel-wise arithmetic operations on
 
 import cv2
 import numpy as np
-from typing import Any, Dict, Optional
+from typing import Any
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
@@ -159,10 +159,10 @@ class ArithmeticNode(BaseNode):
     
     def __init__(self, node_id=None, name="arithmetic"):
         super().__init__(node_id, name)
-        self._image1: Optional[np.ndarray] = None
-        self._image2: Optional[np.ndarray] = None
-        self._format_type: Optional[str] = None
-        self._last_msg: Optional[Dict] = None
+        self._image1: np.ndarray | None = None
+        self._image2: np.ndarray | None = None
+        self._format_type: str | None = None
+        self._last_msg: dict | None = None
     
     def _resize_images(self, img1: np.ndarray, img2: np.ndarray) -> tuple:
         """Resize images based on configuration."""
@@ -222,7 +222,7 @@ class ArithmeticNode(BaseNode):
         const_img = np.full_like(img, abs(value), dtype=np.float32)
         return const_img
     
-    def _perform_operation(self, img1: np.ndarray, img2: Optional[np.ndarray]) -> np.ndarray:
+    def _perform_operation(self, img1: np.ndarray, img2: np.ndarray | None) -> np.ndarray:
         """Perform the configured arithmetic operation."""
         operation = self.config.get('operation', 'add')
         mode = self.config.get('mode', 'image')
@@ -326,7 +326,7 @@ class ArithmeticNode(BaseNode):
         
         return result
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """Process incoming image and perform arithmetic operation."""
         if MessageKeys.PAYLOAD not in msg:
             self.send(msg)
@@ -368,7 +368,7 @@ class ArithmeticNode(BaseNode):
             self._image1 = None
             self._image2 = None
     
-    def _send_result(self, result: np.ndarray, msg: Dict[str, Any]):
+    def _send_result(self, result: np.ndarray, msg: dict[str, Any]):
         """Send the result image."""
         if MessageKeys.PAYLOAD not in msg or not isinstance(msg[MessageKeys.PAYLOAD], dict):
             msg[MessageKeys.PAYLOAD] = {}

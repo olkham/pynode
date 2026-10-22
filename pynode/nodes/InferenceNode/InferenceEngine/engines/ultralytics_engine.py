@@ -16,7 +16,7 @@ if inference_engine_dir not in sys.path:
 
 from flask import json
 import numpy as np
-from typing import Any, Dict
+from typing import Any
 
 # Handle both standalone and module imports
 try:
@@ -502,7 +502,7 @@ except Exception as e:
         
         return results
     
-    def _postprocess(self, raw_output: Any) -> Dict[str, Any]:
+    def _postprocess(self, raw_output: Any) -> dict[str, Any]:
         """Postprocess YOLO results"""
         return raw_output
         

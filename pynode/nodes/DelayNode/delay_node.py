@@ -6,7 +6,7 @@ Similar to Node-RED's delay node.
 import time
 import threading
 from collections import deque
-from typing import Any, Dict
+from typing import Any
 from pynode.nodes.base_node import BaseNode, Info
 
 _info = Info()
@@ -117,7 +117,7 @@ class DelayNode(BaseNode):
         super().__init__(node_id, name)
         # Timestamp (time.monotonic clock) of the next slot at which a message
         # is allowed to pass in rate-limit mode. None until the first message.
-        self._next_allowed: 'float | None' = None
+        self._next_allowed: float | None = None
         self.queued_messages = []
         self.processing_queue = False
         self.queue_lock = threading.Lock()
@@ -133,7 +133,7 @@ class DelayNode(BaseNode):
             self.queued_messages.clear()
             self.processing_queue = False
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """
         Handle message based on mode: delay each message, delay by count, or rate limit.
         """
@@ -152,7 +152,7 @@ class DelayNode(BaseNode):
             # Rate limiting mode
             self._rate_limit(msg)
     
-    def _delay_by_count(self, msg: Dict[str, Any]):
+    def _delay_by_count(self, msg: dict[str, Any]):
         """
         Delay messages by a number of messages.
         Each message is released after N more messages have arrived.
@@ -197,7 +197,7 @@ class DelayNode(BaseNode):
         """
         self._next_allowed = max(self._next_allowed or now, now) + interval
 
-    def _rate_limit(self, msg: Dict[str, Any]):
+    def _rate_limit(self, msg: dict[str, Any]):
         """
         Rate limit messages - only send at specified rate.
 

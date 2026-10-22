@@ -10,7 +10,7 @@ import json
 import base64
 import threading
 import logging
-from typing import Optional, Dict, Any
+from typing import Any
 
 try:
     import requests
@@ -84,7 +84,7 @@ class VLLMNode(BaseNode):
     input_count = 1
     output_count = 1
 
-    DEFAULT_CONFIG: Dict[str, Any] = {
+    DEFAULT_CONFIG: dict[str, Any] = {
         'server_url': 'http://localhost:8000',
         'model': 'Qwen/Qwen3.5-9B',
         'system_prompt': 'You are a helpful assistant that analyzes images.',
@@ -146,11 +146,11 @@ class VLLMNode(BaseNode):
         },
     ]
 
-    def __init__(self, node_id: Optional[str] = None, name: str = "vllm"):
+    def __init__(self, node_id: str | None = None, name: str = "vllm"):
         super().__init__(node_id, name)
         self.configure(self.DEFAULT_CONFIG.copy())
 
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """Handle incoming messages by calling vLLM in a background thread."""
         thread = threading.Thread(
             target=self._call_vllm,
@@ -162,7 +162,7 @@ class VLLMNode(BaseNode):
     # ------------------------------------------------------------------
     # Resolve a config value, allowing msg override
     # ------------------------------------------------------------------
-    def _resolve(self, msg: Dict[str, Any], key: str, default: Any = None) -> Any:
+    def _resolve(self, msg: dict[str, Any], key: str, default: Any = None) -> Any:
         """
         Get a value from msg.payload.{key} first, falling back to config.
         """
@@ -174,7 +174,7 @@ class VLLMNode(BaseNode):
     # ------------------------------------------------------------------
     # Build the image data URL from various input formats
     # ------------------------------------------------------------------
-    def _get_image_data_url(self, msg: Dict[str, Any]) -> Optional[str]:
+    def _get_image_data_url(self, msg: dict[str, Any]) -> str | None:
         """
         Extract image from the message and return as a data URL string.
         Supports: base64 string, dict with data/encoding/format, numpy array.
@@ -237,7 +237,7 @@ class VLLMNode(BaseNode):
     # ------------------------------------------------------------------
     # Main request logic
     # ------------------------------------------------------------------
-    def _call_vllm(self, msg: Dict[str, Any]):
+    def _call_vllm(self, msg: dict[str, Any]):
         """Build the payload and call the vLLM chat completions endpoint."""
         import time as _time
 
@@ -269,7 +269,7 @@ class VLLMNode(BaseNode):
         messages.append({"role": "user", "content": user_content})
 
         # Build request payload
-        request_payload: Dict[str, Any] = {
+        request_payload: dict[str, Any] = {
             "model": model,
             "messages": messages,
             "max_tokens": max_tokens,
@@ -328,7 +328,7 @@ class VLLMNode(BaseNode):
     # ------------------------------------------------------------------
     # HTTP helpers
     # ------------------------------------------------------------------
-    def _post_json(self, url: str, payload: Dict[str, Any], timeout: int) -> Any:
+    def _post_json(self, url: str, payload: dict[str, Any], timeout: int) -> Any:
         """POST JSON and return parsed response. Uses requests if available."""
         data = json.dumps(payload).encode('utf-8')
         headers = {'Content-Type': 'application/json'}

@@ -9,7 +9,7 @@ Node-RED flow in ``interop/``.
 import socket
 import threading
 import time
-from typing import Any, Dict
+from typing import Any
 
 from pynode.nodes.base_node import BaseNode, Info
 from pynode.nodes.SocketNode import nodered_snippets, udp_protocol
@@ -208,7 +208,7 @@ class UdpInNode(BaseNode):
         while not self._stop_flag.is_set():
             try:
                 data, addr = self._socket.recvfrom(self._RECV_BUFFER_SIZE)
-            except socket.timeout:
+            except TimeoutError:
                 data = None
             except OSError:
                 # Socket closed out from under us (on_stop) or a transient
@@ -230,7 +230,7 @@ class UdpInNode(BaseNode):
                 self._reassembler.evict_stale(time.time())
                 last_evict = now
 
-    def _emit(self, result: Dict[str, Any]):
+    def _emit(self, result: dict[str, Any]):
         meta = result.get('meta') or {}
         # A datagram whose metadata is missing or malformed has no payload_type;
         # '' falls through to decode_payload's unknown-type branch, which

@@ -3,7 +3,7 @@ Crop Node - crops bounding boxes from images.
 """
 
 import numpy as np
-from typing import Any, Dict
+from typing import Any
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
@@ -268,7 +268,7 @@ class CropNode(BaseNode):
         y1, y2 = sorted((y1, y2))
         return int(round(x1)), int(round(y1)), int(round(x2)), int(round(y2))
 
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """Process incoming image and crop based on bounding boxes."""
         payload = msg.get(MessageKeys.PAYLOAD)
         if not payload or not isinstance(payload, dict):
@@ -416,7 +416,7 @@ class CropNode(BaseNode):
             msg['crop_count'] = len(encoded_crops)
             self.send(msg)
     
-    def _decode_image(self, payload: Dict[str, Any]):
+    def _decode_image(self, payload: dict[str, Any]):
         """Decode image from payload using BaseNode helper. Returns (image, format_type) tuple."""
         return self.decode_image(payload)
     

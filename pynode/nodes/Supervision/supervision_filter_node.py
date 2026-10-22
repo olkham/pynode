@@ -1,7 +1,7 @@
 """Multi-criteria detection filtering built on supervision's Detections ops."""
 
 import logging
-from typing import Any, Optional, Set
+from typing import Any
 
 import numpy as np
 
@@ -48,7 +48,7 @@ _info.add_bullets(
 )
 
 
-def _parse_float(value: Any) -> Optional[float]:
+def _parse_float(value: Any) -> float | None:
     text = str(value or '').strip()
     if not text:
         return None
@@ -58,7 +58,7 @@ def _parse_float(value: Any) -> Optional[float]:
         return None
 
 
-def _parse_class_list(value: Any) -> Set[str]:
+def _parse_class_list(value: Any) -> set[str]:
     """Lower-cased set of class tokens (names and/or numeric ids as strings)."""
     return {t.strip().lower() for t in str(value or '').split(',') if t.strip()}
 

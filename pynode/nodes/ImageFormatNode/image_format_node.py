@@ -7,7 +7,7 @@ import base64
 import copy
 import cv2
 import numpy as np
-from typing import Any, Dict
+from typing import Any
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
@@ -98,7 +98,7 @@ class ImageFormatNode(BaseNode):
     def __init__(self, node_id=None, name="image format"):
         super().__init__(node_id, name)
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """
         Convert image data between numpy array and base64.
         """
@@ -222,7 +222,7 @@ class ImageFormatNode(BaseNode):
         except Exception as e:
             self.report_error(f"Conversion error: {e}")
     
-    def _numpy_to_base64(self, image: Any) -> Dict[str, Any]:
+    def _numpy_to_base64(self, image: Any) -> dict[str, Any]:
         """Convert numpy array to base64 encoded image."""
         if not isinstance(image, np.ndarray):
             raise ValueError(f"Expected numpy array, got {type(image)}")
@@ -274,7 +274,7 @@ class ImageFormatNode(BaseNode):
             raise RuntimeError("Failed to decode binary image buffer")
         return image
 
-    def _bytes_to_base64(self, raw: bytes) -> Dict[str, Any]:
+    def _bytes_to_base64(self, raw: bytes) -> dict[str, Any]:
         """Decode raw image bytes, re-encode to the configured format, and return base64."""
         # Decode to numpy first so we can re-encode in the desired format/quality
         image = self._bytes_to_numpy(raw)

@@ -3,7 +3,7 @@ Queue Length Probe Node - monitors message queue length.
 Passes messages through while tracking and displaying the queue length.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
@@ -67,7 +67,7 @@ class QueueLengthProbeNode(BaseNode):
         super().__init__(node_id, name)
         self._current_queue_length = 0
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """
         Pass through the message and extract queue length for display.
         Sends queue length information as the payload.
@@ -91,7 +91,7 @@ class QueueLengthProbeNode(BaseNode):
         """Get the current queue length."""
         return self._current_queue_length
     
-    def get_queue_length_display(self, queue_length: Optional[int] = None) -> str:
+    def get_queue_length_display(self, queue_length: int | None = None) -> str:
         """Get formatted queue length string for display."""
         if queue_length is None:
             queue_length = self._current_queue_length

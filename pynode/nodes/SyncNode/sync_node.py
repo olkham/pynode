@@ -3,7 +3,7 @@ Sync Node - buffers messages based on an index and releases them on command.
 Useful for synchronizing multiple message streams or batch processing.
 """
 
-from typing import Any, Dict, List
+from typing import Any
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
@@ -127,11 +127,11 @@ class SyncNode(BaseNode):
     def __init__(self, node_id=None, name="sync"):
         super().__init__(node_id, name)
         # Buffer to store messages: {index: msg}
-        self._buffer: Dict[Any, Dict[str, Any]] = {}
+        self._buffer: dict[Any, dict[str, Any]] = {}
         # Track arrival order for non-sorted output
-        self._arrival_order: List[Any] = []
+        self._arrival_order: list[Any] = []
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """
         Buffer message by index or release buffered messages.
         """
@@ -184,7 +184,7 @@ class SyncNode(BaseNode):
         except Exception as e:
             self.report_error(f"Error buffering message: {str(e)}")
     
-    def _release_messages(self, trigger_msg: Dict[str, Any]):
+    def _release_messages(self, trigger_msg: dict[str, Any]):
         """
         Release buffered messages according to configuration.
         """
@@ -245,7 +245,7 @@ class SyncNode(BaseNode):
         except Exception as e:
             self.report_error(f"Error releasing messages: {str(e)}")
     
-    def _get_sorted_indices(self) -> List[Any]:
+    def _get_sorted_indices(self) -> list[Any]:
         """
         Get list of indices sorted according to configuration.
         """
@@ -269,7 +269,7 @@ class SyncNode(BaseNode):
         
         return indices
     
-    def get_buffer_status(self) -> Dict[str, Any]:
+    def get_buffer_status(self) -> dict[str, Any]:
         """
         Get current buffer status.
         """

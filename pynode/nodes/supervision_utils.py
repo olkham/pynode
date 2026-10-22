@@ -24,7 +24,7 @@ dict list, so a supervision node works whether its upstream neighbour is
 supervision-aware (UltralyticsNode emits dicts only) or not.
 """
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 
@@ -36,7 +36,7 @@ DETECTIONS_KEY = 'detections'
 DETECTION_COUNT_KEY = 'detection_count'
 
 _sv_module = None
-_sv_import_error: Optional[str] = None
+_sv_import_error: str | None = None
 
 
 def import_supervision():
@@ -72,7 +72,7 @@ def supervision_missing_message() -> str:
     )
 
 
-def _as_float_array(values: List[Any]) -> np.ndarray:
+def _as_float_array(values: list[Any]) -> np.ndarray:
     return np.array(values, dtype=np.float32)
 
 
@@ -107,11 +107,11 @@ def to_sv(payload: Any):
     if not isinstance(detections_list, (list, tuple)) or len(detections_list) == 0:
         return sv.Detections.empty()
 
-    xyxy: List[Any] = []
-    confidence: List[float] = []
-    class_id: List[int] = []
-    class_name: List[str] = []
-    tracker_id: List[int] = []
+    xyxy: list[Any] = []
+    confidence: list[float] = []
+    class_id: list[int] = []
+    class_name: list[str] = []
+    tracker_id: list[int] = []
     any_tracker_id = False
 
     for det in detections_list:
@@ -154,7 +154,7 @@ def to_sv(payload: Any):
     return detections
 
 
-def sv_to_list(detections) -> List[Dict[str, Any]]:
+def sv_to_list(detections) -> list[dict[str, Any]]:
     """Flatten an ``sv.Detections`` into the interop list-of-dicts form.
 
     Every field is read positionally from the *same* ``Detections``, so class
@@ -171,10 +171,10 @@ def sv_to_list(detections) -> List[Dict[str, Any]]:
 
     class_names = detections.data.get('class_name') if detections.data else None
 
-    results: List[Dict[str, Any]] = []
+    results: list[dict[str, Any]] = []
     for i in range(len(detections)):
         bbox = [float(v) for v in detections.xyxy[i]]
-        entry: Dict[str, Any] = {
+        entry: dict[str, Any] = {
             'bbox': bbox,
             'bbox_format': 'xyxy',
             'bbox_wh': [bbox[0], bbox[1], bbox[2] - bbox[0], bbox[3] - bbox[1]],
@@ -202,9 +202,9 @@ def sv_to_list(detections) -> List[Dict[str, Any]]:
     return results
 
 
-def write_back(detections, payload: Dict[str, Any],
+def write_back(detections, payload: dict[str, Any],
                list_key: str = DETECTIONS_KEY,
-               count_key: str = DETECTION_COUNT_KEY) -> List[Dict[str, Any]]:
+               count_key: str = DETECTION_COUNT_KEY) -> list[dict[str, Any]]:
     """Write ``detections`` into ``payload`` in both forms.
 
     Sets the live object at ``payload['sv']`` and the flattened list at
@@ -230,7 +230,7 @@ def write_back(detections, payload: Dict[str, Any],
 
 
 def labels_for(detections, show_class: bool = True, show_confidence: bool = True,
-               show_track_id: bool = True) -> List[str]:
+               show_track_id: bool = True) -> list[str]:
     """Build per-detection label strings from a ``Detections``.
 
     Reads class names from ``data['class_name']`` rather than a caller-supplied
@@ -250,9 +250,9 @@ def labels_for(detections, show_class: bool = True, show_confidence: bool = True
 
     class_names = detections.data.get('class_name') if detections.data else None
 
-    labels: List[str] = []
+    labels: list[str] = []
     for i in range(len(detections)):
-        parts: List[str] = []
+        parts: list[str] = []
 
         if show_track_id and detections.tracker_id is not None:
             parts.append(f"#{int(detections.tracker_id[i])}")
@@ -289,14 +289,14 @@ def resolve_position(name: str, default: str = 'CENTER'):
     return getattr(sv.Position, key, getattr(sv.Position, default))
 
 
-def frame_size(image: Any) -> Tuple[int, int]:
+def frame_size(image: Any) -> tuple[int, int]:
     """Return ``(width, height)`` for a decoded frame, ``(0, 0)`` if unknown."""
     if image is None or not hasattr(image, 'shape') or len(image.shape) < 2:
         return (0, 0)
     return (int(image.shape[1]), int(image.shape[0]))
 
 
-def parse_points(value: Any) -> Optional[List[List[float]]]:
+def parse_points(value: Any) -> list[list[float]] | None:
     """Parse a polygon definition into ``[[x, y], ...]``.
 
     Accepts a JSON string (``"[[100,100],[300,100],...]"``), an already-parsed
@@ -336,7 +336,7 @@ def parse_points(value: Any) -> Optional[List[List[float]]]:
     return points if len(points) >= 3 else None
 
 
-def parse_line(value: Any) -> Optional[Tuple[Tuple[float, float], Tuple[float, float]]]:
+def parse_line(value: Any) -> tuple[tuple[float, float], tuple[float, float]] | None:
     """Parse a line definition into ``((x1, y1), (x2, y2))``.
 
     Accepts ``"x1,y1,x2,y2"``, a JSON string ``"[[x1,y1],[x2,y2]]"``, or an

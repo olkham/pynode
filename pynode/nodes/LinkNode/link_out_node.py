@@ -4,7 +4,7 @@ Link bus, so they can be received by Link In nodes anywhere (including in a
 different workflow/flow).
 """
 
-from typing import Any, Dict
+from typing import Any
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 from pynode.nodes.LinkNode.link_bus import link_bus
 
@@ -80,7 +80,7 @@ class LinkOutNode(BaseNode):
     def __init__(self, node_id=None, name="link out"):
         super().__init__(node_id, name)
 
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """Publish the message to the configured channel."""
         channel = str(self.config.get('channel', '')).strip()
         if not channel:

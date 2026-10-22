@@ -1,7 +1,7 @@
 """Polygon-zone occupancy monitoring built on supervision's PolygonZone."""
 
 import logging
-from typing import Any, Dict, Optional, Set
+from typing import Any
 
 import numpy as np
 
@@ -135,8 +135,8 @@ class SupervisionZoneNode(BaseNode):
     def __init__(self, node_id=None, name="sv_zone"):
         self.zone = None
         self.annotator = None
-        self._built_for: Optional[tuple] = None
-        self._inside: Set[int] = set()      # track_ids currently in the zone
+        self._built_for: tuple | None = None
+        self._inside: set[int] = set()      # track_ids currently in the zone
         self._last_frame = None             # raw ndarray for the editor
         self._missing_reported = False
         super().__init__(node_id, name)
@@ -145,7 +145,7 @@ class SupervisionZoneNode(BaseNode):
     # Zone lifecycle
     # ------------------------------------------------------------------
 
-    def _zone_spec(self) -> Optional[tuple]:
+    def _zone_spec(self) -> tuple | None:
         points = parse_points(self.config.get('polygon', self.DEFAULT_CONFIG['polygon']))
         if points is None:
             return None
@@ -280,7 +280,7 @@ class SupervisionZoneNode(BaseNode):
             return []
 
         class_names = detections.data.get('class_name') if detections.data else None
-        now_inside: Dict[int, int] = {}   # track_id -> detection index
+        now_inside: dict[int, int] = {}   # track_id -> detection index
         for i in range(len(detections)):
             if mask[i]:
                 now_inside[int(detections.tracker_id[i])] = i
@@ -288,8 +288,8 @@ class SupervisionZoneNode(BaseNode):
         zone_count = len(now_inside)
         events = []
 
-        def _event(kind: str, tid: int, index: Optional[int]) -> Dict[str, Any]:
-            entry: Dict[str, Any] = {
+        def _event(kind: str, tid: int, index: int | None) -> dict[str, Any]:
+            entry: dict[str, Any] = {
                 'event': kind, 'track_id': tid, 'zone_count': zone_count,
             }
             if index is not None:

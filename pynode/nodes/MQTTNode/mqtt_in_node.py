@@ -4,7 +4,6 @@ Uses shared MQTT service for connection management.
 """
 
 import json
-from typing import Optional
 from pynode.nodes.base_node import BaseNode, Info
 from pynode.nodes.MQTTNode.mqtt_service import mqtt_manager, MQTTService
 
@@ -76,8 +75,8 @@ class MqttInNode(BaseNode):
     
     def __init__(self, node_id: 'str | None' = None, name: str = ""):
         super().__init__(node_id, name)
-        self._service: Optional[MQTTService] = None
-        self._subscribed_topic: Optional[str] = None
+        self._service: MQTTService | None = None
+        self._subscribed_topic: str | None = None
     
     def _on_message(self, topic: str, payload: bytes):
         """Callback when message is received from the service."""

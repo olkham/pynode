@@ -3,7 +3,7 @@ Join Node - combines multiple messages into one.
 """
 
 import time
-from typing import Any, Dict
+from typing import Any
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
@@ -92,7 +92,7 @@ class JoinNode(BaseNode):
         self.message_buffer = []
         self.first_message_time = None
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """Buffer messages and combine them based on configuration."""
         self.message_buffer.append(msg.copy())
         

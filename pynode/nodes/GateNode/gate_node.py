@@ -3,7 +3,7 @@ Gate node - allows messages to pass through or blocks them.
 Can be toggled on/off directly from the UI without redeployment.
 """
 
-from typing import Any, Dict
+from typing import Any
 from pynode.nodes.base_node import BaseNode, Info
 
 _info = Info()
@@ -51,7 +51,7 @@ class GateNode(BaseNode):
         self.enabled = True  # Gate is open (enabled) by default
         self.configure({})
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """
         Pass message through if gate is enabled, otherwise discard it.
         """

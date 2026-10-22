@@ -3,7 +3,7 @@ Counter Node - counts messages and displays the count with a reset button.
 Demonstrates the use of UI components (button + rate-display).
 """
 
-from typing import Any, Dict
+from typing import Any
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
@@ -113,7 +113,7 @@ class CounterNode(BaseNode):
         """Reset counter to initial value from config."""
         self.count = self.get_config_int('initial_value', 0)
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """
         Increment counter and pass through with count information.
         """

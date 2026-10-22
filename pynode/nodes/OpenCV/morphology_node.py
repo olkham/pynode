@@ -4,7 +4,7 @@ OpenCV Morphology Node - applies morphological operations to images.
 
 import cv2
 import numpy as np
-from typing import Any, Dict
+from typing import Any
 from pynode.nodes.base_node import BaseNode, process_image, Info
 
 _info = Info()
@@ -99,7 +99,7 @@ class MorphologyNode(BaseNode):
         super().__init__(node_id, name)
     
     @process_image()
-    def on_input(self, image: np.ndarray, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, image: np.ndarray, msg: dict[str, Any], input_index: int = 0):
         """Apply morphological operation to the input image."""
         operation = self.config.get('operation', 'dilate')
         kernel_shape = self.config.get('kernel_shape', 'rect')

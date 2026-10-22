@@ -5,7 +5,7 @@ Designed to work with SliceImageNode in a slice-detect-merge workflow.
 
 from dataclasses import dataclass
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 import numpy as np
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
@@ -139,9 +139,9 @@ class SliceCollectorNode(BaseNode):
     def __init__(self, node_id=None, name="slice_collector"):
         super().__init__(node_id, name)
         # Track collections by parent message ID
-        self._collections: Dict[str, Dict] = {}
+        self._collections: dict[str, dict] = {}
     
-    def _calculate_iou(self, box1: List[float], box2: List[float]) -> float:
+    def _calculate_iou(self, box1: list[float], box2: list[float]) -> float:
         """Calculate IoU between two bounding boxes in [x1, y1, x2, y2] format."""
         x1_1, y1_1, x2_1, y2_1 = box1
         x1_2, y1_2, x2_2, y2_2 = box2
@@ -161,7 +161,7 @@ class SliceCollectorNode(BaseNode):
         
         return intersection / union if union > 0 else 0.0
     
-    def _calculate_ios(self, box1: List[float], box2: List[float]) -> float:
+    def _calculate_ios(self, box1: list[float], box2: list[float]) -> float:
         """Calculate IoS (Intersection over Smaller) between two boxes."""
         x1_1, y1_1, x2_1, y2_1 = box1
         x1_2, y1_2, x2_2, y2_2 = box2
@@ -181,7 +181,7 @@ class SliceCollectorNode(BaseNode):
         
         return intersection / smaller if smaller > 0 else 0.0
     
-    def _transform_detections(self, detections: List[Dict], offset: List[int]) -> List[Dict]:
+    def _transform_detections(self, detections: list[dict], offset: list[int]) -> list[dict]:
         """Transform detection coordinates from slice-local to original image coords."""
         transformed = []
         offset_x, offset_y = offset
@@ -199,8 +199,8 @@ class SliceCollectorNode(BaseNode):
         
         return transformed
     
-    def _nms(self, detections: List[Dict], nms_threshold: float, 
-             match_metric: str = NodeKeys.MATCH_METRIC, class_agnostic: bool = False) -> List[Dict]:
+    def _nms(self, detections: list[dict], nms_threshold: float, 
+             match_metric: str = NodeKeys.MATCH_METRIC, class_agnostic: bool = False) -> list[dict]:
         """Apply Non-Maximum Suppression to remove duplicate detections."""
         if not detections:
             return []
@@ -211,7 +211,7 @@ class SliceCollectorNode(BaseNode):
         if class_agnostic:
             groups = {'all': sorted_dets}
         else:
-            groups: Dict[Any, List[Dict]] = {}
+            groups: dict[Any, list[dict]] = {}
             for det in sorted_dets:
                 class_id = det.get('class_id', det.get('class_name', 'unknown'))
                 if class_id not in groups:
@@ -254,14 +254,14 @@ class SliceCollectorNode(BaseNode):
         for k in expired:
             del self._collections[k]
     
-    def _process_collection(self, collection_id: str) -> Optional[Dict]:
+    def _process_collection(self, collection_id: str) -> dict | None:
         """Process a complete collection (by id) and return merged result."""
         collection = self._collections.get(collection_id)
         if not collection:
             return None
         return self._merge_collection(collection)
     
-    def _merge_collection(self, collection: Dict) -> Optional[Dict]:
+    def _merge_collection(self, collection: dict) -> dict | None:
         """Merge all slices in a collection dict and return the merged result."""
         nms_threshold = self.get_config_float(NodeKeys.NMS_THRESHOLD, self.DEFAULT_CONFIG[NodeKeys.NMS_THRESHOLD])
         match_metric = self.config.get(NodeKeys.MATCH_METRIC, self.DEFAULT_CONFIG[NodeKeys.MATCH_METRIC])
@@ -312,7 +312,7 @@ class SliceCollectorNode(BaseNode):
         
         return result
     
-    def _reconstruct_image(self, collection: Dict) -> Optional[Any]:
+    def _reconstruct_image(self, collection: dict) -> Any | None:
         """
         Rebuild the original parent image by stitching the collected slice
         tiles back into a single canvas sized to the original image.
@@ -334,7 +334,7 @@ class SliceCollectorNode(BaseNode):
         
         canvas = None
         encode_format = None
-        tile_bounds: List[tuple] = []
+        tile_bounds: list[tuple] = []
         
         # Place the full image (if any) first, then overlay tiles on top
         ordered_slices = sorted(
@@ -396,7 +396,7 @@ class SliceCollectorNode(BaseNode):
         
         return self.encode_image(canvas, encode_format)
     
-    def _draw_slice_bounds(self, canvas: Any, tile_bounds: List[tuple]):
+    def _draw_slice_bounds(self, canvas: Any, tile_bounds: list[tuple]):
         """
         Draw a rectangle for each slice on the reconstructed canvas so the user
         can see where each tile sits and how much adjacent tiles overlap.
@@ -429,13 +429,13 @@ class SliceCollectorNode(BaseNode):
                 thickness
             )
     
-    def _handle_array(self, msg: Dict[str, Any], slices: List[Any]):
+    def _handle_array(self, msg: dict[str, Any], slices: list[Any]):
         """
         Handle 'array' output mode from SliceImageNode where every slice arrives
         together in a single message as a list. All slices are available at once,
         so the collection is built and merged immediately (no buffering/timeout).
         """
-        collection: Dict[str, Any] = {
+        collection: dict[str, Any] = {
             NodeKeys.SLICES: {},
             NodeKeys.ORIGINAL_WIDTH: msg.get(NodeKeys.ORIGINAL_WIDTH, 0),
             NodeKeys.ORIGINAL_HEIGHT: msg.get(NodeKeys.ORIGINAL_HEIGHT, 0),
@@ -489,7 +489,7 @@ class SliceCollectorNode(BaseNode):
             out_msg.pop('parts', None)
             self.send(out_msg)
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """
         Collect slice predictions and merge when complete.
         

@@ -5,7 +5,7 @@ Detects and analyzes contours for shape detection.
 
 import cv2
 import numpy as np
-from typing import Any, Dict
+from typing import Any
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
@@ -125,7 +125,7 @@ class ContoursNode(BaseNode):
     def __init__(self, node_id=None, name="find contours"):
         super().__init__(node_id, name)
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """Find contours in the input image."""
         if MessageKeys.PAYLOAD not in msg:
             self.send(msg)

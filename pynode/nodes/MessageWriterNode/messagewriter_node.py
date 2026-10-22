@@ -9,7 +9,7 @@ import pickle
 import time
 import base64
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
@@ -187,7 +187,7 @@ class MessageWriterNode(BaseNode):
         self._counter = 0
         self._last_written = None
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """
         Write message data to disk. Can write whole message or specific components.
         """
@@ -274,7 +274,7 @@ class MessageWriterNode(BaseNode):
             )
             self.send(output_msg)
     
-    def _extract_data(self, msg: Dict[str, Any]) -> Any:
+    def _extract_data(self, msg: dict[str, Any]) -> Any:
         """Extract data from message based on data_source configuration."""
         data_source = self.config.get('data_source', 'whole_message')
         
@@ -290,7 +290,7 @@ class MessageWriterNode(BaseNode):
         else:
             return msg.get(MessageKeys.PAYLOAD)  # Default fallback
     
-    def _extract_custom_path(self, msg: Dict[str, Any], path: str) -> Any:
+    def _extract_custom_path(self, msg: dict[str, Any], path: str) -> Any:
         """Extract data using custom path like 'msg.payload.detections'."""
         try:
             # Remove 'msg.' prefix if present
@@ -321,7 +321,7 @@ class MessageWriterNode(BaseNode):
             self.report_error(f"Failed to extract custom path '{path}': {str(e)}")
             return None
     
-    def _generate_filename(self, base: str, extension: str, mode: str, msg: Dict[str, Any]) -> str:
+    def _generate_filename(self, base: str, extension: str, mode: str, msg: dict[str, Any]) -> str:
         """Generate filename based on naming mode."""
         
         if mode == 'message':

@@ -23,7 +23,7 @@ Output format:
 
 import sys
 import os
-from typing import Any, Dict
+from typing import Any
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
@@ -264,7 +264,7 @@ class PolygonMetricsNode(BaseNode):
         
         return metrics
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """Calculate polygon metrics"""
         try:
             normalize = self.config.get('normalize', False)

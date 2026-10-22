@@ -9,7 +9,7 @@ import pickle
 import base64
 import glob
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
@@ -243,7 +243,7 @@ class MessageReaderNode(BaseNode):
                 payload={'data': data, 'filename': original_filename}
             )
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """
         Read files based on configuration or message content.
         """
@@ -276,7 +276,7 @@ class MessageReaderNode(BaseNode):
         empty_msg = self.create_message(payload={}, topic='MessageReader/action')
         self._read_files_by_mode(empty_msg)
     
-    def _read_files_by_mode(self, trigger_msg: Dict[str, Any]):
+    def _read_files_by_mode(self, trigger_msg: dict[str, Any]):
         """Read files based on configured reading mode."""
         reading_mode = self.config.get('reading_mode', 'single_file')
         directory = self.config.get('directory', './output')
@@ -308,7 +308,7 @@ class MessageReaderNode(BaseNode):
         elif reading_mode == 'all_files':
             self._read_all_files(directory, trigger_msg)
     
-    def _read_single_file(self, file_path: str, trigger_msg: Dict[str, Any]):
+    def _read_single_file(self, file_path: str, trigger_msg: dict[str, Any]):
         """Read a single file and send as message."""
         try:
             if not os.path.exists(file_path):
@@ -342,7 +342,7 @@ class MessageReaderNode(BaseNode):
         except Exception as e:
             self.report_error(f"Failed to read file {file_path}: {str(e)}")
     
-    def _read_batch_files(self, directory: str, trigger_msg: Dict[str, Any]):
+    def _read_batch_files(self, directory: str, trigger_msg: dict[str, Any]):
         """Read multiple files matching pattern."""
         pattern = self.config.get('filename_pattern', '*.json')
         max_files = self.get_config_int('max_files', 10)
@@ -396,7 +396,7 @@ class MessageReaderNode(BaseNode):
             except Exception as e:
                 self.report_error(f"Failed to read file {file_path}: {str(e)}")
     
-    def _read_latest_file(self, directory: str, trigger_msg: Dict[str, Any]):
+    def _read_latest_file(self, directory: str, trigger_msg: dict[str, Any]):
         """Read the most recently modified file."""
         pattern = self.config.get('filename_pattern', '*.json')
         file_list = self._get_file_list(directory, pattern, sort_by='modified')
@@ -416,12 +416,12 @@ class MessageReaderNode(BaseNode):
         latest_file = file_list[0]  # First in list is most recent
         self._read_single_file(latest_file, trigger_msg)
     
-    def _read_all_files(self, directory: str, trigger_msg: Dict[str, Any]):
+    def _read_all_files(self, directory: str, trigger_msg: dict[str, Any]):
         """Read all files in directory (respecting max_files limit)."""
         self.config['filename_pattern'] = '*'  # Override pattern for all files
         self._read_batch_files(directory, trigger_msg)
     
-    def _get_file_list(self, directory: str, pattern: str, sort_by: Optional[str] = None) -> List[str]:
+    def _get_file_list(self, directory: str, pattern: str, sort_by: str | None = None) -> list[str]:
         """Get list of files matching pattern, sorted by specified criteria."""
         recursive = self.get_config_bool('recursive', False)
         
@@ -485,7 +485,7 @@ class MessageReaderNode(BaseNode):
     
     def _read_json_file(self, file_path: str) -> Any:
         """Read JSON file with numpy array reconstruction."""
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, encoding='utf-8') as f:
             data = json.load(f)
         
         # Recursively reconstruct numpy arrays
@@ -520,7 +520,7 @@ class MessageReaderNode(BaseNode):
     
     def _read_text_file(self, file_path: str) -> str:
         """Read text file."""
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, encoding='utf-8') as f:
             return f.read()
     
     def _read_raw_file(self, file_path: str) -> bytes:
@@ -555,7 +555,7 @@ class MessageReaderNode(BaseNode):
             # Return as-is for other types
             return data
     
-    def _get_file_metadata(self, file_path: str) -> Dict[str, Any]:
+    def _get_file_metadata(self, file_path: str) -> dict[str, Any]:
         """Get file metadata."""
         stat = os.stat(file_path)
         return {

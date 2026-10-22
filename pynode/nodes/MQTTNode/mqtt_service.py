@@ -8,7 +8,8 @@ import os
 import threading
 import json
 import uuid
-from typing import Any, Dict, Callable, Optional, Set, Tuple
+from typing import Any
+from collections.abc import Callable
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -25,7 +26,7 @@ class MQTTService:
     Represents a single MQTT broker connection that can be shared across nodes.
     """
     
-    def __init__(self, service_id: str, config: Dict[str, Any]):
+    def __init__(self, service_id: str, config: dict[str, Any]):
         self.id = service_id
         self.name = config.get('name', 'MQTT Broker')
         self.broker = config.get('broker', 'localhost')
@@ -36,13 +37,13 @@ class MQTTService:
         self.keep_alive = int(config.get('keepAlive', 60))
         self.clean_session = config.get('cleanSession', True)
         
-        self.client: Optional[mqtt.Client] = None
+        self.client: mqtt.Client | None = None
         self._connected = False
         self._lock = threading.Lock()
-        self._subscribers: Dict[str, Set[Callable]] = {}  # topic -> set of callbacks
-        self._publishers: Set[str] = set()  # node IDs that want to publish
-        self._message_callbacks: Dict[str, Callable] = {}  # node_id -> callback
-        self._error_callbacks: Dict[str, Callable] = {}  # node_id -> error callback
+        self._subscribers: dict[str, set[Callable]] = {}  # topic -> set of callbacks
+        self._publishers: set[str] = set()  # node IDs that want to publish
+        self._message_callbacks: dict[str, Callable] = {}  # node_id -> callback
+        self._error_callbacks: dict[str, Callable] = {}  # node_id -> error callback
         self._ref_count = 0
     
     @property
@@ -199,7 +200,7 @@ class MQTTService:
             self._notify_error(f"Publish error: {e}")
             return False
     
-    def register_node(self, node_id: str, error_callback: Optional[Callable] = None):
+    def register_node(self, node_id: str, error_callback: Callable | None = None):
         """Register a node as using this service."""
         with self._lock:
             self._ref_count += 1
@@ -217,7 +218,7 @@ class MQTTService:
     def ref_count(self) -> int:
         return self._ref_count
     
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert service config to dictionary."""
         return {
             'id': self.id,
@@ -250,8 +251,8 @@ class MQTTServiceManager:
     touched.
     """
 
-    def __init__(self, config_file: Optional[Any] = None):
-        self._services: Dict[str, MQTTService] = {}
+    def __init__(self, config_file: Any | None = None):
+        self._services: dict[str, MQTTService] = {}
         self.config_file = Path(config_file) if config_file else _default_config_file()
         # Ensure the parent directory exists so saves succeed.
         self.config_file.parent.mkdir(parents=True, exist_ok=True)
@@ -261,7 +262,7 @@ class MQTTServiceManager:
         """Load saved service configurations from file."""
         if self.config_file.exists():
             try:
-                with open(self.config_file, 'r') as f:
+                with open(self.config_file) as f:
                     data = json.load(f)
                     for service_config in data.get('services', []):
                         service_id = service_config.get('id')
@@ -281,11 +282,11 @@ class MQTTServiceManager:
         except Exception as e:
             logger.error(f"Error saving MQTT services: {e}")
     
-    def get_service(self, service_id: str) -> Optional[MQTTService]:
+    def get_service(self, service_id: str) -> MQTTService | None:
         """Get a service by ID."""
         return self._services.get(service_id)
     
-    def create_service(self, config: Dict[str, Any]) -> MQTTService:
+    def create_service(self, config: dict[str, Any]) -> MQTTService:
         """Create a new MQTT service."""
         service_id = config.get('id') or str(uuid.uuid4())[:8]
         
@@ -295,7 +296,7 @@ class MQTTServiceManager:
         
         return service
     
-    def update_service(self, service_id: str, config: Dict[str, Any]) -> Optional[MQTTService]:
+    def update_service(self, service_id: str, config: dict[str, Any]) -> MQTTService | None:
         """Update an existing service configuration."""
         if service_id not in self._services:
             return None
@@ -358,7 +359,7 @@ class MQTTServiceManager:
             service.disconnect()
 
 
-def test_connection(config: Dict[str, Any], timeout: float = 4.0) -> Tuple[bool, Optional[str]]:
+def test_connection(config: dict[str, Any], timeout: float = 4.0) -> tuple[bool, str | None]:
     """Attempt an MQTT connection using the SUBMITTED config values.
 
     Uses a throwaway paho client so it never touches or disturbs any live or
@@ -387,7 +388,7 @@ def test_connection(config: Dict[str, Any], timeout: float = 4.0) -> Tuple[bool,
         clean_session = clean_session.strip().lower() != 'false'
     client_id = config.get('clientId', '') or f"pynode_test_{uuid.uuid4().hex[:8]}"
 
-    result: Dict[str, Any] = {'rc': None}
+    result: dict[str, Any] = {'rc': None}
     connected_event = threading.Event()
 
     def _on_connect(client, userdata, flags, rc):

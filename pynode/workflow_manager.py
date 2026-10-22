@@ -283,7 +283,7 @@ class WorkflowManager:
         """Load workflows from disk if file exists. Auto-migrates v1 format."""
         try:
             if os.path.exists(self.workflow_file):
-                with open(self.workflow_file, 'r') as f:
+                with open(self.workflow_file) as f:
                     data = json.load(f)
 
                 # Detect and migrate v1 format (single workflow with nodes/connections at top level)

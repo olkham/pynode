@@ -9,7 +9,7 @@ and flexible payload configuration.
 import json
 import threading
 import logging
-from typing import Optional, Dict, Any
+from typing import Any
 from urllib.parse import urlencode
 import time
 
@@ -268,7 +268,7 @@ class WebhookNode(BaseNode):
         }
     ]
     
-    def __init__(self, node_id: Optional[str] = None, name: str = "webhook"):
+    def __init__(self, node_id: str | None = None, name: str = "webhook"):
         super().__init__(node_id, name)
         self.configure(self.DEFAULT_CONFIG.copy())
         self._request_count = 0
@@ -289,7 +289,7 @@ class WebhookNode(BaseNode):
             except CredentialError as e:
                 self.report_error(str(e))
 
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """Handle incoming messages by making HTTP requests."""
         if self.config.get('async', True):
             # Non-blocking request in separate thread
@@ -303,7 +303,7 @@ class WebhookNode(BaseNode):
             # Blocking request
             self._make_request(msg)
     
-    def _make_request(self, msg: Dict[str, Any]):
+    def _make_request(self, msg: dict[str, Any]):
         """Make the HTTP request."""
         self._request_count += 1
         
@@ -354,7 +354,7 @@ class WebhookNode(BaseNode):
         self._error_count += 1
         self._handle_error(msg, last_error)
     
-    def _build_headers(self, msg: Dict[str, Any], content_type: str) -> Dict[str, str]:
+    def _build_headers(self, msg: dict[str, Any], content_type: str) -> dict[str, str]:
         """Build request headers."""
         headers = {}
         
@@ -415,7 +415,7 @@ class WebhookNode(BaseNode):
             return value
         return self.config.get('authCredentials', '')
 
-    def _build_payload(self, msg: Dict[str, Any]) -> Any:
+    def _build_payload(self, msg: dict[str, Any]) -> Any:
         """Build request payload."""
         source = self.config.get('payloadSource', 'msg.payload')
         
@@ -439,7 +439,7 @@ class WebhookNode(BaseNode):
         
         return msg.get(MessageKeys.PAYLOAD)
     
-    def _resolve_template(self, template: str, msg: Dict[str, Any]) -> str:
+    def _resolve_template(self, template: str, msg: dict[str, Any]) -> str:
         """Resolve template variables like {{msg.payload}}."""
         import re
         
@@ -463,9 +463,9 @@ class WebhookNode(BaseNode):
         return re.sub(r'\{\{([\w.]+)\}\}', replace_var, template)
     
     def _execute_request(
-        self, url: str, method: str, headers: Dict[str, str],
+        self, url: str, method: str, headers: dict[str, str],
         payload: Any, timeout: int
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Execute the HTTP request."""
         validate_ssl = self.config.get('validateSSL', True)
         follow_redirects = self.config.get('followRedirects', True)
@@ -482,10 +482,10 @@ class WebhookNode(BaseNode):
             )
     
     def _request_with_requests(
-        self, url: str, method: str, headers: Dict[str, str],
+        self, url: str, method: str, headers: dict[str, str],
         payload: Any, timeout: int, validate_ssl: bool,
         follow_redirects: bool
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Make request using requests library."""
         content_type = headers.get('Content-Type', 'application/json')
         
@@ -529,9 +529,9 @@ class WebhookNode(BaseNode):
         return result
     
     def _request_with_urllib(
-        self, url: str, method: str, headers: Dict[str, str],
+        self, url: str, method: str, headers: dict[str, str],
         payload: Any, timeout: int, validate_ssl: bool
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Make request using urllib (fallback)."""
         content_type = headers.get('Content-Type', 'application/json')
         
@@ -611,7 +611,7 @@ class WebhookNode(BaseNode):
                 return body
         return body
     
-    def _handle_success(self, original_msg: Dict[str, Any], response: Dict[str, Any]):
+    def _handle_success(self, original_msg: dict[str, Any], response: dict[str, Any]):
         """Handle successful response."""
         # Create message with response metadata in payload
         payload = {
@@ -635,7 +635,7 @@ class WebhookNode(BaseNode):
         
         self.send(msg)
     
-    def _handle_error(self, original_msg: Dict[str, Any], error: Exception):
+    def _handle_error(self, original_msg: dict[str, Any], error: Exception):
         """Handle request error."""
         logger.error(f"Webhook [{self.name}] request failed: {error}")
         

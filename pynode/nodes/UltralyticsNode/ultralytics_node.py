@@ -6,7 +6,7 @@ Receives image data from camera nodes and outputs inference results.
 
 import logging
 import os
-from typing import Any, Dict, List
+from typing import Any
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 import torch
 
@@ -64,7 +64,7 @@ class UltralyticsNode(BaseNode):
     }
     
     @staticmethod
-    def _get_device_options() -> List[Dict[str, str]]:
+    def _get_device_options() -> list[dict[str, str]]:
         """Get available hardware devices (CPU, CUDA, Intel OpenVINO) for the dropdown."""
         devices = [{'value': 'cpu', 'label': 'CPU'}]
 
@@ -258,7 +258,7 @@ class UltralyticsNode(BaseNode):
             self.report_error(error_msg)
             self.model = None
     
-    def configure(self, config: Dict[str, Any]):
+    def configure(self, config: dict[str, Any]):
         """Override configure to reload the model when model or device changes."""
         old_model = self.config.get('model') if hasattr(self, 'config') else None
         old_device = self.config.get('device') if hasattr(self, 'config') else None
@@ -273,7 +273,7 @@ class UltralyticsNode(BaseNode):
         ):
             self._model_loaded = False
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """
         Process incoming image messages and perform YOLO inference.
         """

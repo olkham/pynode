@@ -1,7 +1,7 @@
 import json
 import socket
 import logging
-from typing import Dict, Any
+from typing import Any
 
 
 # Try to import zeroconf for mDNS support
@@ -130,7 +130,7 @@ class MDNSServiceListener(ServiceListenerBase):  # type: ignore
 class MDNSBroadcaster:
     """Handles mDNS service broadcasting for node discovery"""
     
-    def __init__(self, node_id: str, node_info: Dict[str, Any], service_port: int, service_type: str = "_http._tcp.local."):
+    def __init__(self, node_id: str, node_info: dict[str, Any], service_port: int, service_type: str = "_http._tcp.local."):
         """
         Initialize mDNS broadcaster
         
@@ -240,7 +240,7 @@ class MDNSBroadcaster:
         except Exception as e:
             self.logger.error(f"Error stopping mDNS broadcaster: {str(e)}")
     
-    def update_info(self, node_info: Dict[str, Any]):
+    def update_info(self, node_info: dict[str, Any]):
         """Update node information and re-register service"""
         self.node_info = node_info
         if self.running:

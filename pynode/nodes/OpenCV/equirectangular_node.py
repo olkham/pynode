@@ -6,7 +6,7 @@ Uses optimized Numba JIT compilation for high-performance coordinate mapping.
 import math
 import cv2
 import numpy as np
-from typing import Any, Dict, Tuple
+from typing import Any
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
 _info = Info()
@@ -243,7 +243,7 @@ class EquirectangularNode(BaseNode):
         self._map_cache = {}
         self._cache_size_limit = 20
     
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """Convert equirectangular image to pinhole projection."""
         if MessageKeys.PAYLOAD not in msg:
             self.send(msg)
@@ -324,7 +324,7 @@ class EquirectangularNode(BaseNode):
     
     def _generate_coordinate_mapping(self, yaw: float, pitch: float, roll: float, fov: float,
                                      output_width: int, output_height: int, 
-                                     frame_shape: Tuple[int, ...]) -> Tuple[np.ndarray, np.ndarray]:
+                                     frame_shape: tuple[int, ...]) -> tuple[np.ndarray, np.ndarray]:
         """Generate coordinate mapping for equirectangular to pinhole projection."""
         # Convert to radians
         yaw_rad = math.radians(yaw)
@@ -414,7 +414,7 @@ class EquirectangularNode(BaseNode):
         
         return pixel_x, pixel_y
     
-    def _normalize_angles(self, yaw: float, pitch: float, roll: float) -> Tuple[float, float, float]:
+    def _normalize_angles(self, yaw: float, pitch: float, roll: float) -> tuple[float, float, float]:
         """Normalize angles to canonical ranges for cache consistency."""
         # Normalize yaw to [0, 360)
         yaw = yaw % 360

@@ -11,7 +11,7 @@ untouched.
 import json
 import logging
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 
@@ -58,7 +58,7 @@ def _unquote(text: str) -> str:
     return text.strip()
 
 
-def parse_class_map(raw: Any) -> Tuple[Dict[str, str], List[str]]:
+def parse_class_map(raw: Any) -> tuple[dict[str, str], list[str]]:
     """Parse the mapping config into ``{key: label}``.
 
     Accepts a dict (already parsed by the UI), a JSON object, or one entry per
@@ -88,8 +88,8 @@ def parse_class_map(raw: Any) -> Tuple[Dict[str, str], List[str]]:
             return {str(k).strip(): str(v) for k, v in data.items()}, []
         return {}, ["JSON mapping must be an object"]
 
-    mapping: Dict[str, str] = {}
-    problems: List[str] = []
+    mapping: dict[str, str] = {}
+    problems: list[str] = []
 
     for line in text.splitlines():
         line = line.strip()
@@ -187,10 +187,10 @@ class ClassMapNode(BaseNode):
         # Parsing is cached against the raw config value: the map is re-read
         # when the user edits it, not once per frame.
         self._cached_raw: Any = None
-        self._cached_map: Dict[str, str] = {}
-        self._cached_lower: Dict[str, str] = {}
+        self._cached_map: dict[str, str] = {}
+        self._cached_lower: dict[str, str] = {}
 
-    def _mapping(self) -> Tuple[Dict[str, str], Dict[str, str]]:
+    def _mapping(self) -> tuple[dict[str, str], dict[str, str]]:
         """Return ``(mapping, lowercased mapping)``, re-parsing only on change."""
         raw = self.config.get('mapping', self.DEFAULT_CONFIG['mapping'])
 
@@ -206,8 +206,8 @@ class ClassMapNode(BaseNode):
 
         return self._cached_map, self._cached_lower
 
-    def _lookup(self, det: Dict[str, Any], mapping: Dict[str, str],
-                lower: Dict[str, str], match_on: str) -> Optional[str]:
+    def _lookup(self, det: dict[str, Any], mapping: dict[str, str],
+                lower: dict[str, str], match_on: str) -> str | None:
         """Find the mapped label for one detection, or None when unmapped."""
         if match_on in ('class_id', 'either'):
             class_id = det.get(MessageKeys.CV.CLASS_ID)
@@ -225,8 +225,8 @@ class ClassMapNode(BaseNode):
 
         return None
 
-    def _sync_supervision(self, payload: Dict[str, Any],
-                          detections: List[Any], kept: List[bool]) -> None:
+    def _sync_supervision(self, payload: dict[str, Any],
+                          detections: list[Any], kept: list[bool]) -> None:
         """Mirror the new labels onto a live ``sv.Detections`` in the payload.
 
         Supervision nodes prefer ``payload['sv']`` over the dict list, so an
@@ -258,7 +258,7 @@ class ClassMapNode(BaseNode):
         except Exception as e:
             logger.debug(f"Could not sync class names onto payload['sv']: {e}")
 
-    def on_input(self, msg: Dict[str, Any], input_index: int = 0):
+    def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """Relabel every detection at the configured path."""
         mapping, lower = self._mapping()
         unmatched = self.config.get('unmatched', self.DEFAULT_CONFIG['unmatched'])
@@ -278,8 +278,8 @@ class ClassMapNode(BaseNode):
         match_on = self.config.get('match_on', self.DEFAULT_CONFIG['match_on'])
         fallback = self.config.get('unmatched_label', self.DEFAULT_CONFIG['unmatched_label'])
 
-        out: List[Any] = []
-        kept: List[bool] = []
+        out: list[Any] = []
+        kept: list[bool] = []
         changed = False
 
         for det in detections:

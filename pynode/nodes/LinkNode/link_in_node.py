@@ -4,7 +4,7 @@ process-wide Link bus (by Link Out nodes, possibly in another flow) and emits
 them from its output.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 from pynode.nodes.base_node import BaseNode, Info
 from pynode.nodes.LinkNode.link_bus import link_bus
 
@@ -75,9 +75,9 @@ class LinkInNode(BaseNode):
         # Channel this node is currently registered under (None = not
         # registered). Tracked so on_stop always unregisters from the exact
         # channel that on_start registered, even if the config changed since.
-        self._registered_channel: Optional[str] = None
+        self._registered_channel: str | None = None
 
-    def receive(self, msg: Dict[str, Any]):
+    def receive(self, msg: dict[str, Any]):
         """Called by the Link bus when a message arrives on our channel.
 
         Routes the message through BaseNode.send, which deep-copies it for each

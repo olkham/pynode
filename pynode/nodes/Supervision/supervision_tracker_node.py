@@ -1,7 +1,7 @@
 """Multi-object tracking built on ``supervision``'s ByteTrack implementation."""
 
 import logging
-from typing import Any, Dict
+from typing import Any
 
 from pynode.nodes.base_node import BaseNode, Info, MessageKeys
 from pynode.nodes.supervision_utils import (
@@ -131,7 +131,7 @@ class SupervisionTrackerNode(BaseNode):
     # Tracker lifecycle
     # ------------------------------------------------------------------
 
-    def _tracker_params(self) -> Dict[str, Any]:
+    def _tracker_params(self) -> dict[str, Any]:
         """Read the current ByteTrack tuning values out of config."""
         return {
             'track_activation_threshold': self.get_config_float('track_thresh', 0.25),

@@ -12,7 +12,7 @@ import logging
 import threading
 import queue
 import ipaddress
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 
@@ -206,7 +206,7 @@ class OmronCameraNode(BaseNode):
     # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------
-    def __init__(self, node_id: Optional[str] = None, name: str = "omron_camera"):
+    def __init__(self, node_id: str | None = None, name: str = "omron_camera"):
         super().__init__(node_id, name)
 
         # STAPI handles
@@ -218,11 +218,11 @@ class OmronCameraNode(BaseNode):
         self._st_initialized: bool = False
 
         # Frame transport
-        self._frame_queue: "queue.Queue[np.ndarray]" = queue.Queue(maxsize=8)
+        self._frame_queue: queue.Queue[np.ndarray] = queue.Queue(maxsize=8)
         self._cv2: Any = None
 
         # Threading
-        self.capture_thread: Optional[threading.Thread] = None
+        self.capture_thread: threading.Thread | None = None
         self.running: bool = False
         self._frame_count: int = 0
 
@@ -492,7 +492,7 @@ class OmronCameraNode(BaseNode):
     # ------------------------------------------------------------------
     # Image conversion
     # ------------------------------------------------------------------
-    def _stapi_image_to_numpy(self, st, st_image) -> Optional[np.ndarray]:
+    def _stapi_image_to_numpy(self, st, st_image) -> np.ndarray | None:
         """Convert a STAPI image to a BGR numpy array.
 
         The returned array must NOT alias the STAPI acquisition buffer: this is
