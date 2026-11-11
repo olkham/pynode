@@ -2,8 +2,8 @@
 
 Write-only by design: no response ever contains a secret value. Listings
 return the public view (id, name, type, non-secret fields, the names of the
-secret fields that are set) plus ``inUse``, the number of nodes that
-reference the credential.
+secret fields that are set) plus ``inUse``, the number of nodes and MQTT
+brokers that reference the credential.
 
 Status codes: 400 for invalid input, 404 for an unknown ID, 409 when
 deleting a credential still in use, 500 when the store itself fails (no
@@ -12,7 +12,8 @@ key, wrong key, unreadable file).
 
 from flask import Blueprint, current_app, jsonify
 
-from pynode.api.helpers import _INVALID_BODY_ERROR, _get_json_body, _get_manager, _json_error
+from pynode.api.helpers import (
+    _INVALID_BODY_ERROR, _get_json_body, _get_manager, _get_mqtt_manager, _json_error)
 from pynode.credential_store import CredentialError, list_credential_types
 
 credentials_bp = Blueprint('credentials', __name__)
@@ -21,6 +22,14 @@ credentials_bp = Blueprint('credentials', __name__)
 def _store():
     """The CredentialStore of the app handling the current request."""
     return current_app.extensions['credential_store']
+
+
+def _usage(credential_ids):
+    """{credential_id: count} of the nodes and MQTT brokers referencing each ID."""
+    usage = dict(_get_manager().credential_usage(credential_ids))
+    for cred_id, count in _get_mqtt_manager().credential_usage(credential_ids).items():
+        usage[cred_id] = usage.get(cred_id, 0) + count
+    return usage
 
 
 def _with_usage(credential, usage):
@@ -39,7 +48,7 @@ def list_credentials():
     """List credentials (public view only)."""
     try:
         credentials = _store().list()
-        usage = _get_manager().credential_usage([c['id'] for c in credentials])
+        usage = _usage([c['id'] for c in credentials])
         credentials = [_with_usage(c, usage) for c in credentials]
     except CredentialError as e:
         return _json_error(str(e), 500)
@@ -76,19 +85,19 @@ def update_credential(cred_id):
     if credential is None:
         return _json_error('Credential not found', 404)
     return jsonify({'success': True,
-                    'credential': _with_usage(credential, _get_manager().credential_usage([cred_id]))})
+                    'credential': _with_usage(credential, _usage([cred_id]))})
 
 
 @credentials_bp.route('/api/credentials/<cred_id>', methods=['DELETE'])
 def delete_credential(cred_id):
-    """Delete a credential unless a node in any workflow still references it."""
+    """Delete a credential unless a node in any workflow, or an MQTT broker, still references it."""
     store = _store()
     try:
         if store.get(cred_id) is None:
             return _json_error('Credential not found', 404)
-        in_use = _get_manager().credential_usage([cred_id]).get(cred_id, 0)
+        in_use = _usage([cred_id]).get(cred_id, 0)
         if in_use:
-            return _json_error(f'Credential is used by {in_use} node(s)', 409)
+            return _json_error(f'Credential is used by {in_use} node(s) or broker(s)', 409)
         store.delete(cred_id)
     except CredentialError as e:
         return _json_error(str(e), 500)

@@ -10,7 +10,7 @@ from datetime import datetime
 from typing import Any
 import cv2
 
-from pynode.nodes.base_node import BaseNode, Info, MessageKeys
+from pynode.nodes.base_node import BaseNode, CredentialError, Info, MessageKeys
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ _info.add_bullets(
 )
 _info.add_header("Properties")
 _info.add_bullets(
-    ("API Key:", "Roboflow API key from workspace settings."),
+    ("API Key Credential:", "Stored credential holding the Roboflow API key from workspace settings."),
     ("Workspace ID:", "Roboflow workspace identifier (e.g. my-workspace)."),
     ("Project ID:", "Roboflow project identifier (e.g. my-project)."),
     ("Split:", "Which dataset split to upload to (train, valid, or test)."),
@@ -51,6 +51,7 @@ class RoboflowUploadNode(BaseNode):
     info = str(_info)
 
     DEFAULT_CONFIG = {
+        'credential': '',
         'api_key': '',
         'workspace_id': '',
         'project_id': '',
@@ -62,12 +63,20 @@ class RoboflowUploadNode(BaseNode):
 
     properties = [
         {
-            'name': 'api_key',
-            'label': 'API Key',
-            'type': 'text',
+            'name': 'credential',
+            'label': 'API Key Credential',
+            'type': 'credential',
+            'credentialType': 'secret',
             'default': '',
-            'placeholder': 'Your Roboflow API key',
-            'help': 'API key from Roboflow workspace settings'
+            'help': 'Roboflow API key, stored encrypted and never shown again. Takes precedence over API Key (legacy).'
+        },
+        {
+            'name': 'api_key',
+            'label': 'API Key (legacy)',
+            'type': 'password',
+            'default': '',
+            'placeholder': 'Use a credential instead',
+            'help': 'Saved in plain text with the workflow. Clear this field once a credential is selected.'
         },
         {
             'name': 'workspace_id',
@@ -124,6 +133,7 @@ class RoboflowUploadNode(BaseNode):
     def __init__(self, node_id=None, name="roboflow upload"):
         super().__init__(node_id, name)
         self._rf_project = None
+        self._api_key = ''  # in memory only, for redacting error text
         self._last_upload_time = 0.0
         self._lock = threading.Lock()
 
@@ -135,6 +145,7 @@ class RoboflowUploadNode(BaseNode):
     def on_stop(self):
         """Disconnect from Roboflow when the workflow stops."""
         self._rf_project = None
+        self._api_key = ''
         super().on_stop()
 
     def configure(self, config: dict[str, Any]):
@@ -143,13 +154,21 @@ class RoboflowUploadNode(BaseNode):
 
     def _connect(self):
         """Establish connection to Roboflow."""
-        api_key = self.config.get('api_key', '').strip()
+        self._api_key = ''
+        # A selected credential that cannot be resolved fails the connection:
+        # never fall back to the legacy plain-text key.
+        try:
+            api_key = self.get_secret('credential', 'api_key').strip()
+        except CredentialError as e:
+            self.report_error(str(e))
+            return
         workspace_id = self.config.get('workspace_id', '').strip()
         project_id = self.config.get('project_id', '').strip()
 
         if not api_key or not workspace_id or not project_id:
             self.report_error("Roboflow API Key, Workspace ID, and Project ID are all required")
             return
+        self._api_key = api_key
 
         try:
             from roboflow import Roboflow
@@ -163,8 +182,19 @@ class RoboflowUploadNode(BaseNode):
             self._rf_project = workspace.project(project_id)
             logger.info(f"[RoboflowUploadNode] Connected to {workspace_id}/{project_id}")
         except Exception as e:
-            self.report_error(f"Roboflow connection failed: {e}")
+            self.report_error(f"Roboflow connection failed: {self._redact(e)}")
             self._rf_project = None
+
+    def _redact(self, error: Exception) -> str:
+        """Error text with the API key removed.
+
+        The Roboflow SDK sends the key as a URL query parameter, and HTTP
+        errors quote the full URL.
+        """
+        text = str(error)
+        if self._api_key:
+            text = text.replace(self._api_key, '***')
+        return text
 
     def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """Decode image from message and upload to Roboflow."""
@@ -216,7 +246,7 @@ class RoboflowUploadNode(BaseNode):
             self._rf_project.upload(temp_path, batch_name=batch_name)
 
         except Exception as e:
-            self.report_error(f"Roboflow upload failed: {e}")
+            self.report_error(f"Roboflow upload failed: {self._redact(e)}")
         finally:
             try:
                 if os.path.exists(temp_path):

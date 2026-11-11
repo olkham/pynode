@@ -1,6 +1,12 @@
 """
 MQTT Service Manager - handles shared MQTT connections across nodes.
 Similar to Node-RED's configuration nodes concept.
+
+Broker passwords belong in the credential store: a service holds the ID of a
+'secret' credential (``credential``) and the password is decrypted only when
+a connection is made. Services saved before the credential store keep their
+plain-text ``password`` until a credential is selected; that legacy value
+still connects but is never returned by the API.
 """
 
 import logging
@@ -11,6 +17,8 @@ import uuid
 from typing import Any
 from collections.abc import Callable
 from pathlib import Path
+
+from pynode.credential_store import CredentialError
 
 logger = logging.getLogger(__name__)
 
@@ -26,13 +34,21 @@ class MQTTService:
     Represents a single MQTT broker connection that can be shared across nodes.
     """
     
-    def __init__(self, service_id: str, config: dict[str, Any]):
+    def __init__(self, service_id: str, config: dict[str, Any],
+                 credential_store_getter: Callable[[], Any] | None = None):
         self.id = service_id
         self.name = config.get('name', 'MQTT Broker')
         self.broker = config.get('broker', 'localhost')
         self.port = int(config.get('port', 1883))
         self.username = config.get('username', '')
-        self.password = config.get('password', '')
+        # ID of a 'secret' credential holding the password. Takes precedence
+        # over the legacy plain-text password, which is dropped once a
+        # credential is selected.
+        self.credential = config.get('credential', '') or ''
+        self.password = '' if self.credential else (config.get('password', '') or '')
+        # Returns the app's CredentialStore (or None). A getter, because the
+        # manager loads its services before the store is attached to it.
+        self._credential_store_getter = credential_store_getter
         self.client_id = config.get('clientId', '') or f"pynode_{service_id[:8]}"
         self.keep_alive = int(config.get('keepAlive', 60))
         self.clean_session = config.get('cleanSession', True)
@@ -113,30 +129,50 @@ class MQTTService:
             except Exception as e:
                 logger.error(f"Error in error callback: {e}")
     
+    def resolve_password(self) -> str:
+        """The broker password, decrypted from the selected credential.
+
+        Falls back to the legacy plain-text password only when no credential
+        is selected. Keep the result in memory only.
+
+        Raises:
+            CredentialError: the selected credential cannot be resolved or
+                is not of type 'secret'.
+        """
+        if not self.credential:
+            return self.password
+        store = self._credential_store_getter() if self._credential_store_getter else None
+        return resolve_password_credential(store, self.credential)
+
     def connect(self) -> bool:
         """Connect to the MQTT broker."""
         if not MQTT_AVAILABLE:
             self._notify_error("paho-mqtt not installed. Install with: pip install paho-mqtt")
             return False
-        
+
         error_msg = None
         with self._lock:
             if self.client and self._connected:
                 return True
-            
+
             try:
+                # Resolved before the client exists: an unresolvable
+                # credential must not connect without a password.
+                password = self.resolve_password() if self.username else ''
                 self.client = mqtt.Client(client_id=self.client_id, clean_session=self.clean_session)
                 self.client.on_connect = self._on_connect
                 self.client.on_disconnect = self._on_disconnect
                 self.client.on_message = self._on_message
                 
                 if self.username:
-                    self.client.username_pw_set(self.username, self.password)
-                
+                    self.client.username_pw_set(self.username, password)
+
                 self.client.connect(self.broker, self.port, self.keep_alive)
                 self.client.loop_start()
                 return True
-                
+
+            except CredentialError as e:
+                error_msg = f"MQTT broker '{self.name}': {e}"
             except Exception as e:
                 error_msg = f"Failed to connect to {self.broker}:{self.port} - {e}"
         
@@ -219,18 +255,53 @@ class MQTTService:
         return self._ref_count
     
     def to_dict(self) -> dict[str, Any]:
-        """Convert service config to dictionary."""
+        """Service config as persisted to the services file.
+
+        Holds the credential ID, never the credential's secret. A legacy
+        plain-text password is kept until a credential replaces it. Not for
+        API responses: use public_dict().
+        """
+        data = self.public_dict()
+        del data['hasPassword']
+        if self.password:
+            data['password'] = self.password
+        return data
+
+    def public_dict(self) -> dict[str, Any]:
+        """Client-safe view: never contains a password.
+
+        ``hasPassword`` tells the editor that a legacy plain-text password
+        is still stored for this broker.
+        """
         return {
             'id': self.id,
             'name': self.name,
             'broker': self.broker,
             'port': self.port,
             'username': self.username,
-            'password': self.password,
+            'credential': self.credential,
+            'hasPassword': bool(self.password),
             'clientId': self.client_id,
             'keepAlive': self.keep_alive,
             'cleanSession': self.clean_session
         }
+
+
+def resolve_password_credential(store: Any, credential_id: str) -> str:
+    """Decrypt the password held by a 'secret' credential.
+
+    Raises:
+        CredentialError: no store, or the credential is missing, locked or
+            not of type 'secret'.
+    """
+    if store is None:
+        raise CredentialError("no credential store available")
+    values = store.resolve(credential_id)
+    if 'value' not in values:
+        raise CredentialError(
+            f"Credential '{credential_id}' has no 'value' field; "
+            f"an MQTT broker needs a credential of type 'secret'")
+    return values['value']
 
 
 def _default_config_file() -> Path:
@@ -251,8 +322,12 @@ class MQTTServiceManager:
     touched.
     """
 
-    def __init__(self, config_file: Any | None = None):
+    def __init__(self, config_file: Any | None = None, credential_store: Any | None = None):
         self._services: dict[str, MQTTService] = {}
+        # The app's CredentialStore, attached by create_app(). None for a
+        # manager built without one: brokers that reference a credential
+        # then fail to connect instead of connecting without a password.
+        self.credential_store = credential_store
         self.config_file = Path(config_file) if config_file else _default_config_file()
         # Ensure the parent directory exists so saves succeed.
         self.config_file.parent.mkdir(parents=True, exist_ok=True)
@@ -267,7 +342,7 @@ class MQTTServiceManager:
                     for service_config in data.get('services', []):
                         service_id = service_config.get('id')
                         if service_id:
-                            self._services[service_id] = MQTTService(service_id, service_config)
+                            self._services[service_id] = self._build(service_id, service_config)
             except Exception as e:
                 logger.error(f"Error loading MQTT services: {e}")
     
@@ -282,6 +357,42 @@ class MQTTServiceManager:
         except Exception as e:
             logger.error(f"Error saving MQTT services: {e}")
     
+    def _build(self, service_id: str, config: dict[str, Any]) -> MQTTService:
+        return MQTTService(service_id, config, lambda: self.credential_store)
+
+    def credential_usage(self, credential_ids) -> dict[str, int]:
+        """Count the brokers referencing each of ``credential_ids``.
+
+        Returns {credential_id: count} for the referenced IDs only, like
+        WorkflowManager.credential_usage(), so the credential delete guard
+        also covers brokers.
+        """
+        wanted = set(credential_ids)
+        usage: dict[str, int] = {}
+        for service in list(self._services.values()):
+            if service.credential in wanted:
+                usage[service.credential] = usage.get(service.credential, 0) + 1
+        return usage
+
+    def connection_config(self, config: dict[str, Any]) -> dict[str, Any]:
+        """Submitted broker form values with the password filled in.
+
+        For the test-connection endpoint: a selected credential is decrypted
+        server-side; without one, a form that names a saved broker (``id``)
+        and sends no ``password`` key uses that broker's legacy password.
+
+        Raises:
+            CredentialError: the selected credential cannot be resolved.
+        """
+        resolved = dict(config)
+        credential_id = resolved.pop('credential', '') or ''
+        if credential_id:
+            resolved['password'] = resolve_password_credential(self.credential_store, credential_id)
+        elif 'password' not in resolved:
+            saved = self._services.get(resolved.get('id') or '')
+            resolved['password'] = saved.password if saved else ''
+        return resolved
+
     def get_service(self, service_id: str) -> MQTTService | None:
         """Get a service by ID."""
         return self._services.get(service_id)
@@ -290,26 +401,34 @@ class MQTTServiceManager:
         """Create a new MQTT service."""
         service_id = config.get('id') or str(uuid.uuid4())[:8]
         
-        service = MQTTService(service_id, config)
+        service = self._build(service_id, config)
         self._services[service_id] = service
         self._save_services()
         
         return service
     
     def update_service(self, service_id: str, config: dict[str, Any]) -> MQTTService | None:
-        """Update an existing service configuration."""
+        """Update an existing service configuration.
+
+        The editor never holds the password, so a config without a
+        ``password`` key keeps the stored legacy password. Selecting a
+        credential drops it; an explicit ``password`` (even '') replaces it.
+        """
         if service_id not in self._services:
             return None
-        
+
         old_service = self._services[service_id]
         was_connected = old_service.connected
-        
+
         # Disconnect old service
         old_service.disconnect()
-        
+
         # Create new service with updated config
+        config = dict(config)
         config['id'] = service_id
-        new_service = MQTTService(service_id, config)
+        if 'password' not in config:
+            config['password'] = old_service.password
+        new_service = self._build(service_id, config)
         self._services[service_id] = new_service
         
         # Reconnect if was connected

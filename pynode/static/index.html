@@ -244,7 +244,22 @@
                 </div>
                 <div class="property-group">
                     <label class="property-label">Password (optional)</label>
-                    <input type="password" class="property-input" id="mqtt-broker-password" autocomplete="off">
+                    <!-- The password is a stored credential: the broker keeps
+                         only its ID and the server never sends a password back. -->
+                    <div class="property-service-container">
+                        <select class="property-select property-service-select" id="mqtt-broker-credential">
+                            <option value="">-- No password --</option>
+                        </select>
+                        <button class="btn btn-secondary property-service-btn property-service-manage" type="button"
+                                onclick="window.openMqttBrokerCredentialDialog()"
+                                title="Add, rename, replace or delete stored credentials">
+                            Manage…
+                        </button>
+                    </div>
+                    <small class="property-help" id="mqtt-broker-legacy-password" style="display:none;">
+                        This broker still has a password saved in plain text. Select a credential to replace it, or
+                        <a href="#" style="color: inherit; text-decoration: underline;" onclick="window.removeMqttBrokerLegacyPassword(); return false;">remove it</a>.
+                    </small>
                 </div>
                 <div class="mqtt-broker-inline">
                     <div class="property-group">

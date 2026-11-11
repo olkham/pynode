@@ -8,6 +8,10 @@
 //      index.html): pick or create a credential, rename it, replace its
 //      secret, delete it.
 //
+// The dialog edits credentials for a "target": something that holds one
+// credential ID. A node property is the usual target; other owners (the MQTT
+// broker dialog) open it with window.openCredentialDialogFor().
+//
 // The server never returns secret values, so secret inputs always start
 // empty and a blank secret on save keeps the stored value. DOM built from
 // server data uses createElement/textContent, never innerHTML.
@@ -17,8 +21,9 @@ import { state, markNodeModified, setModified } from './state.js';
 import { API_BASE } from './config.js';
 import { showToast } from './ui-utils.js';
 
-// Which node/property (and credential type) the dialog is editing for.
-let dialogContext = { nodeId: null, propName: null, credentialType: null };
+// What the dialog is editing for: the credential type on offer, plus how to
+// read (getCurrent) and write (assign) the target's credential ID.
+let dialogContext = { credentialType: null, getCurrent: () => '', assign: async () => {} };
 let typesCache = null;
 
 async function fetchJson(url, options) {
@@ -52,15 +57,15 @@ function addOption(select, value, text, selected) {
 // Compact per-node credential <select>
 // -------------------------------------------------------------------------
 
-// A reference that no longer resolves is shown as "(missing credential)" so
-// a dangling ID is visible rather than silent.
-window.loadCredentialOptions = async function (nodeId, propName, credentialType, currentId) {
-    const select = document.getElementById(`credential-${nodeId}-${propName}`);
+// Fill any <select> with the credentials of one type. A reference that no
+// longer resolves is shown as "(missing credential)" so a dangling ID is
+// visible rather than silent.
+window.fillCredentialSelect = async function (select, credentialType, currentId, emptyLabel) {
     if (!select) return;
     try {
         const credentials = await loadCredentials(credentialType);
         select.replaceChildren();
-        addOption(select, '', '-- Select credential --', !currentId);
+        addOption(select, '', emptyLabel || '-- Select credential --', !currentId);
         credentials.forEach(c => addOption(select, c.id, c.name, c.id === currentId));
         if (currentId && !credentials.some(c => c.id === currentId)) {
             addOption(select, currentId, '(missing credential)', true);
@@ -68,6 +73,11 @@ window.loadCredentialOptions = async function (nodeId, propName, credentialType,
     } catch (error) {
         console.error('Error loading credentials:', error);
     }
+};
+
+window.loadCredentialOptions = function (nodeId, propName, credentialType, currentId) {
+    const select = document.getElementById(`credential-${nodeId}-${propName}`);
+    return window.fillCredentialSelect(select, credentialType, currentId);
 };
 
 window.onCredentialSelect = function (nodeId, propName, credentialId) {
@@ -156,29 +166,38 @@ async function refreshDialog(selectedId) {
     await loadIntoForm(exists ? selectedId : null, credentials);
 }
 
-// Assign a credential to the node that opened the dialog and refresh its select.
-async function assignToNode(credentialId) {
-    const { nodeId, propName, credentialType } = dialogContext;
-    const nodeData = nodeId && state.nodes.get(nodeId);
-    if (!nodeData) return;
-    nodeData.config[propName] = credentialId;
-    markNodeModified(nodeId);
-    setModified(true);
-    await window.loadCredentialOptions(nodeId, propName, credentialType, credentialId);
-}
-
-window.openCredentialDialog = async function (nodeId, propName, credentialType) {
-    dialogContext = { nodeId, propName, credentialType };
-    const nodeData = state.nodes.get(nodeId);
-    const currentId = (nodeData && nodeData.config[propName]) || '';
+// Open the dialog for any target that holds one credential ID.
+//   credentialType: the type on offer.
+//   getCurrent():   the target's current credential ID ('' for none).
+//   assign(id):     store a new ID on the target and refresh its own UI;
+//                   called after a save (the saved ID) and after deleting
+//                   the target's current credential ('').
+window.openCredentialDialogFor = async function ({ credentialType, getCurrent, assign }) {
+    dialogContext = { credentialType, getCurrent, assign };
     try {
-        await refreshDialog(currentId);
+        await refreshDialog(getCurrent() || '');
     } catch (error) {
         console.error('Error opening credential dialog:', error);
         showToast(error.message || 'Failed to load credentials', 'error');
         return;
     }
     document.getElementById('credential-dialog').style.display = 'flex';
+};
+
+// Open the dialog for a node's `credential` property.
+window.openCredentialDialog = function (nodeId, propName, credentialType) {
+    const nodeData = () => state.nodes.get(nodeId);
+    return window.openCredentialDialogFor({
+        credentialType,
+        getCurrent: () => (nodeData() && nodeData().config[propName]) || '',
+        assign: async credentialId => {
+            if (!nodeData()) return;
+            nodeData().config[propName] = credentialId;
+            markNodeModified(nodeId);
+            setModified(true);
+            await window.loadCredentialOptions(nodeId, propName, credentialType, credentialId);
+        }
+    });
 };
 
 window.onCredentialPick = async function (credentialId) {
@@ -198,7 +217,7 @@ window.closeCredentialDialog = function () {
     showResult(true, '');
 };
 
-// Create (POST) or update (PUT), then assign the saved credential to the node.
+// Create (POST) or update (PUT), then assign the saved credential to the target.
 window.saveCredential = async function () {
     const id = document.getElementById('credential-id').value;
     const name = document.getElementById('credential-name').value.trim();
@@ -218,7 +237,7 @@ window.saveCredential = async function () {
             showResult(false, data.error || 'Save failed.');
             return;
         }
-        await assignToNode(data.credential.id);
+        await dialogContext.assign(data.credential.id);
         await refreshDialog(data.credential.id);
         showToast('Credential saved');
     } catch (error) {
@@ -228,7 +247,7 @@ window.saveCredential = async function () {
 };
 
 // Delete the selected credential. The server refuses (409) while a deployed
-// or saved node still uses it.
+// or saved node, or an MQTT broker, still uses it.
 window.deleteCredential = async function () {
     const id = document.getElementById('credential-id').value;
     if (!id || !confirm('Delete this credential?')) return;
@@ -238,9 +257,7 @@ window.deleteCredential = async function () {
             showResult(false, data.error || 'Delete failed.');
             return;
         }
-        const { nodeId, propName } = dialogContext;
-        const nodeData = nodeId && state.nodes.get(nodeId);
-        if (nodeData && nodeData.config[propName] === id) await assignToNode('');
+        if (dialogContext.getCurrent() === id) await dialogContext.assign('');
         await refreshDialog(null);
         showToast('Credential deleted');
     } catch (error) {

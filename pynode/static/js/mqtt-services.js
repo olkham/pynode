@@ -8,6 +8,11 @@
 //      broker OR start a new one, edit every field, test the connection, save,
 //      and delete - all in one place.
 //
+// The broker password is a stored credential (see credentials.js): the form
+// holds only a credential ID, and the server never returns a password. A
+// broker saved before the credential store may still have a plain-text
+// password (`hasPassword`); it keeps working until a credential replaces it.
+//
 // All API calls go through the global fetch() which auth.js transparently
 // decorates with the API key, so plain fetch(`${API_BASE}/...`) is correct.
 import { state, markNodeModified, setModified } from './state.js';
@@ -16,6 +21,25 @@ import { showToast } from './ui-utils.js';
 
 // Which node/property the dialog is currently editing brokers for.
 let dialogContext = { nodeId: null, propName: null };
+
+// True once the user asked to drop the broker's legacy plain-text password;
+// applied by the next save (or test) of the form.
+let removeLegacyPassword = false;
+
+const PASSWORD_CREDENTIAL_TYPE = 'secret';
+
+// Show or hide the "saved in plain text" note for the broker in the form.
+function setLegacyPassword(kept) {
+    removeLegacyPassword = false;
+    const note = document.getElementById('mqtt-broker-legacy-password');
+    if (note) note.style.display = kept ? '' : 'none';
+}
+
+function loadPasswordCredentials(currentId) {
+    return window.fillCredentialSelect(
+        document.getElementById('mqtt-broker-credential'),
+        PASSWORD_CREDENTIAL_TYPE, currentId, '-- No password --');
+}
 
 // -------------------------------------------------------------------------
 // Compact per-node broker <select>
@@ -105,18 +129,22 @@ function showTestResult(ok, message) {
     box.textContent = (ok ? '✓ ' : '✗ ') + message;
 }
 
-// Read the current form values into a service config object.
+// Read the current form values into a service config object. There is no
+// password in it: `credential` names the stored secret, and leaving out the
+// `password` key keeps a legacy plain-text password on the server.
 function readForm() {
-    return {
+    const config = {
         name: fieldValue('mqtt-broker-name').trim(),
         broker: fieldValue('mqtt-broker-host').trim(),
         port: parseInt(fieldValue('mqtt-broker-port'), 10) || 1883,
         clientId: fieldValue('mqtt-broker-clientId').trim(),
         username: fieldValue('mqtt-broker-username'),
-        password: fieldValue('mqtt-broker-password'),
+        credential: fieldValue('mqtt-broker-credential'),
         keepAlive: parseInt(fieldValue('mqtt-broker-keepAlive'), 10) || 60,
         cleanSession: fieldValue('mqtt-broker-cleanSession') !== 'false'
     };
+    if (removeLegacyPassword) config.password = '';
+    return config;
 }
 
 // Reset the form to a blank "new broker" state.
@@ -127,9 +155,10 @@ function resetForm() {
     setField('mqtt-broker-port', '1883');
     setField('mqtt-broker-clientId', '');
     setField('mqtt-broker-username', '');
-    setField('mqtt-broker-password', '');
     setField('mqtt-broker-keepAlive', '60');
     setField('mqtt-broker-cleanSession', 'true');
+    setLegacyPassword(false);
+    loadPasswordCredentials('');
     const delBtn = document.getElementById('mqtt-broker-delete-btn');
     if (delBtn) delBtn.style.display = 'none';
     clearTestResult();
@@ -153,7 +182,8 @@ async function loadBrokerIntoForm(serviceId) {
             setField('mqtt-broker-port', s.port != null ? s.port : 1883);
             setField('mqtt-broker-clientId', s.clientId || '');
             setField('mqtt-broker-username', s.username || '');
-            setField('mqtt-broker-password', s.password || '');
+            setLegacyPassword(Boolean(s.hasPassword) && !s.credential);
+            await loadPasswordCredentials(s.credential || '');
             setField('mqtt-broker-keepAlive', s.keepAlive != null ? s.keepAlive : 60);
             setField('mqtt-broker-cleanSession', s.cleanSession === false ? 'false' : 'true');
             const delBtn = document.getElementById('mqtt-broker-delete-btn');
@@ -223,9 +253,29 @@ window.closeMqttBrokerDialog = function () {
     clearTestResult();
 };
 
+// Manage stored credentials from inside the broker dialog. The credential
+// dialog is later in the DOM, so it stacks above this one.
+window.openMqttBrokerCredentialDialog = function () {
+    return window.openCredentialDialogFor({
+        credentialType: PASSWORD_CREDENTIAL_TYPE,
+        getCurrent: () => fieldValue('mqtt-broker-credential'),
+        // Only fills the form: the broker is saved with its own Save button.
+        assign: credentialId => loadPasswordCredentials(credentialId)
+    });
+};
+
+// Drop the legacy plain-text password when the broker is next saved.
+window.removeMqttBrokerLegacyPassword = function () {
+    setLegacyPassword(false);
+    removeLegacyPassword = true;
+};
+
 // Test the connection using the CURRENT form values (never a saved service).
+// The server fills in the password: from the selected credential or, for a
+// saved broker without one, from its legacy stored password.
 window.testMqttBroker = async function () {
     const config = readForm();
+    config.id = fieldValue('mqtt-broker-id');
     if (!config.broker) {
         showTestResult(false, 'Enter a broker address first.');
         return;

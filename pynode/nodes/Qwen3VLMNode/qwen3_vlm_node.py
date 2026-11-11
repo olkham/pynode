@@ -13,7 +13,7 @@ from typing import Any
 
 import numpy as np
 
-from pynode.nodes.base_node import BaseNode, Info, MessageKeys
+from pynode.nodes.base_node import BaseNode, CredentialError, Info, MessageKeys
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +76,7 @@ class Qwen3VLMNode(BaseNode):
     # ------------------------------------------------------------------
     DEFAULT_CONFIG: dict[str, Any] = {
         "model_name": "Qwen/Qwen3-VL-2B-Instruct",
+        "credential": "",
         "hf_token": "",
         "mode": "generic",
         "prompt": "Describe this image in detail.",
@@ -135,10 +136,20 @@ class Qwen3VLMNode(BaseNode):
                 ],
             },
             {
+                "name": "credential",
+                "label": "HuggingFace Token Credential",
+                "type": "credential",
+                "credentialType": "secret",
+                "help": "Only needed for gated models. Stored encrypted and never "
+                        "shown again. Takes precedence over HuggingFace Token (legacy).",
+            },
+            {
                 "name": "hf_token",
-                "label": "HuggingFace Token",
+                "label": "HuggingFace Token (legacy)",
                 "type": "password",
-                "placeholder": "hf_…  (required for gated models)",
+                "placeholder": "Use a credential instead",
+                "help": "Saved in plain text with the workflow. Clear this field "
+                        "once a credential is selected.",
             },
             {
                 "name": "device",
@@ -237,7 +248,13 @@ class Qwen3VLMNode(BaseNode):
         except Exception as exc:  # pragma: no cover - defensive
             logger.warning("Device validation failed: %s", exc)
 
-        token = self.config.get("hf_token", "").strip() or None
+        # A selected credential that cannot be resolved fails the load:
+        # never fall back to the legacy plain-text token or to no token.
+        try:
+            token = self.get_secret("credential", "hf_token").strip() or None
+        except CredentialError as exc:
+            self.report_error(str(exc))
+            return False
 
         try:
             from transformers import AutoModelForImageTextToText, AutoProcessor  # type: ignore

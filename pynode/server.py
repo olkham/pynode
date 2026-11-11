@@ -115,6 +115,9 @@ def create_app(config=None):
         app.extensions['mqtt_manager'] = _default_mqtt_manager
     else:
         app.extensions['mqtt_manager'] = MQTTServiceManager(config_file=services_file)
+    # Brokers reference their password by credential ID; give the manager
+    # the store to resolve it when a connection is made.
+    app.extensions['mqtt_manager'].credential_store = credential_store
 
     # Remaining config keys (e.g. TESTING) go straight to app.config.
     app.config.update(cfg)

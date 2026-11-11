@@ -6,6 +6,8 @@ messages into the workflow. Supports GET, POST, PUT, DELETE methods with
 configurable paths and response handling.
 """
 
+import base64
+import hmac
 import json
 import threading
 import logging
@@ -15,9 +17,9 @@ from urllib.parse import urlparse, parse_qs
 import time
 
 try:
-    from ..base_node import BaseNode, MessageKeys, Info
+    from ..base_node import BaseNode, MessageKeys, Info, CredentialError
 except ImportError:
-    from base_node import BaseNode, MessageKeys, Info
+    from base_node import BaseNode, MessageKeys, Info, CredentialError
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +45,7 @@ _info.add_bullets(
     ("Endpoint Path:", "URL path for the endpoint"),
     ("Methods:", "Allowed HTTP methods"),
     ("Response Mode:", "How to respond to requests (immediate, wait, custom)"),
-    ("Authentication:", "Optional auth (none, basic, bearer, API key)"),
+    ("Authentication:", "Optional auth (none, basic, bearer, API key); the secret comes from a stored credential"),
 )
 
 
@@ -84,6 +86,7 @@ class RESTEndpointNode(BaseNode):
         'responseBody': '{"status": "received"}',
         'cors': True,
         'authType': 'none',
+        'credential': '',
         'authCredentials': ''
     }
     
@@ -160,6 +163,15 @@ class RESTEndpointNode(BaseNode):
             'default': DEFAULT_CONFIG['authType']
         },
         {
+            'name': 'credential',
+            'label': 'Credential',
+            'type': 'credential',
+            'credentialType': 'secret',
+            'showIf': {'authType': ['basic', 'bearer', 'apikey']},
+            'default': DEFAULT_CONFIG['credential'],
+            'help': 'Stored encrypted and never shown again. Takes precedence over Auth Credentials; clear that field once a credential is selected, because its value is saved in plain text.'
+        },
+        {
             'name': 'authCredentials',
             'label': 'Auth Credentials',
             'type': 'text',
@@ -178,6 +190,7 @@ class RESTEndpointNode(BaseNode):
         self._request_count = 0
         self._pending_responses: dict[str, Any] = {}
         self._response_events: dict[str, threading.Event] = {}
+        self._last_auth_error: str | None = None
     
     def on_deploy(self):
         """Called when the workflow is deployed - start the server."""
@@ -187,6 +200,66 @@ class RESTEndpointNode(BaseNode):
         """Called when the workflow starts."""
         if not self._running:
             self._start_server()
+        # Surface an unresolvable credential at deploy time, not on the
+        # first request (which is rejected either way).
+        if self.config.get('authType', 'none') != 'none':
+            try:
+                if not self._expected_secret():
+                    self.report_error(
+                        "Authentication is enabled but no credential is set; "
+                        "every request will be rejected")
+            except CredentialError as e:
+                self.report_error(str(e))
+
+    def _expected_secret(self) -> str:
+        """The secret callers must present ('user:password' for basic auth).
+
+        A selected credential (encrypted store) takes precedence over the
+        legacy plain-text authCredentials field. Raises CredentialError when
+        the selected credential cannot be resolved.
+        """
+        return self.get_secret('credential', 'authCredentials')
+
+    def _authorized(self, headers) -> bool:
+        """True if the request headers carry the configured secret.
+
+        Fails closed: with authentication enabled, a missing, empty or
+        unresolvable secret rejects every request. Comparison is constant
+        time so the secret cannot be recovered by timing responses.
+        """
+        auth_type = self.config.get('authType', 'none')
+        if auth_type == 'none':
+            return True
+        if auth_type not in ('basic', 'bearer', 'apikey'):
+            return False
+
+        try:
+            expected = self._expected_secret()
+        except CredentialError as e:
+            # Report once per distinct failure, not once per request.
+            if str(e) != self._last_auth_error:
+                self._last_auth_error = str(e)
+                self.report_error(str(e))
+            return False
+        self._last_auth_error = None
+        if not expected:
+            return False
+
+        presented = None
+        if auth_type == 'apikey':
+            presented = headers.get('X-API-Key')
+        else:
+            auth_header = headers.get('Authorization', '')
+            if auth_type == 'bearer' and auth_header.startswith('Bearer '):
+                presented = auth_header[7:]
+            elif auth_type == 'basic' and auth_header.startswith('Basic '):
+                try:
+                    presented = base64.b64decode(auth_header[6:]).decode('utf-8')
+                except Exception:
+                    return False
+        if presented is None:
+            return False
+        return hmac.compare_digest(presented.encode('utf-8'), expected.encode('utf-8'))
     
     def on_stop(self):
         """Called when the workflow stops."""
@@ -234,34 +307,7 @@ class RESTEndpointNode(BaseNode):
                                    'Content-Type, Authorization, X-API-Key')
             
             def _check_auth(self) -> bool:
-                auth_type = node.config.get('authType', 'none')
-                credentials = node.config.get('authCredentials', '')
-                
-                if auth_type == 'none':
-                    return True
-                
-                if auth_type == 'basic':
-                    auth_header = self.headers.get('Authorization', '')
-                    if auth_header.startswith('Basic '):
-                        import base64
-                        try:
-                            decoded = base64.b64decode(auth_header[6:]).decode('utf-8')
-                            return decoded == credentials
-                        except Exception:
-                            return False
-                    return False
-                
-                if auth_type == 'bearer':
-                    auth_header = self.headers.get('Authorization', '')
-                    if auth_header.startswith('Bearer '):
-                        return auth_header[7:] == credentials
-                    return False
-                
-                if auth_type == 'apikey':
-                    api_key = self.headers.get('X-API-Key', '')
-                    return api_key == credentials
-                
-                return False
+                return node._authorized(self.headers)
             
             def _check_method(self, method: str) -> bool:
                 allowed = node.config.get('methods', 'POST')

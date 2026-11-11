@@ -227,6 +227,32 @@ class BaseNode:
             raise CredentialError(f"{self.name}: no credential store available")
         return store.resolve(credential_id)
 
+    def get_secret(self, credential_key: str = 'credential',
+                   legacy_key: str | None = None) -> str:
+        """The secret a node should use, from a 'secret' credential property.
+
+        A credential selected in ``config[credential_key]`` takes precedence.
+        Without one, the plain-text ``config[legacy_key]`` value is returned
+        so flows saved before the credential store keep working. Returns ''
+        when neither is set. A selected credential that cannot be resolved
+        never falls back to the legacy value. Keep the result in memory only.
+
+        Raises:
+            CredentialError: the selected credential cannot be resolved, or
+                it is not of type 'secret' (it has no 'value' field).
+        """
+        credential_id = self.config.get(credential_key, '')
+        if credential_id:
+            values = self.get_credential(credential_id)
+            if 'value' not in values:
+                raise CredentialError(
+                    f"Credential '{credential_id}' has no 'value' field; "
+                    f"{type(self).__name__} needs a credential of type 'secret'")
+            return values['value']
+        if legacy_key:
+            return str(self.config.get(legacy_key, '') or '')
+        return ''
+
     def report_error(self, error_msg: str):
         """
         Report an error to all ErrorNodes in the workflow.

@@ -83,6 +83,18 @@ export function renderProperties(nodeData) {
                            placeholder="${placeholder}"
                            onchange="window.updateNodeConfig('${nodeData.id}', '${prop.name}', this.value)">
                 `;
+            } else if (prop.type === 'password') {
+                // Masked input for legacy plain-text secrets. The value is
+                // still saved in the workflow; new nodes should offer a
+                // `credential` property instead.
+                const value = nodeData.config[prop.name] !== undefined ? nodeData.config[prop.name] : '';
+                html += `
+                    <label class="property-label">${escapeHtml(prop.label)}</label>
+                    <input type="password" class="property-input" autocomplete="off"
+                           value="${escapeHtml(String(value))}"
+                           placeholder="${escapeHtml(prop.placeholder || '')}"
+                           onchange="window.updateNodeConfig('${nodeData.id}', '${prop.name}', this.value)">
+                `;
             } else if (prop.type === 'geometry') {
                 // Text value plus a "Draw on frame" button that opens the
                 // geometry editor modal (geometry-editor.js). geometryType is

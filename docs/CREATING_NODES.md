@@ -271,6 +271,18 @@ except CredentialError as e:
     return
 ```
 
+For the core `secret` type, `self.get_secret()` does the lookup for you and raises `CredentialError` if the credential is of another type. Give it the name of a legacy plain-text property when you are converting an existing node, so flows saved before the change keep working. A selected credential that cannot be resolved raises and never falls back to the legacy value:
+
+```python
+try:
+    token = self.get_secret('credential', legacy_key='api_key')   # '' when neither is set
+except CredentialError as e:
+    self.report_error(str(e))
+    return
+```
+
+Libraries often quote a secret in their error messages (for example in a request URL), so remove it from any exception text before you report or log it.
+
 Node packages can register their own credential types (for example a username plus a password) with `pynode.credential_store.register_credential_type()`.
 
 ### Conditional Visibility (`showIf`)
