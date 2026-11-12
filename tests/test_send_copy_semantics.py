@@ -186,23 +186,85 @@ class TestRecipientCounting:
         out, _ = _drain(live)
         assert out[MessageKeys.PAYLOAD] is payload
 
-    def test_busy_dropped_target_does_not_count_toward_fanout(self):
+    def test_busy_target_parks_the_original_and_copies_on_pickup(self):
+        """A busy target holds the sender's objects uncopied; the live one
+        gets its own copy now. The busy target's copy is deferred to pickup."""
         src = BaseNode(name='src')
         live = BaseNode(name='live')
         busy = BaseNode(name='busy')
         src.connect(live, 0, 0)
         src.connect(busy, 0, 0)
-        busy._processing = True  # drop_while_busy defaults True -> dropped
+        busy._processing = True  # drop_while_busy defaults True -> parked
 
         payload = {'k': 1}
         src.send(src.create_message(payload=payload))
 
-        # Busy target dropped (counted on the target), received nothing.
-        assert busy._message_queue.empty()
-        assert busy.drop_count == 1
-        # The single actual recipient still takes the fast path (shares payload).
+        # Nothing queued, nothing dropped: the message waits in the inbox.
+        assert busy._message_queue.empty() and busy.drop_count == 0
+        parked, input_index, lazy_deep = busy._pending[0]
+        assert parked[MessageKeys.PAYLOAD] is payload     # no copy made by the sender
+        assert lazy_deep is True                          # copy happens on pickup
+        # The other branch is isolated from it.
         out, _ = _drain(live)
-        assert out[MessageKeys.PAYLOAD] is payload
+        assert out[MessageKeys.PAYLOAD] is not payload
+        assert out[MessageKeys.PAYLOAD] == payload
+
+    def test_sole_busy_target_is_never_copied(self):
+        """The common chain (camera -> detector): no deepcopy at all."""
+        src, busy = BaseNode(name='src'), BaseNode(name='busy')
+        src.connect(busy, 0, 0)
+        busy._processing = True
+
+        payload = {'k': 1}
+        src.send(src.create_message(payload=payload))
+
+        parked, _, lazy_deep = busy._pending[0]
+        assert parked[MessageKeys.PAYLOAD] is payload and lazy_deep is False
+
+    def test_lazy_copy_isolates_the_busy_branch(self):
+        """End to end: the busy node mutates its message; the sibling branch
+        that shares the original must not see it."""
+        import threading
+        import time
+
+        release, started = threading.Event(), threading.Event()
+        got = []
+
+        class _Mutator(BaseNode):
+            def on_input(self, msg, input_index=0):
+                started.set()
+                if not release.is_set():
+                    release.wait(5)
+                msg[MessageKeys.PAYLOAD]['frame'][:] = 255
+                got.append(msg[MessageKeys.PAYLOAD]['frame'])
+
+        class _Reader(BaseNode):
+            shares_input = True
+
+        src, mutator, reader = BaseNode(name='src'), _Mutator(name='m'), _Reader(name='r')
+        src.connect(mutator)
+        src.connect(reader)
+        mutator.on_start()
+        try:
+            src.send(src.create_message(payload={'frame': np.zeros(4, dtype=np.uint8)}))
+            assert started.wait(5)
+            frame = np.zeros(4, dtype=np.uint8)
+            src.send(src.create_message(payload={'frame': frame}))   # parked while busy
+            release.set()
+            deadline = time.time() + 5
+            while len(got) < 2 and time.time() < deadline:
+                time.sleep(0.01)
+        finally:
+            release.set()
+            mutator.on_stop()
+
+        assert len(got) == 2 and got[1].tolist() == [255] * 4
+        assert frame.tolist() == [0] * 4          # the shared original is untouched
+        # The read-only node was handed the original, uncopied (its second
+        # message is parked: its worker is not running in this test).
+        shared, _, lazy_deep = reader._pending[0]
+        assert shared[MessageKeys.PAYLOAD]['frame'] is frame
+        assert lazy_deep is False
 
     def test_two_live_plus_one_dropped_still_deep_copies_the_two(self):
         src = BaseNode(name='src')
@@ -217,7 +279,8 @@ class TestRecipientCounting:
         payload = {'k': 1}
         src.send(src.create_message(payload=payload))
 
-        assert busy._message_queue.empty() and busy.drop_count == 1
+        assert busy._message_queue.empty() and busy.drop_count == 0
+        assert busy._pending[0][0][MessageKeys.PAYLOAD] is payload
         out1, _ = _drain(t1)
         out2, _ = _drain(t2)
         # Two real recipients -> both isolated from the source and each other.

@@ -1,3 +1,6 @@
-supervision>=0.25.0
+supervision>=0.31.0
+trackers>=2.7.0
+# Optional: SV Re-ID node and BoT-SORT appearance association
+reid>=0.1.0
 numpy>=1.19.0
 opencv-python>=4.5.0

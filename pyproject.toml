@@ -53,12 +53,19 @@ pynode = "pynode.main:main"
 pynode-install-nodes = "pynode.install_nodes:main"
 
 [project.optional-dependencies]
-# Heavy ML vision stack (UltralyticsNode, TrackerNode, DrawPredictionsNode, ...)
+# Heavy ML vision stack (UltralyticsNode, Supervision nodes, DrawPredictionsNode, ...)
+# supervision 0.31 removed sv.ByteTrack; tracking lives in Roboflow's `trackers`.
 vision = [
     "ultralytics",
     "torch",
     "torchvision",
-    "supervision",
+    "supervision>=0.31.0",
+    "trackers>=2.7.0",
+]
+# SupervisionReIDNode + BoT-SORT appearance association (Roboflow re-ID)
+reid = [
+    "pynode-flow[vision]",
+    "reid>=0.1.0",
 ]
 # MQTTNode
 mqtt = [
@@ -100,6 +107,7 @@ full = [
     "pynode-flow[camera]",
     "pynode-flow[inference]",
     "pynode-flow[vlm]",
+    "pynode-flow[reid]",
     "pynode-flow[upload]",
     "pynode-flow[discovery]",
 ]

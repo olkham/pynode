@@ -32,7 +32,8 @@ Install only the node groups you need:
 
 | Extra | Installs | Nodes it enables |
 |-------|----------|------------------|
-| `vision` | ultralytics, torch, torchvision, supervision | UltralyticsNode, DrawPredictionsNode, the Supervision nodes, … |
+| `vision` | ultralytics, torch, torchvision, supervision, trackers | UltralyticsNode, DrawPredictionsNode, the Supervision nodes (tracking, zones, annotators), … |
+| `reid` | reid (+ `vision`) | SV Re-ID node, BoT-SORT appearance association in SV Tracker |
 | `mqtt` | paho-mqtt | MQTTNode |
 | `camera` | framesource[full] | FrameSourceNode |
 | `inference` | onnxruntime (+ `vision`) | InferenceNode |
@@ -102,6 +103,14 @@ pynode --host 0.0.0.0 --port 5000 --production
 - `--host`: Host address to bind to (default: 0.0.0.0)
 - `--port`: Port to bind to (default: 5000)
 - `--production`: Run in production mode using Waitress server
+- `--threads`: Request threads in production mode (default: 32, or `PYNODE_THREADS`)
+- `--api-key`: Require an API key on all `/api/` requests (or `PYNODE_API_KEY`)
+- `--cors-origins`: Comma-separated allowed browser origins (or `PYNODE_CORS_ORIGINS`)
+- `--data-dir` / `--models-dir`: Where workflows and model weights are stored
+- `--log-level`: DEBUG, INFO, WARNING or ERROR (default: INFO)
+- `--log-file`: Also log to a rotating file (or `PYNODE_LOG_FILE`)
+
+See "Running in Production" in the README for health checks, shutdown behaviour and reverse-proxy notes.
 
 ## Installing Node Dependencies
 

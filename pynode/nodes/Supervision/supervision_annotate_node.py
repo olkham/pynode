@@ -368,7 +368,14 @@ class SupervisionAnnotateNode(BaseNode):
                     # mask emits numpy divide warnings on every empty frame.
                     continue
 
-                if name == 'label':
+                if name == 'trace':
+                    # Untracked detections (tracker_id -1, kept by the SV
+                    # Tracker's "Keep Untracked" option) are not one object;
+                    # tracing them would join unrelated boxes with a line.
+                    annotated = annotator.annotate(
+                        scene=annotated,
+                        detections=detections[detections.tracker_id >= 0])
+                elif name == 'label':
                     annotated = annotator.annotate(
                         scene=annotated,
                         detections=detections,

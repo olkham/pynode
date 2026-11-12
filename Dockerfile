@@ -76,7 +76,7 @@ EXPOSE 5000
 
 # Health check (uses the bundled Python interpreter; no extra tools required)
 HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
-    CMD ["/app/appenv/bin/python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/')"]
+    CMD ["/app/appenv/bin/python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/healthz')"]
 
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD ["/app/appenv/bin/python", "-m", "pynode", "--production", "--host", "0.0.0.0", "--port", "5000"]

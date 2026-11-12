@@ -261,6 +261,12 @@ class SupervisionLineCounterNode(BaseNode):
                 self.send(msg)
                 return
 
+            # tracker_id -1 means "not tracked yet"; every such box would look
+            # like one object teleporting, so only confirmed tracks are counted.
+            # (Local view only - the message's detections are left untouched.)
+            if len(detections) > 0:
+                detections = detections[detections.tracker_id >= 0]
+
             crossed_in, crossed_out = self.line_zone.trigger(detections)
 
             # Emit one event message per crossing BEFORE mutating/sending the

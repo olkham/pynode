@@ -9,6 +9,7 @@ try/finally before returning.
 
 import queue
 import threading
+import time
 import uuid
 
 import pytest
@@ -70,25 +71,91 @@ def _queued_pair():
 
 class TestDropWhileBusy:
 
-    def test_drop_when_target_processing(self):
+    def test_busy_target_keeps_only_the_newest_message(self):
+        """Latest wins: a busy target parks the newest message and drops the
+        ones it replaces, so it never works through a stale backlog."""
         src, target = _queued_pair()
         target._processing = True
 
-        src.send(src.create_message(payload='x'))
+        src.send(src.create_message(payload='first'))
+
+        # Nothing is queued behind the message being processed...
+        assert target._message_queue.empty()
+        # ...and nothing has been lost yet: 'first' is waiting in the inbox.
+        assert target.drop_count == 0
+        assert target._pending[0][0][MessageKeys.PAYLOAD] == 'first'
+
+        src.send(src.create_message(payload='second'))
+        src.send(src.create_message(payload='third'))
 
         assert target._message_queue.empty()
+        assert target._pending[0][0][MessageKeys.PAYLOAD] == 'third'
         # The drop counter is incremented on the TARGET node, not the sender
-        assert target.drop_count == 1
+        assert target.drop_count == 2
         assert src.drop_count == 0
 
-    def test_drop_when_target_queue_nonempty(self):
+    def test_backlogged_target_parks_instead_of_queueing(self):
         src, target = _queued_pair()
         target._message_queue.put_nowait(({'payload': 'old'}, 0))
 
         src.send(src.create_message(payload='new'))
+        src.send(src.create_message(payload='newer'))
 
-        assert target._message_queue.qsize() == 1  # nothing was added
+        assert target._message_queue.qsize() == 1  # the queue did not grow
+        assert target._pending[0][0][MessageKeys.PAYLOAD] == 'newer'
         assert target.drop_count == 1
+
+    def test_each_input_port_has_its_own_slot(self):
+        """Two upstream nodes feeding different inputs must not evict each other."""
+        a, b, target = BaseNode(name='a'), BaseNode(name='b'), BaseNode(name='join')
+        target.input_count = 2
+        a.connect(target, 0, 0)
+        b.connect(target, 0, 1)
+        target._processing = True
+
+        a.send(a.create_message(payload='from a'))
+        b.send(b.create_message(payload='from b'))
+
+        assert target.drop_count == 0
+        assert target._pending[0][0][MessageKeys.PAYLOAD] == 'from a'
+        assert target._pending[1][0][MessageKeys.PAYLOAD] == 'from b'
+
+    def test_worker_continues_with_the_newest_message_when_free(self):
+        """The reason for the inbox: a slow node must not idle until the next
+        message arrives after finishing one (that quantised its throughput to
+        a fraction of the source rate)."""
+        import threading
+
+        release = threading.Event()
+        started = threading.Event()
+        seen = []
+
+        class _Slow(BaseNode):
+            def on_input(self, msg, input_index=0):
+                seen.append(msg[MessageKeys.PAYLOAD])
+                started.set()
+                if msg[MessageKeys.PAYLOAD] == 0:
+                    release.wait(5)
+
+        src, slow = BaseNode(name='src'), _Slow(name='slow')
+        src.connect(slow)
+        slow.on_start()
+        try:
+            src.send(src.create_message(payload=0))
+            assert started.wait(5)
+            for i in range(1, 6):       # arrive while the node is busy
+                src.send(src.create_message(payload=i))
+            release.set()
+            deadline = time.time() + 5
+            while len(seen) < 2 and time.time() < deadline:
+                time.sleep(0.01)
+        finally:
+            release.set()
+            slow.on_stop()
+
+        assert seen == [0, 5]            # newest only, picked up without a new send
+        assert slow.drop_count == 4
+        assert slow._processing is False and not slow._pending
 
     def test_no_drop_when_target_idle(self):
         src, target = _queued_pair()

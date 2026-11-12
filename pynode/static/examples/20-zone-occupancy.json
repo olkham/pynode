@@ -40,7 +40,8 @@
       "config": {
         "track_thresh": "0.25",
         "track_buffer": "30",
-        "match_thresh": "0.8",
+        "algorithm": "bytetrack",
+        "min_iou": "0.2",
         "min_consecutive_frames": "2",
         "frame_rate": "10",
         "drop_messages": "true"

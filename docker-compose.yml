@@ -14,11 +14,19 @@ services:
     volumes:
       # Mount persistent data
       - ./workflows:/app/workflows
+      - ./models:/app/models
       - ./logs:/app/logs
     environment:
       - PYTHONUNBUFFERED=1
+      - PYNODE_LOG_FILE=/app/logs/pynode.log
+      # Keep Hugging Face downloads (Re-ID / VLM weights) on the models volume
+      - HF_HOME=/app/models/huggingface
+      # Strongly recommended whenever the port is reachable from other machines:
+      - PYNODE_API_KEY=${PYNODE_API_KEY:-}
       - HOST_IP=${HOST_IP:-}
     restart: unless-stopped
+    # PyNode stops every workflow on SIGTERM so recordings and logs are finalised.
+    stop_grace_period: 30s
     # Rotate container logs so they cannot fill the host disk
     logging:
       driver: json-file

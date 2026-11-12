@@ -1,0 +1,240 @@
+{
+  "nodes": [
+    {
+      "id": "video_a",
+      "type": "VideoReaderNode",
+      "name": "Camera A (pick a file)",
+      "config": {
+        "source": "",
+        "fps": 0,
+        "loop": true,
+        "jpeg_quality": 80
+      },
+      "x": 80,
+      "y": 120
+    },
+    {
+      "id": "yolo_a",
+      "type": "UltralyticsNode",
+      "name": "YOLO A",
+      "config": {
+        "model": "yolo11n.pt",
+        "confidence": "0.3",
+        "iou": "0.45",
+        "draw_results": "false",
+        "max_det": "300",
+        "include_image": true,
+        "include_predictions": true,
+        "drop_messages": "true",
+        "device": "cpu"
+      },
+      "x": 320,
+      "y": 120
+    },
+    {
+      "id": "tracker_a",
+      "type": "SupervisionTrackerNode",
+      "name": "Tracker A",
+      "config": {
+        "algorithm": "bytetrack",
+        "track_thresh": "0.25",
+        "track_buffer": "30",
+        "min_iou": "0.2",
+        "min_consecutive_frames": "2",
+        "frame_rate": "30",
+        "drop_messages": "true"
+      },
+      "x": 560,
+      "y": 120
+    },
+    {
+      "id": "reid_a",
+      "type": "SupervisionReIDNode",
+      "name": "Camera A",
+      "config": {
+        "model": "osnet_x1_0_msmt17_combineall",
+        "device": "auto",
+        "classes": "person",
+        "match_distance": "0.3",
+        "gallery": "site",
+        "use_as_track_id": true,
+        "refresh_interval": "10",
+        "ttl_seconds": "600",
+        "max_identities": "1000",
+        "min_box_size": "16",
+        "include_embeddings": false,
+        "drop_messages": "true"
+      },
+      "x": 800,
+      "y": 120
+    },
+    {
+      "id": "annotate_a",
+      "type": "SupervisionAnnotateNode",
+      "name": "Annotate A",
+      "config": {
+        "annotators": ["box", "label"],
+        "color_lookup": "track",
+        "thickness": "auto",
+        "text_scale": "auto",
+        "show_class": false,
+        "show_confidence": false,
+        "show_track_id": true,
+        "drop_messages": "true"
+      },
+      "x": 1040,
+      "y": 120
+    },
+    {
+      "id": "viewer_a",
+      "type": "ImageViewerNode",
+      "name": "Camera A",
+      "config": {
+        "width": 400,
+        "height": 300,
+        "image_path": "payload.image",
+        "drop_messages": true
+      },
+      "x": 1280,
+      "y": 120
+    },
+    {
+      "id": "video_b",
+      "type": "VideoReaderNode",
+      "name": "Camera B (pick a file)",
+      "config": {
+        "source": "",
+        "fps": 0,
+        "loop": true,
+        "jpeg_quality": 80
+      },
+      "x": 80,
+      "y": 560
+    },
+    {
+      "id": "yolo_b",
+      "type": "UltralyticsNode",
+      "name": "YOLO B",
+      "config": {
+        "model": "yolo11n.pt",
+        "confidence": "0.3",
+        "iou": "0.45",
+        "draw_results": "false",
+        "max_det": "300",
+        "include_image": true,
+        "include_predictions": true,
+        "drop_messages": "true",
+        "device": "cpu"
+      },
+      "x": 320,
+      "y": 560
+    },
+    {
+      "id": "tracker_b",
+      "type": "SupervisionTrackerNode",
+      "name": "Tracker B",
+      "config": {
+        "algorithm": "bytetrack",
+        "track_thresh": "0.25",
+        "track_buffer": "30",
+        "min_iou": "0.2",
+        "min_consecutive_frames": "2",
+        "frame_rate": "30",
+        "drop_messages": "true"
+      },
+      "x": 560,
+      "y": 560
+    },
+    {
+      "id": "reid_b",
+      "type": "SupervisionReIDNode",
+      "name": "Camera B",
+      "config": {
+        "model": "osnet_x1_0_msmt17_combineall",
+        "device": "auto",
+        "classes": "person",
+        "match_distance": "0.3",
+        "gallery": "site",
+        "use_as_track_id": true,
+        "refresh_interval": "10",
+        "ttl_seconds": "600",
+        "max_identities": "1000",
+        "min_box_size": "16",
+        "include_embeddings": false,
+        "drop_messages": "true"
+      },
+      "x": 800,
+      "y": 560
+    },
+    {
+      "id": "annotate_b",
+      "type": "SupervisionAnnotateNode",
+      "name": "Annotate B",
+      "config": {
+        "annotators": ["box", "label"],
+        "color_lookup": "track",
+        "thickness": "auto",
+        "text_scale": "auto",
+        "show_class": false,
+        "show_confidence": false,
+        "show_track_id": true,
+        "drop_messages": "true"
+      },
+      "x": 1040,
+      "y": 560
+    },
+    {
+      "id": "viewer_b",
+      "type": "ImageViewerNode",
+      "name": "Camera B",
+      "config": {
+        "width": 400,
+        "height": 300,
+        "image_path": "payload.image",
+        "drop_messages": true
+      },
+      "x": 1280,
+      "y": 560
+    },
+    {
+      "id": "handover_1",
+      "type": "SwitchNode",
+      "name": "Seen by another camera?",
+      "config": {
+        "property": "payload.previous_source",
+        "checkall": false,
+        "rules": [
+          { "operator": "nnull", "value": "", "valueType": "str" }
+        ]
+      },
+      "x": 1040,
+      "y": 420
+    },
+    {
+      "id": "debug_1",
+      "type": "DebugNode",
+      "name": "Camera hand-overs",
+      "config": {
+        "console": false,
+        "complete": "payload"
+      },
+      "x": 1280,
+      "y": 420
+    }
+  ],
+  "connections": [
+    { "source": "video_a", "target": "yolo_a", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "yolo_a", "target": "tracker_a", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "tracker_a", "target": "reid_a", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "reid_a", "target": "annotate_a", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "annotate_a", "target": "viewer_a", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "video_b", "target": "yolo_b", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "yolo_b", "target": "tracker_b", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "tracker_b", "target": "reid_b", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "reid_b", "target": "annotate_b", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "annotate_b", "target": "viewer_b", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "reid_a", "target": "handover_1", "sourceOutput": 1, "targetInput": 0 },
+    { "source": "reid_b", "target": "handover_1", "sourceOutput": 1, "targetInput": 0 },
+    { "source": "handover_1", "target": "debug_1", "sourceOutput": 0, "targetInput": 0 }
+  ]
+}

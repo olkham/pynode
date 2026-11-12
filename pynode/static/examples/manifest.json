@@ -132,6 +132,27 @@
       "title": "19 · Detection Log",
       "description": "SV Detection Filter keeps confident big boxes, SV Sink logs one CSV row per detection; rejected detections go to a second Debug.",
       "requires": "vision + webcam"
+    },
+    {
+      "id": "25-reid-identities",
+      "file": "25-reid-identities.json",
+      "title": "20 · Re-ID: Persistent Identities",
+      "description": "Video to YOLO to SV Tracker to SV Re-ID: each person keeps the same identity number after leaving and re-entering the frame. New and returning identities are logged as events.",
+      "requires": "vision + reid + a video file"
+    },
+    {
+      "id": "26-reid-cross-camera",
+      "file": "26-reid-cross-camera.json",
+      "title": "21 · Re-ID Across Cameras",
+      "description": "Two video sources share one identity gallery, so a person seen by camera A keeps their number on camera B. A Switch isolates the hand-over events.",
+      "requires": "vision + reid + two video files"
+    },
+    {
+      "id": "27-tracker-comparison",
+      "file": "27-tracker-comparison.json",
+      "title": "22 · Tracker Comparison",
+      "description": "The same detections through ByteTrack (motion only) and BoT-SORT with camera-motion compensation and appearance Re-ID, side by side with trace ribbons.",
+      "requires": "vision + reid + a video file"
     }
   ]
 }

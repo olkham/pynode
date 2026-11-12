@@ -33,7 +33,7 @@ carries its own documentation in the editor's **Information** panel (ℹ️ tab)
 | **Logic** | Switch (route on conditions), Gate, Sync, Auto Sync |
 | **Network** | MQTT In / Out, UDP In / Out, TCP In / Out, REST Endpoint, Webhook, mDNS Broadcast / Discovery |
 | **Vision** | YOLO, Inference, Crop, Slice Image / Slice Collector, Draw Predictions, Class Map (relabel classes), Confidence Filter, Label Filter, Merge Predictions, Image Format, Qwen3-VL, vLLM |
-| **Supervision** | SV Tracker (ByteTrack), SV Annotate (15 visual styles: boxes, labels, traces, heat maps, privacy blur/pixelate), SV Line Counter (in/out crossing counts + events), SV Polygon Zone (occupancy, enter/exit events) — zone geometry drawn directly on a live frame — SV Smoother (de-jitter boxes), SV Detection Filter (confidence/class/area/aspect/top-K + NMS/NMM), SV Sink (CSV/JSON detection logging) |
+| **Supervision** | SV Tracker (ByteTrack / SORT / OC-SORT / BoT-SORT via Roboflow `trackers`), SV Re-ID (appearance identities that survive occlusion and carry across cameras), SV Annotate (15 visual styles: boxes, labels, traces, heat maps, privacy blur/pixelate), SV Line Counter (in/out crossing counts + events), SV Polygon Zone (occupancy, enter/exit events) — zone geometry drawn directly on a live frame — SV Smoother (de-jitter boxes), SV Detection Filter (confidence/class/area/aspect/top-K + NMS/NMM), SV Sink (CSV/JSON detection logging) |
 | **Analysis** | BBox Metrics, Polygon Metrics, Point in Shape |
 | **OpenCV** | ~28 image-processing nodes: Blur, Threshold, Morphology, Edge Detector, Find Contours, Perspective, Resize, Rotate, Colormap, Histogram, FFT, Template Match, RealSense Depth, and more |
 | **Node Probes** | Rate Probe, Queue Length Probe, Counter |
@@ -196,6 +196,22 @@ order:
 - **CORS**: restrict allowed browser origins with `pynode --cors-origins http://localhost:5000,https://myhost` (or the `PYNODE_CORS_ORIGINS` env var). Default is `*` (all origins).
 - **Credentials**: nodes that need a secret (Webhook and REST Endpoint authentication, the Roboflow Upload API key, the Qwen3-VL HuggingFace token) and MQTT brokers (the password) reference a stored credential by ID instead of keeping the secret in the workflow or the broker settings. Secrets saved in plain text by earlier versions keep working until you select a credential in their place. Secrets are encrypted in `<data dir>/workflows/credentials.json` and are never sent back to the browser. The encryption key comes from `PYNODE_CREDENTIAL_KEY` (a Fernet key, e.g. from `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`) or from the file named by `PYNODE_CREDENTIAL_KEY_FILE`. With neither set, PyNode generates `<data dir>/workflows/.credential_key` on first use and logs its location. Back up the key together with `credentials.json`, because the secrets cannot be recovered without it. If the data directory may be copied elsewhere, supply the key from outside it. Credentials prevent accidental exposure, not a malicious flow editor: anyone who can edit and deploy flows (e.g. with a Function node) can use any stored credential.
 - **Bind locally**: when you don't need network access, run `pynode --host 127.0.0.1` so the server is only reachable from the local machine.
+
+PyNode logs a warning at startup when it is listening on a network interface without an API key.
+
+## Running in Production
+
+```bash
+pynode --production --host 0.0.0.0 --api-key "$PYNODE_API_KEY" --log-file /var/log/pynode/pynode.log
+```
+
+- **Server**: `--production` serves through Waitress. `--threads N` (or `PYNODE_THREADS`, default 32) sets the request threads. Every open editor tab holds one for its event stream and every live MJPEG viewer holds another, so raise it if many people watch at once.
+- **Health checks**: `GET /healthz` is an unauthenticated liveness probe for Docker, Kubernetes or a load balancer. `GET /api/health` (API key required) returns the version, uptime and the run state of every workflow, for monitoring and alerting.
+- **Graceful shutdown**: on `SIGTERM` (`docker stop`, systemd, Kubernetes) and Ctrl+C, PyNode stops every workflow before exiting, so video writers finalise their files, detection logs are flushed and cameras are released. Give the supervisor a stop timeout of 10 seconds or more.
+- **Logs**: `--log-file <path>` (or `PYNODE_LOG_FILE`) adds a rotating log file (10 MB, 5 backups) next to console output.
+- **Upload limit**: request bodies are capped at 4096 MB; change it with `PYNODE_MAX_UPLOAD_MB` (`0` = unlimited).
+- **TLS**: PyNode speaks plain HTTP. Terminate TLS in a reverse proxy (nginx, Caddy, Traefik) and disable response buffering for `/api/debug/stream` and the MJPEG routes, which are long-lived streams.
+- **Persistent data**: keep the data directory (`--data-dir`, workflows and credentials) and the models directory (`--models-dir`, downloaded weights) on persistent storage. See [DOCKER.md](DOCKER.md) for the container setup.
 
 ## Docker Setup
 

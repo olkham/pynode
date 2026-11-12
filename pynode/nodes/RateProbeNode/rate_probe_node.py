@@ -109,6 +109,10 @@ class RateProbeNode(BaseNode):
         # Need at least two messages to measure a rate.
         return 0.0
 
+    # Never looks at the incoming payload (it is replaced with the rate), so
+    # senders need not deepcopy a large frame just to have it counted.
+    shares_input = True
+
     def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """
         Pass through the message and update rate calculation.

@@ -1,0 +1,134 @@
+{
+  "nodes": [
+    {
+      "id": "video_1",
+      "type": "VideoReaderNode",
+      "name": "Video (pick a file)",
+      "config": {
+        "source": "",
+        "fps": 0,
+        "loop": true,
+        "jpeg_quality": 80
+      },
+      "x": 80,
+      "y": 160
+    },
+    {
+      "id": "yolo_1",
+      "type": "UltralyticsNode",
+      "name": "YOLO (no drawing)",
+      "config": {
+        "model": "yolo11n.pt",
+        "confidence": "0.3",
+        "iou": "0.45",
+        "draw_results": "false",
+        "max_det": "300",
+        "include_image": true,
+        "include_predictions": true,
+        "drop_messages": "true",
+        "device": "cpu"
+      },
+      "x": 320,
+      "y": 160
+    },
+    {
+      "id": "people_1",
+      "type": "LabelFilterNode",
+      "name": "People only",
+      "config": {
+        "labels": "person"
+      },
+      "x": 560,
+      "y": 160
+    },
+    {
+      "id": "tracker_1",
+      "type": "SupervisionTrackerNode",
+      "name": "SV Tracker",
+      "config": {
+        "algorithm": "bytetrack",
+        "track_thresh": "0.25",
+        "high_thresh": "",
+        "track_buffer": "30",
+        "min_iou": "0.2",
+        "min_consecutive_frames": "2",
+        "frame_rate": "30",
+        "keep_untracked": false,
+        "drop_messages": "true"
+      },
+      "x": 800,
+      "y": 160
+    },
+    {
+      "id": "reid_1",
+      "type": "SupervisionReIDNode",
+      "name": "SV Re-ID",
+      "config": {
+        "model": "osnet_x1_0_msmt17_combineall",
+        "device": "auto",
+        "classes": "person",
+        "match_distance": "0.3",
+        "gallery": "",
+        "use_as_track_id": true,
+        "refresh_interval": "10",
+        "ttl_seconds": "0",
+        "max_identities": "1000",
+        "min_box_size": "16",
+        "include_embeddings": false,
+        "drop_messages": "true"
+      },
+      "x": 1040,
+      "y": 160
+    },
+    {
+      "id": "annotate_1",
+      "type": "SupervisionAnnotateNode",
+      "name": "Box + Identity",
+      "config": {
+        "annotators": ["box", "label"],
+        "color_lookup": "track",
+        "thickness": "auto",
+        "text_scale": "auto",
+        "show_class": false,
+        "show_confidence": false,
+        "show_track_id": true,
+        "drop_messages": "true"
+      },
+      "x": 1280,
+      "y": 160
+    },
+    {
+      "id": "viewer_1",
+      "type": "ImageViewerNode",
+      "name": "Identities",
+      "config": {
+        "width": 480,
+        "height": 360,
+        "image_path": "payload.image",
+        "drop_messages": true
+      },
+      "x": 1520,
+      "y": 160
+    },
+    {
+      "id": "debug_1",
+      "type": "DebugNode",
+      "name": "New / re-identified",
+      "config": {
+        "console": false,
+        "complete": "payload"
+      },
+      "x": 1280,
+      "y": 320
+    }
+  ],
+  "connections": [
+    { "source": "video_1", "target": "yolo_1", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "yolo_1", "target": "people_1", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "people_1", "target": "tracker_1", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "tracker_1", "target": "reid_1", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "reid_1", "target": "annotate_1", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "annotate_1", "target": "viewer_1", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "reid_1", "target": "debug_1", "sourceOutput": 1, "targetInput": 0 }
+  ]
+}

@@ -1,0 +1,142 @@
+{
+  "nodes": [
+    {
+      "id": "video_1",
+      "type": "VideoReaderNode",
+      "name": "Video (pick a file)",
+      "config": {
+        "source": "",
+        "fps": 0,
+        "loop": true,
+        "jpeg_quality": 80
+      },
+      "x": 80,
+      "y": 240
+    },
+    {
+      "id": "yolo_1",
+      "type": "UltralyticsNode",
+      "name": "YOLO (no drawing)",
+      "config": {
+        "model": "yolo11n.pt",
+        "confidence": "0.3",
+        "iou": "0.45",
+        "draw_results": "false",
+        "max_det": "300",
+        "include_image": true,
+        "include_predictions": true,
+        "drop_messages": "true",
+        "device": "cpu"
+      },
+      "x": 340,
+      "y": 240
+    },
+    {
+      "id": "tracker_byte",
+      "type": "SupervisionTrackerNode",
+      "name": "ByteTrack (motion only)",
+      "config": {
+        "algorithm": "bytetrack",
+        "track_thresh": "0.25",
+        "track_buffer": "30",
+        "min_iou": "0.2",
+        "min_consecutive_frames": "2",
+        "frame_rate": "30",
+        "drop_messages": "true"
+      },
+      "x": 600,
+      "y": 120
+    },
+    {
+      "id": "annotate_byte",
+      "type": "SupervisionAnnotateNode",
+      "name": "Box + Label + Trace",
+      "config": {
+        "annotators": ["box", "label", "trace"],
+        "color_lookup": "track",
+        "thickness": "auto",
+        "text_scale": "auto",
+        "show_class": false,
+        "show_confidence": false,
+        "show_track_id": true,
+        "trace_length": "50",
+        "drop_messages": "true"
+      },
+      "x": 860,
+      "y": 120
+    },
+    {
+      "id": "viewer_byte",
+      "type": "ImageViewerNode",
+      "name": "ByteTrack",
+      "config": {
+        "width": 400,
+        "height": 300,
+        "image_path": "payload.image",
+        "drop_messages": true
+      },
+      "x": 1120,
+      "y": 120
+    },
+    {
+      "id": "tracker_bot",
+      "type": "SupervisionTrackerNode",
+      "name": "BoT-SORT (camera motion + Re-ID)",
+      "config": {
+        "algorithm": "botsort",
+        "track_thresh": "0.25",
+        "track_buffer": "60",
+        "min_iou": "0.2",
+        "min_consecutive_frames": "2",
+        "frame_rate": "30",
+        "camera_motion": true,
+        "reid_model": "osnet_x1_0_mot17",
+        "reid_device": "auto",
+        "reid_appearance_thresh": "0.25",
+        "drop_messages": "true"
+      },
+      "x": 600,
+      "y": 560
+    },
+    {
+      "id": "annotate_bot",
+      "type": "SupervisionAnnotateNode",
+      "name": "Box + Label + Trace",
+      "config": {
+        "annotators": ["box", "label", "trace"],
+        "color_lookup": "track",
+        "thickness": "auto",
+        "text_scale": "auto",
+        "show_class": false,
+        "show_confidence": false,
+        "show_track_id": true,
+        "trace_length": "50",
+        "drop_messages": "true"
+      },
+      "x": 860,
+      "y": 560
+    },
+    {
+      "id": "viewer_bot",
+      "type": "ImageViewerNode",
+      "name": "BoT-SORT",
+      "config": {
+        "width": 400,
+        "height": 300,
+        "image_path": "payload.image",
+        "drop_messages": true
+      },
+      "x": 1120,
+      "y": 560
+    }
+  ],
+  "connections": [
+    { "source": "video_1", "target": "yolo_1", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "yolo_1", "target": "tracker_byte", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "tracker_byte", "target": "annotate_byte", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "annotate_byte", "target": "viewer_byte", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "yolo_1", "target": "tracker_bot", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "tracker_bot", "target": "annotate_bot", "sourceOutput": 0, "targetInput": 0 },
+    { "source": "annotate_bot", "target": "viewer_bot", "sourceOutput": 0, "targetInput": 0 }
+  ]
+}

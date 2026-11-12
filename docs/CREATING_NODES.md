@@ -728,6 +728,8 @@ class InternalNode(BaseNode):
 4. **Using hardcoded strings** - Use `MessageKeys.PAYLOAD` not `'payload'`, etc.
 5. **Not handling `None` payloads** - Always provide defaults: `msg.get(MessageKeys.PAYLOAD, default)`.
 6. **Blocking in `on_input`** - Long operations block the worker thread. For CPU-bound work, consider additional threads.
+7. **Doing heavy work in a sink's `on_input_direct`** - It runs on the *sending* node's thread for every message, so slow work there (encoding, disk or network I/O) caps the frame rate of the node feeding it. Keep it to storing a reference and do the work on your own thread or when the result is requested.
+8. **Setting `shares_input = True` on a node that modifies or forwards its input** - That flag lets `send()` skip the fan-out copy for read-only nodes. A node that mutates the payload or sends it on must leave it `False`.
 7. **Putting the class in the wrong folder** - The folder must be directly under `pynode/nodes/`, not nested deeper.
 8. **Class name not ending in `Node`** - Auto-discovery filters by this suffix.
 9. **Circular imports** - Only import from `pynode.nodes.base_node`. Don't import other node types.
