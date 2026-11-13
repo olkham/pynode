@@ -29,11 +29,46 @@ except ImportError:
     MQTT_AVAILABLE = False
 
 
+def _new_client(client_id: str, clean_session: bool):
+    """Create a paho client on the newest callback API the install offers.
+
+    paho-mqtt 2.x deprecated the original ("version 1") callback signatures
+    and will remove them; 1.x has no ``CallbackAPIVersion`` at all. The
+    callbacks in this module accept both shapes, so either works.
+    """
+    api_version = getattr(mqtt, 'CallbackAPIVersion', None)
+    if api_version is not None:
+        return mqtt.Client(api_version.VERSION2, client_id=client_id,
+                           clean_session=clean_session)
+    return mqtt.Client(client_id=client_id, clean_session=clean_session)
+
+
+def _rc_ok(rc) -> bool:
+    """True when a connect/disconnect result means success.
+
+    Callback API v1 passes an int (0 = success); v2 passes a ``ReasonCode``.
+    """
+    is_failure = getattr(rc, 'is_failure', None)
+    if is_failure is not None:
+        return not is_failure
+    return rc == 0
+
+
+def _rc_text(rc) -> str:
+    """Human-readable form of a connect result from either callback API."""
+    if hasattr(rc, 'is_failure'):
+        return str(rc)
+    try:
+        return mqtt.connack_string(rc)
+    except Exception:
+        return f"code {rc}"
+
+
 class MQTTService:
     """
     Represents a single MQTT broker connection that can be shared across nodes.
     """
-    
+
     def __init__(self, service_id: str, config: dict[str, Any],
                  credential_store_getter: Callable[[], Any] | None = None):
         self.id = service_id
@@ -52,7 +87,7 @@ class MQTTService:
         self.client_id = config.get('clientId', '') or f"pynode_{service_id[:8]}"
         self.keep_alive = int(config.get('keepAlive', 60))
         self.clean_session = config.get('cleanSession', True)
-        
+
         self.client: mqtt.Client | None = None
         self._connected = False
         self._lock = threading.Lock()
@@ -61,14 +96,14 @@ class MQTTService:
         self._message_callbacks: dict[str, Callable] = {}  # node_id -> callback
         self._error_callbacks: dict[str, Callable] = {}  # node_id -> error callback
         self._ref_count = 0
-    
+
     @property
     def connected(self) -> bool:
         return self._connected
-    
-    def _on_connect(self, client, userdata, flags, rc):
-        """Callback when connected to broker."""
-        if rc == 0:
+
+    def _on_connect(self, client, userdata, flags, rc, properties=None):
+        """Callback when connected to broker (callback API v1 and v2)."""
+        if _rc_ok(rc):
             self._connected = True
             # Re-subscribe to all topics
             with self._lock:
@@ -76,38 +111,43 @@ class MQTTService:
                     client.subscribe(topic)
         else:
             self._connected = False
-            error_msg = f"Connection to {self.broker}:{self.port} failed with code {rc}"
+            error_msg = f"Connection to {self.broker}:{self.port} failed: {_rc_text(rc)}"
             self._notify_error(error_msg)
-    
-    def _on_disconnect(self, client, userdata, rc):
-        """Callback when disconnected from broker."""
+
+    def _on_disconnect(self, client, userdata, *args):
+        """Callback when disconnected from broker.
+
+        API v1 passes ``(rc)``; v2 passes ``(disconnect_flags, reason_code,
+        properties)``.
+        """
+        rc = args[1] if len(args) >= 2 else (args[0] if args else 0)
         self._connected = False
-        if rc != 0:
+        if not _rc_ok(rc):
             self._notify_error(f"Unexpected disconnection from {self.broker}:{self.port}")
-    
+
     def _on_message(self, client, userdata, message):
         """Callback when message is received."""
         topic = message.topic
-        
+
         # Find matching subscribers (including wildcards)
         with self._lock:
             callbacks_to_call = set()
             for sub_topic, callbacks in self._subscribers.items():
                 if self._topic_matches(sub_topic, topic):
                     callbacks_to_call.update(callbacks)
-        
+
         # Call all matching callbacks
         for callback in callbacks_to_call:
             try:
                 callback(topic, message.payload)
             except Exception as e:
                 logger.error(f"Error in MQTT message callback: {e}")
-    
+
     def _topic_matches(self, pattern: str, topic: str) -> bool:
         """Check if a topic matches a subscription pattern (with wildcards)."""
         pattern_parts = pattern.split('/')
         topic_parts = topic.split('/')
-        
+
         for i, pattern_part in enumerate(pattern_parts):
             if pattern_part == '#':
                 return True
@@ -115,20 +155,20 @@ class MQTTService:
                 return False
             if pattern_part != '+' and pattern_part != topic_parts[i]:
                 return False
-        
+
         return len(pattern_parts) == len(topic_parts)
-    
+
     def _notify_error(self, error_msg: str):
         """Notify all registered error callbacks."""
         with self._lock:
             callbacks = list(self._error_callbacks.values())
-        
+
         for callback in callbacks:
             try:
                 callback(error_msg)
             except Exception as e:
                 logger.error(f"Error in error callback: {e}")
-    
+
     def resolve_password(self) -> str:
         """The broker password, decrypted from the selected credential.
 
@@ -159,11 +199,11 @@ class MQTTService:
                 # Resolved before the client exists: an unresolvable
                 # credential must not connect without a password.
                 password = self.resolve_password() if self.username else ''
-                self.client = mqtt.Client(client_id=self.client_id, clean_session=self.clean_session)
+                self.client = _new_client(self.client_id, self.clean_session)
                 self.client.on_connect = self._on_connect
                 self.client.on_disconnect = self._on_disconnect
                 self.client.on_message = self._on_message
-                
+
                 if self.username:
                     self.client.username_pw_set(self.username, password)
 
@@ -175,12 +215,12 @@ class MQTTService:
                 error_msg = f"MQTT broker '{self.name}': {e}"
             except Exception as e:
                 error_msg = f"Failed to connect to {self.broker}:{self.port} - {e}"
-        
+
         # Call _notify_error outside the lock to avoid deadlock
         if error_msg:
             self._notify_error(error_msg)
         return False
-    
+
     def disconnect(self):
         """Disconnect from the MQTT broker."""
         with self._lock:
@@ -192,7 +232,7 @@ class MQTTService:
                     pass
                 self.client = None
                 self._connected = False
-    
+
     def subscribe(self, node_id: str, topic: str, qos: int, callback: Callable):
         """Subscribe a node to a topic."""
         with self._lock:
@@ -201,10 +241,10 @@ class MQTTService:
                 # Actually subscribe if connected
                 if self.client and self._connected:
                     self.client.subscribe(topic, qos)
-            
+
             self._subscribers[topic].add(callback)
             self._message_callbacks[node_id] = callback
-    
+
     def unsubscribe(self, node_id: str, topic: str, callback: Callable):
         """Unsubscribe a node from a topic."""
         with self._lock:
@@ -215,45 +255,45 @@ class MQTTService:
                     # Actually unsubscribe if connected
                     if self.client and self._connected:
                         self.client.unsubscribe(topic)
-            
+
             self._message_callbacks.pop(node_id, None)
-    
+
     def publish(self, topic: str, payload: Any, qos: int = 0, retain: bool = False) -> bool:
         """Publish a message to a topic."""
         if not self.client or not self._connected:
             return False
-        
+
         try:
             # Serialize payload
             if isinstance(payload, (dict, list)):
                 payload = json.dumps(payload)
             elif not isinstance(payload, (str, bytes)):
                 payload = str(payload)
-            
+
             result = self.client.publish(topic, payload, qos=qos, retain=retain)
             return result.rc == mqtt.MQTT_ERR_SUCCESS
         except Exception as e:
             self._notify_error(f"Publish error: {e}")
             return False
-    
+
     def register_node(self, node_id: str, error_callback: Callable | None = None):
         """Register a node as using this service."""
         with self._lock:
             self._ref_count += 1
             if error_callback:
                 self._error_callbacks[node_id] = error_callback
-    
+
     def unregister_node(self, node_id: str):
         """Unregister a node from this service."""
         with self._lock:
             self._ref_count = max(0, self._ref_count - 1)
             self._error_callbacks.pop(node_id, None)
             self._message_callbacks.pop(node_id, None)
-    
+
     @property
     def ref_count(self) -> int:
         return self._ref_count
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Service config as persisted to the services file.
 
@@ -332,7 +372,7 @@ class MQTTServiceManager:
         # Ensure the parent directory exists so saves succeed.
         self.config_file.parent.mkdir(parents=True, exist_ok=True)
         self._load_services()
-    
+
     def _load_services(self):
         """Load saved service configurations from file."""
         if self.config_file.exists():
@@ -345,7 +385,7 @@ class MQTTServiceManager:
                             self._services[service_id] = self._build(service_id, service_config)
             except Exception as e:
                 logger.error(f"Error loading MQTT services: {e}")
-    
+
     def _save_services(self):
         """Save service configurations to file."""
         try:
@@ -356,7 +396,7 @@ class MQTTServiceManager:
                 json.dump(data, f, indent=2)
         except Exception as e:
             logger.error(f"Error saving MQTT services: {e}")
-    
+
     def _build(self, service_id: str, config: dict[str, Any]) -> MQTTService:
         return MQTTService(service_id, config, lambda: self.credential_store)
 
@@ -396,17 +436,17 @@ class MQTTServiceManager:
     def get_service(self, service_id: str) -> MQTTService | None:
         """Get a service by ID."""
         return self._services.get(service_id)
-    
+
     def create_service(self, config: dict[str, Any]) -> MQTTService:
         """Create a new MQTT service."""
         service_id = config.get('id') or str(uuid.uuid4())[:8]
-        
+
         service = self._build(service_id, config)
         self._services[service_id] = service
         self._save_services()
-        
+
         return service
-    
+
     def update_service(self, service_id: str, config: dict[str, Any]) -> MQTTService | None:
         """Update an existing service configuration.
 
@@ -430,28 +470,28 @@ class MQTTServiceManager:
             config['password'] = old_service.password
         new_service = self._build(service_id, config)
         self._services[service_id] = new_service
-        
+
         # Reconnect if was connected
         if was_connected:
             new_service.connect()
-        
+
         self._save_services()
         return new_service
-    
+
     def delete_service(self, service_id: str) -> bool:
         """Delete a service."""
         if service_id not in self._services:
             return False
-        
+
         service = self._services[service_id]
         if service.ref_count > 0:
             return False  # Can't delete while in use
-        
+
         service.disconnect()
         del self._services[service_id]
         self._save_services()
         return True
-    
+
     def list_services(self) -> list:
         """List all available services."""
         return [
@@ -465,13 +505,13 @@ class MQTTServiceManager:
             }
             for s in self._services.values()
         ]
-    
+
     def start_all(self):
         """Connect all services that have registered nodes."""
         for service in self._services.values():
             if service.ref_count > 0:
                 service.connect()
-    
+
     def stop_all(self):
         """Disconnect all services."""
         for service in self._services.values():
@@ -510,11 +550,11 @@ def test_connection(config: dict[str, Any], timeout: float = 4.0) -> tuple[bool,
     result: dict[str, Any] = {'rc': None}
     connected_event = threading.Event()
 
-    def _on_connect(client, userdata, flags, rc):
+    def _on_connect(client, userdata, flags, rc, properties=None):
         result['rc'] = rc
         connected_event.set()
 
-    client = mqtt.Client(client_id=client_id, clean_session=bool(clean_session))
+    client = _new_client(client_id, bool(clean_session))
     client.on_connect = _on_connect
     if username:
         client.username_pw_set(username, password)
@@ -527,13 +567,9 @@ def test_connection(config: dict[str, Any], timeout: float = 4.0) -> tuple[bool,
         if not connected_event.wait(timeout):
             return False, f"Timed out connecting to {broker}:{port} after {timeout:.0f}s"
         rc = result['rc']
-        if rc == 0:
+        if _rc_ok(rc):
             return True, None
-        try:
-            reason = mqtt.connack_string(rc)
-        except Exception:
-            reason = f"code {rc}"
-        return False, f"Broker refused connection: {reason}"
+        return False, f"Broker refused connection: {_rc_text(rc)}"
     except Exception as e:
         return False, f"Could not connect to {broker}:{port} - {e}"
     finally:

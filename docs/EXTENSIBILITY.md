@@ -202,28 +202,31 @@ class BaseNode:
 
 ### Queue Management
 
-Messages are enqueued with optional dropping:
+Delivery is decided per recipient inside `BaseNode.send()`:
 
-```python
-def receive(self, msg: Dict[str, Any], input_index: int = 0):
-    """Receive a message on an input."""
-    if not self.enabled:
-        return
-    
-    # Add queue length metadata
-    msg[MessageKeys.QUEUE_LENGTH] = self._message_queue.qsize()
-    
-    try:
-        if self.drop_while_busy and self._processing:
-            # Drop message if node is busy
-            self.drop_count += 1
-            return
-        
-        # Enqueue message (blocks if queue is full)
-        self._message_queue.put((deepcopy(msg), input_index))
-    except queue.Full:
-        self.drop_count += 1
-```
+| Recipient | What happens |
+|---|---|
+| Sink with `on_input_direct` (no outputs) | Called synchronously **on the sending node's thread**. |
+| Idle node | Message is put on the node's queue; its worker thread wakes immediately. |
+| Busy node, `drop_messages` on | Message is parked in a one-slot, latest-wins inbox (one slot per input port). A newer message replaces it and `drop_count` is incremented. When the node finishes, it continues straight away with the newest message. |
+| Busy node, `drop_messages` off | Message is queued (up to 1000). |
+
+Copies are made only where a branch could otherwise see another branch's changes:
+
+- one recipient: no copy, the recipient takes over the sender's objects;
+- several recipients: each gets its own `deepcopy`, except
+  - nodes that declare `shares_input = True` (they only read the message and never
+    forward its objects, e.g. Image Viewer and Rate Probe), which share the original, and
+  - busy nodes, whose copy is made later on their own worker thread and only for the
+    messages they actually process.
+
+Two consequences for node authors:
+
+- A sink's `on_input_direct` runs on the upstream node's thread for every message, so
+  anything slow there throttles the source. Store what you need and do the heavy work
+  elsewhere (the Image Viewer keeps a reference and encodes when the UI asks for a frame).
+- Set `shares_input = True` only if the node never mutates anything reachable from the
+  incoming message and never passes those objects downstream.
 
 ### Connection Routing
 

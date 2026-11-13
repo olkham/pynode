@@ -86,6 +86,22 @@ Roughly in order of complexity:
 - **19**: vision extra + webcam. Watch `payload.sink_file` in Debug for the
   CSV path; press the sink's **New File** to rotate the log. Tighten the
   filter's thresholds and see rejects move to the second Debug.
+- **20**: vision + reid extras (`pip install "pynode-flow[reid]"`) and a
+  video file with people. The first deploy downloads the Re-ID weights, so
+  identities appear a few seconds in. Labels show `ID<n>`; watch a person
+  leave and come back with the same number. If one person keeps getting new
+  numbers, raise the Re-ID node's **Match Distance**; if different people
+  merge, lower it. **Reset Gallery** starts over.
+- **21**: as 20, with two video files (two views of the same people work
+  best). Both Re-ID nodes use the gallery name `site`, which is what makes
+  them share identities - give a third camera the same name to add it. The
+  Debug panel shows only `reidentified` events that came from the *other*
+  camera (`previous_source`).
+- **22**: vision + reid extras + a video file, ideally hand-held or panning.
+  Compare how often the two viewers hand out a new track number when people
+  cross or the camera moves. BoT-SORT is the slower of the two; untick
+  **Camera Motion Compensation** or set **Re-ID Model** to None to see what
+  each part costs and buys.
 - **9–10**: the mqtt extra (`pip install "pynode-flow[mqtt]"`) and a reachable
   MQTT broker. The examples reference a broker service (`192.168.1.241` in the
   dev setup); if the MQTT nodes report "No MQTT broker configured", open the

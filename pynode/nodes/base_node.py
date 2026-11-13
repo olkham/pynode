@@ -31,8 +31,23 @@ Consequences a node author must respect:
   allocates a fresh array each call, which is fine.
 
 Fan-out is still safe automatically: when a single ``send()`` call has **more
-than one** actual recipient, every recipient gets a full ``deepcopy`` (branches
-never alias). Only the exactly-one-recipient case shares.
+than one** actual recipient, the branches never alias - every recipient that
+may modify the message works on its own ``deepcopy``. Only the
+exactly-one-recipient case shares.
+
+Two refinements keep fan-out cheap for large payloads (video frames):
+
+* **Read-only recipients share.** A node class that sets ``shares_input =
+  True`` promises it only *reads* incoming messages: it never mutates anything
+  reachable from the message and never forwards those objects downstream
+  (Image Viewer, Rate Probe). Such recipients are handed the sender's objects
+  without a copy.
+* **Busy recipients keep the newest message, copied lazily.** When a target
+  with ``drop_while_busy`` is still processing, the incoming message replaces
+  whatever is waiting in its one-slot inbox instead of being discarded, and
+  the worker picks it up the moment it is free. The ``deepcopy`` for that
+  message happens on the *receiving* thread and only for messages that are
+  actually processed, never for the ones that get replaced.
 
 ``Info``, ``MessageKeys``/``sort_msg_keys``, ``FramePacer`` and the image
 helpers (``process_image``, plus the functions behind
@@ -63,6 +78,9 @@ from pynode.nodes.messages import MessageKeys, sort_msg_keys
 from pynode.nodes.pacing import FramePacer  # noqa: F401 (re-export)
 from pynode.credential_store import CredentialError  # noqa: F401 (re-export for nodes)
 
+# Delivery modes used by BaseNode.send().
+_DIRECT, _QUEUED, _LATEST = 0, 1, 2
+
 # Sentinel so create_message() can distinguish "payload not given" from an
 # explicitly-passed payload=None (which must be included in the message).
 _UNSET = object()
@@ -88,6 +106,13 @@ class BaseNode:
     input_count = 1  # Number of input ports (0 for input-only nodes)
     output_count = 1  # Number of output ports (0 for output-only nodes)
     hidden = False  # If true, node is hidden from palette
+
+    # Set True on node classes that only READ incoming messages: they never
+    # mutate anything reachable from the message (payload, arrays, nested
+    # dicts) and never pass those objects on downstream. send() hands such
+    # recipients the sender's objects without a deepcopy, which matters when
+    # the payload is a multi-megabyte video frame. When in doubt leave False.
+    shares_input = False
 
     # Info text displayed in the Information panel when node is selected
     # Supports HTML for formatting
@@ -169,6 +194,12 @@ class BaseNode:
         self._worker_thread = None
         self._stop_worker_flag = False
         self._processing = False  # True when actively processing a message
+        # One-slot "latest wins" inbox per input port, used while this node is
+        # busy and drop_while_busy is on: input_index -> (msg, input_index,
+        # lazy_deep). Guarded by _inbox_lock together with _processing so a
+        # sender can never park a message the worker will not come back for.
+        self._inbox_lock = threading.Lock()
+        self._pending: dict[int, tuple] = {}
 
         # Error handling
         self._workflow_engine = None  # Will be set by workflow engine
@@ -360,15 +391,22 @@ class BaseNode:
 
         Copy semantics (hot path):
 
-        * When exactly ONE recipient will actually receive this call, that
-          recipient gets a SHALLOW copy - a fresh top-level dict that shares the
-          payload and nested objects with ``msg`` (no ``deepcopy``). This avoids
-          copying large payloads (e.g. raw video frames) on every hop.
-        * When more than one recipient will receive, every recipient gets a full
-          ``deepcopy`` so branches never alias each other.
+        * When exactly ONE recipient will receive this call, it gets a SHALLOW
+          copy - a fresh top-level dict that shares the payload and nested
+          objects with ``msg`` (no ``deepcopy``). This avoids copying large
+          payloads (e.g. raw video frames) on every hop.
+        * With several recipients, branches never alias: every recipient that
+          may modify the message gets its own ``deepcopy``. Recipients that
+          only read (``shares_input``) share the sender's objects, and a busy
+          recipient's copy is deferred to its own worker thread (see
+          ``_offer_latest``), so the sender pays for no copy that is not used.
 
-        Recipient count is computed per call: disabled targets, and queued
-        targets dropped by ``drop_while_busy``, do not count.
+        Recipient count is computed per call: disabled targets do not count.
+
+        Busy targets (``drop_while_busy``): the message is not discarded
+        outright - it replaces whatever is waiting in the target's one-slot
+        inbox, so the target always continues with the NEWEST message as soon
+        as it is free. ``drop_count`` counts the messages that were replaced.
 
         CONTRACT: after calling ``send(msg)`` the sending node MUST NOT read or
         mutate ``msg`` or anything reachable from it (payload, arrays, nested
@@ -386,11 +424,12 @@ class BaseNode:
         if not connections:
             return
 
-        # Pass 1: determine which targets will ACTUALLY receive. A disabled
-        # target, or a queued target dropped by drop_while_busy, does not count
-        # towards the recipient total that decides shallow-vs-deep.
-        # Entries are (target_node, target_input, is_direct).
-        recipients: list[tuple[BaseNode, int, bool]] = []
+        # Pass 1: classify the targets that will take part.
+        #   _DIRECT  sink delivered synchronously on this thread
+        #   _QUEUED  put on the target's queue now
+        #   _LATEST  target is busy: park in its latest-wins inbox
+        # Entries are (target_node, target_input, mode).
+        recipients: list[tuple[BaseNode, int, int]] = []
         for target_node, target_input in connections:
             if not target_node.enabled:
                 continue
@@ -398,38 +437,89 @@ class BaseNode:
             # Sink nodes (no outputs) with on_input_direct are delivered
             # synchronously and never dropped.
             if target_node.output_count == 0 and hasattr(target_node, 'on_input_direct'):
-                recipients.append((target_node, target_input, True))
-                continue
-
-            # Queued path: drop if the target is busy or has a backlog
-            # (checked before any expensive copy).
-            if target_node.drop_while_busy and (
-                    target_node._processing or not target_node._message_queue.empty()):
-                target_node.drop_count += 1
-                continue
-
-            recipients.append((target_node, target_input, False))
+                recipients.append((target_node, target_input, _DIRECT))
+            elif target_node.drop_while_busy and (
+                    target_node._processing or target_node._pending
+                    or not target_node._message_queue.empty()):
+                recipients.append((target_node, target_input, _LATEST))
+            else:
+                recipients.append((target_node, target_input, _QUEUED))
 
         if not recipients:
             return
 
-        # Fast path iff a single recipient will receive; any fan-out deep-copies.
-        deep = len(recipients) > 1
+        # A lone recipient simply takes over the sender's objects.
+        alone = len(recipients) == 1
 
-        for target_node, target_input, is_direct in recipients:
-            if is_direct:
+        # Recipients that hold the sender's objects without copying them now:
+        # read-only nodes, and busy nodes (which copy later, on pickup).
+        def _holds_original(node: 'BaseNode', mode: int) -> bool:
+            return node.shares_input or mode == _LATEST
+
+        for target_node, target_input, mode in recipients:
+            # Everyone else gets a private deepcopy now.
+            deep = not (alone or _holds_original(target_node, mode))
+
+            if mode == _DIRECT:
                 msg_to_send = self._prepare_outgoing(msg, deep, with_drop_count=False)
                 try:
                     target_node.on_input_direct(msg_to_send, target_input)
                 except Exception as e:
                     target_node.report_error(f"Error in direct processing: {e}")
-            else:
-                msg_to_send = self._prepare_outgoing(msg, deep, with_drop_count=True)
-                try:
+                continue
+
+            msg_to_send = self._prepare_outgoing(msg, deep, with_drop_count=True)
+            # A busy node works on its own copy unless it is the only
+            # recipient or a read-only node; that copy is made on pickup.
+            lazy_deep = mode == _LATEST and not alone and not target_node.shares_input
+            try:
+                if mode == _LATEST:
+                    target_node._offer_latest(msg_to_send, target_input, lazy_deep)
+                else:
                     target_node._message_queue.put_nowait((msg_to_send, target_input))
-                except queue.Full:
-                    # Queue full - drop message or handle overflow
-                    target_node.report_error("Message queue full, dropping message")
+            except queue.Full:
+                # Queue full - drop message or handle overflow
+                target_node.report_error("Message queue full, dropping message")
+
+    def _offer_latest(self, msg: dict[str, Any], input_index: int, lazy_deep: bool):
+        """Park ``msg`` as the newest message waiting for this (busy) node.
+
+        Called by the SENDING thread. If the node went idle since the sender
+        looked, the message is queued normally. Otherwise it takes the inbox
+        slot for its input port, replacing (and counting as dropped) an older
+        message that was still waiting there.
+
+        Args:
+            msg: The outgoing message, already stamped with metadata.
+            input_index: Input port the message is addressed to.
+            lazy_deep: Deep-copy the message when the worker picks it up
+                (it still shares objects with other recipients).
+        """
+        with self._inbox_lock:
+            if self._processing or self._pending or not self._message_queue.empty():
+                if input_index in self._pending:
+                    self.drop_count += 1
+                self._pending[input_index] = (msg, input_index, lazy_deep)
+                return
+        if lazy_deep:
+            self._message_queue.put_nowait((msg, input_index, True))
+        else:
+            self._message_queue.put_nowait((msg, input_index))
+
+    def _take_pending(self):
+        """Pop the oldest parked message (worker thread), or ``None``.
+
+        Clears ``_processing`` under the same lock when nothing is waiting, so
+        a sender either sees the node busy (and parks a message this method
+        will return on the next call) or sees it idle (and queues).
+        """
+        with self._inbox_lock:
+            if not self._pending:
+                self._processing = False
+                return None
+            input_index = next(iter(self._pending))
+            self._processing = True
+            return self._pending.pop(input_index)
 
     def on_input(self, msg: dict[str, Any], input_index: int = 0):
         """
@@ -455,32 +545,47 @@ class BaseNode:
     def _process_messages(self):
         """
         Worker thread that processes messages from the queue.
-        Uses adaptive timeout to balance responsiveness with CPU usage.
+
+        Blocks on the queue (no busy polling: a message wakes it immediately,
+        the timeout only bounds how long a stop request can go unnoticed).
+        After each message it first drains the latest-wins inbox, so a node
+        that was busy continues straight away with the newest message instead
+        of idling until the next one arrives.
         """
-        idle_count = 0
         while not self._stop_worker_flag:
             try:
-                # Adaptive timeout: faster when active, slower when idle
-                timeout = 0.01 if idle_count < 10 else 0.1
-                msg, input_index = self._message_queue.get(timeout=timeout)
-                idle_count = 0  # Reset on successful message
+                item: Any = self._take_pending()
+                from_queue = item is None
+                if from_queue:
+                    try:
+                        item = self._message_queue.get(timeout=0.2)
+                    except queue.Empty:
+                        continue
+
+                msg, input_index = item[0], item[1]
+                lazy_deep = len(item) > 2 and item[2]
 
                 # Process the message
                 self._processing = True
                 try:
+                    if lazy_deep:
+                        # Deferred fan-out copy: made here, on the receiving
+                        # thread, and only for messages actually processed.
+                        msg = copy.deepcopy(msg)
                     self.on_input(msg, input_index)
                 except Exception as e:
                     self.report_error(f"Error processing message: {e}")
                 finally:
-                    self._processing = False
-                    self._message_queue.task_done()
+                    # _processing is cleared by _take_pending() at the top of
+                    # the loop, atomically with the "anything parked?" check.
+                    if from_queue:
+                        self._message_queue.task_done()
 
-            except queue.Empty:
-                # No message available, increase idle count
-                idle_count += 1
-                continue
             except Exception as e:
                 self.report_error(f"Worker thread error: {e}")
+        with self._inbox_lock:
+            self._pending.clear()
+            self._processing = False
 
     def on_start(self):
         """

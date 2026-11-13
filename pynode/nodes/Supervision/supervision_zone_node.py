@@ -282,7 +282,8 @@ class SupervisionZoneNode(BaseNode):
         class_names = detections.data.get('class_name') if detections.data else None
         now_inside: dict[int, int] = {}   # track_id -> detection index
         for i in range(len(detections)):
-            if mask[i]:
+            # tracker_id -1 means "not tracked yet" - not an identity.
+            if mask[i] and int(detections.tracker_id[i]) >= 0:
                 now_inside[int(detections.tracker_id[i])] = i
 
         zone_count = len(now_inside)

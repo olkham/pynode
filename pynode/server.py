@@ -3,9 +3,11 @@ Flask app factory for the Node-RED-like system.
 
 ``create_app()`` builds a Flask app with its own ``WorkflowManager``
 (``app.extensions['workflow_manager']``), CORS, optional API-key auth, JSON
-error handlers and all API blueprints (see ``pynode.api``). A module-level
+error handlers and all API blueprints (see ``pynode.api``). A process-wide
 default instance (``app``) is kept for backwards compatibility so
-``from pynode.server import app`` keeps working (pynode.main, user code).
+``from pynode.server import app`` keeps working (pynode.main, user code); it
+is created lazily on first access, never as a side effect of importing this
+module.
 
 Route implementations live in the ``pynode.api`` blueprints; the mutable
 workflow state lives in ``pynode.workflow_manager``; static node-type
@@ -15,6 +17,7 @@ registries live in ``pynode.node_registry``.
 import hmac
 import logging
 import os
+import threading
 
 from flask import Flask, request, send_from_directory
 from flask_cors import CORS
@@ -44,6 +47,17 @@ def _parse_cors_origins(value):
     return origins
 
 
+def _parse_max_upload_mb(value, default=4096):
+    """Parse the max request body size in MB; invalid/negative -> default."""
+    if value is None or value == '':
+        return default
+    try:
+        parsed = int(float(value))
+    except (TypeError, ValueError):
+        return default
+    return parsed if parsed >= 0 else default
+
+
 def create_app(config=None):
     """Create and configure a PyNode Flask app.
 
@@ -58,6 +72,8 @@ def create_app(config=None):
       which honors the PYNODE_DATA_DIR env var).
     - ``WORKFLOWS_DIR`` / ``WORKFLOW_FILE`` / ``UPLOAD_BASE_DIR``: persistence
       and upload paths for this app's WorkflowManager (override ``DATA_DIR``).
+    - ``MAX_UPLOAD_MB``: largest accepted request body in megabytes (default:
+      the PYNODE_MAX_UPLOAD_MB env var, else 4096; 0 = unlimited).
 
     Any remaining keys are applied to ``app.config`` (e.g. ``TESTING``).
     """
@@ -119,6 +135,13 @@ def create_app(config=None):
     # the store to resolve it when a connection is made.
     app.extensions['mqtt_manager'].credential_store = credential_store
 
+    # Bound request bodies so one oversized upload cannot exhaust memory or
+    # disk. Generous by default because video uploads are legitimately large.
+    max_upload_mb = _parse_max_upload_mb(
+        cfg.pop('MAX_UPLOAD_MB', os.environ.get('PYNODE_MAX_UPLOAD_MB')))
+    if max_upload_mb > 0:
+        app.config['MAX_CONTENT_LENGTH'] = max_upload_mb * 1024 * 1024
+
     # Remaining config keys (e.g. TESTING) go straight to app.config.
     app.config.update(cfg)
 
@@ -165,9 +188,22 @@ def create_app(config=None):
     def _handle_405(e):
         return _json_error('Method not allowed', 405)
 
+    @app.errorhandler(413)
+    def _handle_413(e):
+        return _json_error('Request body too large (see PYNODE_MAX_UPLOAD_MB)', 413)
+
     @app.errorhandler(500)
     def _handle_500(e):
         return _json_error('Internal server error', 500)
+
+    @app.after_request
+    def _api_response_headers(response):
+        # API responses are JSON / event streams / images with an explicit
+        # type; never let a browser second-guess it. Static assets are left
+        # alone (their MIME type comes from the host OS registry).
+        if request.path.startswith('/api/'):
+            response.headers.setdefault('X-Content-Type-Options', 'nosniff')
+        return response
 
     @app.route('/')
     def index():
@@ -185,31 +221,69 @@ def create_app(config=None):
 # the module-level functions below operate on this default app's manager.
 # ----------------------------------------------------------------------
 
-app = create_app()
+#
+# The default app is built LAZILY, on first access. Building it at import
+# time pointed a WorkflowManager at the real data directory in every process
+# that merely imported this module for ``create_app`` (tests, tools, scripts).
+# ----------------------------------------------------------------------
 
-_default_manager = app.extensions['workflow_manager']
+_default_app = None
+_default_app_lock = threading.Lock()
 
-# Informational re-exports describing the default instance's paths.
-WORKFLOWS_DIR = _default_manager.workflows_dir
-WORKFLOW_FILE = _default_manager.workflow_file
-UPLOAD_BASE_DIR = _default_manager.upload_base_dir
+
+def get_default_app():
+    """Return the process-wide default app, creating it on first use."""
+    global _default_app
+    if _default_app is None:
+        with _default_app_lock:
+            if _default_app is None:
+                _default_app = create_app()
+    return _default_app
+
+
+def _default_manager_instance():
+    return get_default_app().extensions['workflow_manager']
+
+
+# Names resolved on demand (PEP 562) so ``from pynode.server import app`` and
+# the informational path constants keep working without an import-time app.
+_LAZY_ATTRS = {
+    'app': get_default_app,
+    '_default_manager': _default_manager_instance,
+    'WORKFLOWS_DIR': lambda: _default_manager_instance().workflows_dir,
+    'WORKFLOW_FILE': lambda: _default_manager_instance().workflow_file,
+    'UPLOAD_BASE_DIR': lambda: _default_manager_instance().upload_base_dir,
+}
+
+
+def __getattr__(name):
+    resolver = _LAZY_ATTRS.get(name)
+    if resolver is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    return resolver()
 
 
 def save_workflow_to_disk():
     """Save the default app's workflows to disk (BC wrapper)."""
-    _default_manager.save_workflow_to_disk()
+    _default_manager_instance().save_workflow_to_disk()
 
 
 def load_workflow_from_disk():
     """Load workflows from disk into the default app (BC wrapper)."""
-    _default_manager.load_workflow_from_disk()
+    _default_manager_instance().load_workflow_from_disk()
 
 
 def start_debug_broadcast():
     """Start the default app's SSE debug broadcast worker (BC wrapper)."""
-    _default_manager.start_debug_broadcast()
+    _default_manager_instance().start_debug_broadcast()
 
 
 def stop_debug_broadcast():
     """Stop the default app's SSE debug broadcast worker (BC wrapper)."""
-    _default_manager.stop_debug_broadcast()
+    _default_manager_instance().stop_debug_broadcast()
+
+
+def shutdown_default_app():
+    """Stop every engine of the default app, if it was ever created."""
+    if _default_app is not None:
+        _default_app.extensions['workflow_manager'].shutdown()

@@ -60,8 +60,9 @@ deploy:
 ### Persistent Storage
 
 The following directories are mounted for persistence:
+- `./models` - Downloaded model weights (YOLO, Re-ID; Hugging Face downloads land in `models/huggingface` via `HF_HOME`). Without this volume every new container downloads them again.
+- `./logs` - `pynode.log`, rotated at 10 MB with 5 backups (`PYNODE_LOG_FILE`).
 - `./workflows` - Saved workflows, plus the credential store (`credentials.json`) and, unless `PYNODE_CREDENTIAL_KEY` or `PYNODE_CREDENTIAL_KEY_FILE` is set, its generated key (`.credential_key`). Back up both files together. Stop PyNode before restoring `credentials.json` from a backup: a running instance keeps the store in memory and would overwrite the restored file on its next change.
-- `./logs` - Application logs
 
 ## Building
 

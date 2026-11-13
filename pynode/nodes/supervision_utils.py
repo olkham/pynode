@@ -9,7 +9,7 @@ Detections travel through a workflow in two parallel forms:
 
 ``payload['detections']``
     The interop format: a plain list of dicts (``bbox``, ``class_id``,
-    ``class_name``, ``confidence``, optionally ``track_id``). Function, Debug,
+    ``class_name``, ``confidence``, optionally ``track_id`` / ``reid_id``). Function, Debug,
     Switch, MQTT and every core node read this, so it must always be present.
 
 ``payload['sv']``
@@ -34,6 +34,10 @@ SV_KEY = 'sv'
 # Payload keys for the interop list form.
 DETECTIONS_KEY = 'detections'
 DETECTION_COUNT_KEY = 'detection_count'
+
+# Detections.data key holding the identity assigned by the SV Re-ID node
+# (-1 = no identity).
+REID_ID_KEY = 'reid_id'
 
 _sv_module = None
 _sv_import_error: str | None = None
@@ -64,6 +68,108 @@ def import_supervision():
         return None
 
 
+_trackers_module = None
+_trackers_import_error: str | None = None
+
+# Curated pretrained aliases shipped by the ``reid`` package (0.1.x). Listed
+# statically so building a node's property schema never imports torch; any
+# other source ``ReIDModel.from_pretrained`` accepts can be typed in by hand.
+REID_MODEL_ALIASES = (
+    ('osnet_x1_0_msmt17_combineall', 'OSNet x1.0 - MSMT17 (general purpose)'),
+    ('osnet_x1_0_mot17', 'OSNet x1.0 - MOT17 (pedestrians)'),
+    ('osnet_x1_0_sportsmot', 'OSNet x1.0 - SportsMOT'),
+    ('osnet_x1_0_dancetrack', 'OSNet x1.0 - DanceTrack'),
+    ('osnet_x1_0_soccernet', 'OSNet x1.0 - SoccerNet'),
+    ('fastreid_mot17_sbs50', 'FastReID SBS-50 - MOT17 (larger, slower)'),
+)
+
+
+def import_trackers():
+    """Import Roboflow's ``trackers`` package once, ``None`` when unavailable.
+
+    ``supervision`` 0.31 removed its built-in ``ByteTrack``; tracking now lives
+    in this separate package. Cached like :func:`import_supervision`.
+    """
+    global _trackers_module, _trackers_import_error
+
+    if _trackers_module is not None:
+        return _trackers_module
+    if _trackers_import_error is not None:
+        return None
+
+    try:
+        import trackers  # type: ignore
+        _trackers_module = trackers
+        return trackers
+    except ImportError as e:
+        _trackers_import_error = str(e)
+        return None
+
+
+def trackers_missing_message() -> str:
+    """Return the standard user-facing error for a missing trackers install."""
+    return (
+        "trackers library not installed (supervision 0.31 moved tracking into it). "
+        'Run: pip install "pynode-flow[vision]"  (or: pip install trackers)'
+    )
+
+
+def reid_missing_message() -> str:
+    """Return the standard user-facing error for a missing reid install."""
+    return (
+        "reid library not installed. "
+        'Run: pip install "pynode-flow[reid]"  (or: pip install reid)'
+    )
+
+
+def reid_model_options() -> list[dict[str, str]]:
+    """Select options for the curated Re-ID model aliases."""
+    return [{'value': value, 'label': label} for value, label in REID_MODEL_ALIASES]
+
+
+def use_pynode_reid_cache() -> str:
+    """Point the ``reid`` weight cache at PyNode's shared models dir.
+
+    ``reid`` downloads to ``~/.cache/reid`` unless ``REID_CACHE_DIR`` is set.
+    Keeping weights under the models dir means one volume holds every model in
+    a container deployment. An explicit ``REID_CACHE_DIR`` is respected.
+
+    Returns:
+        The cache directory in effect.
+    """
+    import os
+
+    from pynode import config
+
+    return os.environ.setdefault(
+        'REID_CACHE_DIR', os.path.join(config.resolve_models_dir(), 'reid'))
+
+
+def resolve_torch_device(device: Any) -> tuple[str, str | None]:
+    """Check a configured torch device against this machine.
+
+    Workflows travel between machines, so a saved ``cuda`` may not exist here.
+
+    Returns:
+        ``(usable_device, warning)``. ``warning`` is ``None`` when the device
+        can be used as configured.
+    """
+    name = str(device or 'auto').strip().lower()
+    if name in ('', 'auto', 'cpu'):
+        return name or 'auto', None
+
+    if name.startswith('cuda'):
+        try:
+            import torch  # type: ignore
+            available = bool(torch.cuda.is_available())
+        except Exception:
+            available = False
+        if not available:
+            return 'cpu', f"Device '{name}' is not available on this machine - using CPU instead."
+
+    return name, None
+
+
 def supervision_missing_message() -> str:
     """Return the standard user-facing error for a missing supervision install."""
     return (
@@ -82,8 +188,7 @@ def to_sv(payload: Any):
     Prefers the live object at ``payload['sv']`` (lossless). Falls back to
     rebuilding from ``payload['detections']``, carrying ``class_name`` through
     ``Detections.data`` so it survives operations that filter or reorder
-    detections - notably ``ByteTrack.update_with_detections()``, which does
-    both.
+    detections - notably a tracker's ``update()``, which does both.
 
     Args:
         payload: The message payload (dict). Anything else yields an empty
@@ -170,6 +275,7 @@ def sv_to_list(detections) -> list[dict[str, Any]]:
         return []
 
     class_names = detections.data.get('class_name') if detections.data else None
+    reid_ids = detections.data.get(REID_ID_KEY) if detections.data else None
 
     results: list[dict[str, Any]] = []
     for i in range(len(detections)):
@@ -191,8 +297,13 @@ def sv_to_list(detections) -> list[dict[str, Any]]:
         if class_names is not None and i < len(class_names):
             entry['class_name'] = str(class_names[i])
 
-        if detections.tracker_id is not None:
+        # The trackers package marks "no confirmed track yet" with -1; that is
+        # not an identity, so it is left out of the interop form.
+        if detections.tracker_id is not None and int(detections.tracker_id[i]) >= 0:
             entry['track_id'] = int(detections.tracker_id[i])
+
+        if reid_ids is not None and i < len(reid_ids) and int(reid_ids[i]) >= 0:
+            entry['reid_id'] = int(reid_ids[i])
 
         if detections.mask is not None:
             entry['has_mask'] = True
@@ -240,7 +351,8 @@ def labels_for(detections, show_class: bool = True, show_confidence: bool = True
         detections: An ``sv.Detections``.
         show_class: Include the class name (falls back to ``#<class_id>``).
         show_confidence: Include the confidence to two decimals.
-        show_track_id: Include ``#<track_id>`` when tracker ids are present.
+        show_track_id: Include ``#<track_id>`` when tracker ids are present,
+            or ``ID<reid_id>`` when the SV Re-ID node assigned an identity.
 
     Returns:
         One label string per detection.
@@ -249,12 +361,17 @@ def labels_for(detections, show_class: bool = True, show_confidence: bool = True
         return []
 
     class_names = detections.data.get('class_name') if detections.data else None
+    reid_ids = detections.data.get(REID_ID_KEY) if detections.data else None
 
     labels: list[str] = []
     for i in range(len(detections)):
         parts: list[str] = []
 
-        if show_track_id and detections.tracker_id is not None:
+        # An identity from the SV Re-ID node outranks the tracker's local id.
+        if show_track_id and reid_ids is not None and int(reid_ids[i]) >= 0:
+            parts.append(f"ID{int(reid_ids[i])}")
+        elif (show_track_id and detections.tracker_id is not None
+                and int(detections.tracker_id[i]) >= 0):
             parts.append(f"#{int(detections.tracker_id[i])}")
 
         if show_class:
